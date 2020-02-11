@@ -1,14 +1,16 @@
 """
 Conversion routines for time spans using multiple units.
+
 Example: "20h15m10" = 20 hours + 15 minutes + 10 seconds = 72910 seconds
 """
 
 import re
+from typing import Union
 
 from .tconst import *   # pylint: disable=wildcard-import
 
 # pylint: disable=invalid-name
-def timestr(seconds):
+def timestr(seconds: Union[int, float]) -> str:
     """
     Return seconds as a string using d, h, m and s units.
 
@@ -37,7 +39,7 @@ def timestr(seconds):
 _RE_TIME = r'(?:(\d+)\s*d)?\s*(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?\s*(?:([\d.]+)\s*s?)?'
 _REGEXP_TIME = re.compile(_RE_TIME, re.ASCII | re.IGNORECASE)
 
-def convert(tstr):
+def convert(tstr: str) -> float:
     """
     Convert string to number of seconds. Return float.
 
@@ -51,12 +53,9 @@ def convert(tstr):
     Notes:
         - whitespace around numbers and units is allowed
         - numbers do not have to be normalized, e.g. "72h" is OK
-        - symbols D, H, M, S may be entered in upper or lower case
+        - unit symbols D, H, M, S may be entered in upper or lower case
         - negative values are not allowed
         - float values with exponents are not supported
-    Examples:
-        "20h15m10" = 20 hours + 15 minutes + 10 seconds = 72910.0 seconds
-        "0.4s" = 0.4 seconds
     """
     match = _REGEXP_TIME.fullmatch(tstr.strip())
     if match is None:

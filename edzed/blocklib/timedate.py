@@ -1,5 +1,7 @@
 """
 Periodic events at fixed time/date.
+
+Refer to the edzed documentation.
 """
 
 import asyncio
@@ -40,40 +42,6 @@ class _TimeData:
 class _TimeDateBase(addons.AddonAsync, block.SBlock):
     """
     Base class for TimeDate and TimeDateUTC.
-
-    The output is True when the time, the date and the weekday all match
-    the given options. Default for an unused option is any time, any
-    date, or any weekday respectively. All times are in local timezone.
-
-    options:
-        times="TimeFrom1-TimeTo1, TimeFrom2-TimeTo2, ... TimeFromN-TimeToN"
-             A comma separated list of time intervals. Extra whitespace
-             around values is allowed. The ranges are left-closed and
-             right-open intervals, i.e. From <= Time < To. The time
-             format is HH:MM or HH:MM:SS. The day starts and also ends
-             at midnight 0:0:0.
-
-              Example:
-                time="23:50-01:30, 3:20-5:10"
-
-        dates="DateFrom1-DateTo1, DateFrom2-DateTo2, ... DateFromN-DateToN"
-             A comma separated list of date intervals. Extra whitespace
-             around values is allowed. The ranges are closed intervals,
-             i.e. From <= Date <= To. The date format is described
-             in edzed.utils.timeinterval.
-
-             Examples of date strings for June, 9th:
-                09.Jun   9.jun.   9JUN   09 Jun   Jun9   JUN 09.
-             Examples:
-                date="02Mar-15MAR, 9.jul - 20.aug"
-                date="Sep1-Sep1, DEC 31 - JAN 05"
-                date="1.Apr"    # shortcut for just one day,
-                                # same as date="1.Apr-1.Apr"
-
-        weekdays="weekdays numbers"
-            where 0=Sunday, 1=Monday, 2=Tuesday, ...
-                  ... 5=Friday, 6=Saturday, 7=Sunday(same as 0)
-            Example: "12345" for working days, "67" for weekend
     """
 
     _scheduler_task = None

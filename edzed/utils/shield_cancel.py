@@ -10,11 +10,7 @@ async def shield_cancel(aw: Awaitable) -> Any:
     """
     Shield from cancellation while aw is awaited.
 
-    Pending CancelledError is raised when aw is finished.
-
-    Make the shielded code and its execution time as short as possible.
-
-    NEVER EVER SUPPRESS TASK CANCELLATION COMPLETELY!
+    Any pending CancelledError is raised when aw is finished.
     """
     task = asyncio.ensure_future(aw)
     cancel_exc = None

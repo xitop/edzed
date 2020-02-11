@@ -3,6 +3,8 @@ Add-ons extending SBlocks' capabilities.
 
 For each add-on there is usually also a supporting code in
 the simulator.
+
+Refer to the edzed documentation.
 """
 
 import abc
@@ -19,25 +21,6 @@ __all__ = ['AddonAsync', 'AddonMainTask', 'AddonPersistence']
 class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
     """
     Add support for persistent state to a SBlock.
-
-    The internal state (as returned by get_state()) can be saved to
-    persistent storage provided by the circuit. Instances can enable
-    persistent state feature with the 'persistent' parameter.
-
-    The saved state is restored by _restore_state(). That function is
-    a counterpart to get_state(). The default _restore_state matches
-    the default get_state and sets the block's output. Blocks with
-    different internal state must customize both their get_state
-    and _restore_state.
-
-    If enabled, the state is saved:
-        - by calling save_persistent_state() explicitly
-        - at the end of a simulation
-        - by default also after each event, this can be disabled
-          with 'sync_state=False'.
-
-    Saving of persistent state is disabled after an error in event()
-    in order to prevent saving of possibly corrupted state.
     """
 
     def __init__(self, *args, persistent: bool = False, sync_state: bool = True, **kwargs):
@@ -77,23 +60,15 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
         if not self.persistent:
             return
         try:
-            self.circuit.persistent_data[self.key] = self.get_state()
+            self.circuit.persistent_dict[self.key] = self.get_state()
         except Exception as err:
             self.warn("Persistent data save error: %s", err)
-            self.circuit.persistent_data.pop(self.key, None)  # remove stale data
+            self.circuit.persistent_dict.pop(self.key, None)  # remove stale data
 
     @abc.abstractmethod
     def _restore_state(self, state: Any) -> None:
         """
         Initialize by restoring the state (low-level).
-
-        It is assumed that the state was created by get_state().
-
-        Restore the state and the output. If the data is not valid,
-        log a warning and leave the block uninitialized; do not raise.
-
-        Note that _restore_state() is often identical to
-        init_from_value().
         """
 
     def init_from_persistent_data(self) -> None:
@@ -105,14 +80,10 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
         IMPORTANT: output change events are temporarily disabled
         when loading the saved state.
 
-        Errors are suppressed. Use self.is_initialized() to check
-        the outcome.
-
-        The simulator calls this function only if it is required
-        and the persistent data feature is enabled.
+        Errors are suppressed.
         """
         try:
-            state = self.circuit.persistent_data[self.key]
+            state = self.circuit.persistent_dict[self.key]
         except KeyError:
             return
         except Exception as err:
@@ -137,46 +108,6 @@ DEFAULT_STOP_TIMEOUT = 10.0
 class AddonAsync(block.Addon):
     """
     Asynchronous support add-on.
-
-    Contents:
-        init_async() - optional async initialization
-        stop_async() - optional async cleanup
-        _task_wrapper() - an error handling helper
-
-    init_async
-    ----------
-    If needed, define the async initialization coroutine:
-        async def init_async(self):
-
-    The async initialization is intended to interact with external
-    systems and as such should be utilized solely by circuit inputs.
-
-    init_async() is run as a task and is waited for 'init_timeout'
-    seconds. When a timeout occurs, the task is cancelled and the
-    initialization continues with the next step.
-
-    Implementation detail: The simulator may wait longer than
-    specified if it is also concurrently initializing another
-    AddonAsync block with a longer init_timeout.
-
-    Should an event arrive during the async initialization, the block
-    will get a regular Circuit.init_sblock() initialization in order to
-    be able to process the event immediately. If a block is accepting
-    events, init_async() should be able to handle this case.
-
-    stop_async
-    ----------
-    If needed, define the async cleanup coroutine:
-        async def stop_async(self):
-
-    This coroutine is awaited after regular stop().
-
-    stop_async() is run as a task and is waited for 'stop_timeout'
-    seconds. When a timeout occurs, the task is cancelled.
-    The simulator logs the error and continues the cleanup.
-
-    Tip: use edzed.utils.shield_cancel() to protect small critical
-    task sections from immediate cancellation.
     """
 
     def __init__(self, *args, **kwargs):
@@ -193,9 +124,6 @@ class AddonAsync(block.Addon):
 
         All timeouts are in seconds (int or float). Value None or a
         missing argument are replaced by the default timeout.
-
-        It is not possible to completely disable a timeout, but a large
-        value (e.g. 1 day = 86400) has a similar effect.
         """
         init = self.has_method('init_async')
         if init:
@@ -219,7 +147,7 @@ class AddonAsync(block.Addon):
         Couroutines marked as services (is_service=True) are supposed
         to run until cancelled - a normal exit is treated as an error.
 
-        Cancellation is not considered an error, of course.
+        Cancellation is not considered an error.
         """
         try:
             retval = await coro

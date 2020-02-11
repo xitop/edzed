@@ -1,21 +1,7 @@
 """
 Circuit blocks.
 
-Basic block types:
-    Const -- a trivial container for a constant value.
-    CBlock -- a combinational block.
-        A block with inputs. The output is depending on input values
-        only. When an input value changes, the simulator calls
-        the block's eval_block() method to recalculate the output value.
-    SBlock -- a sequential block.
-        A block without inputs. The output value is determined by its
-        internal state. This state is influenced by:
-            - events sent from other blocks,
-            - events coming from external sources,
-            - the block's own activity like timers, or
-              readouts of sensors and gauges
-        When SBlock's output value changes, the block notifies the
-        simulator.
+Refer to the edzed documentation.
 """
 
 import abc
@@ -41,9 +27,7 @@ class _UndefType:
     """
     Type for uninitialized circuit block's output value (UNDEF).
 
-    UNDEF is often used as a sentinel. It is a singleton.
-
-    Warning: UNDEF is not JSON serializable.
+    UNDEF is a singleton.
     """
 
     _instance = None
@@ -129,31 +113,6 @@ EFiltersArg = Union[EFilter, Iterable[EFilter], Sequence[EFilter]]
 class Event:
     """
     An event to be send.
-
-    An Event consist of a destination sequential block and an event
-    type. Default type is 'put'. The block may be given by its name.
-    The names will be resolved before starting the simulation.
-
-    The optional 'efilter' function(s) are called with the event data
-    as its sole argument (a dict). If it returns a dict, the returned
-    dict becomes the new event data. It is fine to return the input
-    dict modified as needed. If the function returns anything other
-    than a dict, the event will be filtered out. efilter is a keyword
-    only argument.
-
-    The Event accepts a single event filter or a sequence of zero or
-    more filters. Default is no filtering. Multiple filters are called
-    in their definition order like a "pipeline".
-
-    The send() methods adds the source name if it is missing:
-        "source": "name of event source block"
-
-    Note that 'put' data must contain by convention:
-        "value": VALUE
-    however this is not checked by the send() method.
-
-    Event data may contain arbitrary key:value pairs. The recipient
-    must ignore all data it does not understand.
     """
 
     # all circuit Events to check by Circuit._resolve_events, cleared afterward
@@ -161,7 +120,7 @@ class Event:
 
     def __init__(
             self,
-            dest: Union[str, 'Block'],
+            dest: Union[str, 'SBlock'],
             etype: Union[str, EventType] = 'put',
             *, efilter: EFiltersArg = ()):
         self.typecheck(etype)
@@ -188,7 +147,7 @@ class Event:
 
         Add sender block's name to the event data as 'source'.
 
-        Return True is sent, False if rejected by a filter.
+        Return True if sent, False if rejected by a filter.
         """
         self, source = args
         if self.dest.circuit is not source.circuit:
@@ -282,41 +241,11 @@ def efilter_tuple(efilters: EFiltersArg) -> Tuple[EFilter, ...]:
 class Block:
     """
     Base class for a circuit building block.
-
-    Attributes:
-        debug -- boolean, enable debug messages,
-            (note: messages are logged with INFO severity, not DEBUG)
-        desc -- str, any remark, not used internally
-        name -- non-empty str, unique identifier
-                or None for an automatically generated name,
-            The name used in messages. Names are arbitrary except
-            that names prefixed by an underscore are reserved for
-            automatically created blocks.
-            Use automatically generated names only for auxilliary
-            blocks that you will not need to reference.
-        oconnections -- set, all blocks where the output is connected to
-        circuit -- Circuit object the block belongs to
-        _output -- output value storage
-        _output_events -- tuple of zero or more Events created
-            from the 'on_output' argument. These events are
-            to be sent when the output has changed. Following data
-            is attached to each event:
-                previous=<value before change>
-                value=<current value>
-                source=<sender block name>
     """
     def __init__(
-            self, name: Optional[str], *,
-            desc: Optional[str] = None, on_output: EventsArg = (), **kwargs):
+            self, name: Optional[str], *, desc: str = "", on_output: EventsArg = (), **kwargs):
         """
         Create a block. Add it to the circuit.
-
-        'on_output' may be a single Event or multiple Events
-        (see _is_multiple() for a definition)
-
-        Keyword arguments starting with 'x_' or 'X_' are ignored.
-        They are reserved for storing arbitrary application data
-        as block attributes.
         """
         if name is not None:
             checkname(name, "block name")
@@ -331,7 +260,7 @@ class Block:
                 raise TypeError(
                     f"'{key}' is an invalid keyword argument for {type(self).__name__}()")
             setattr(self, key, value)
-        self.desc = desc or str(self)
+        self.desc = desc
         self.debug = False
         self._output_events = event_tuple(on_output)
         # oconnections will be populated by Circuit._init_connections:
@@ -370,51 +299,11 @@ class Block:
     def start(self) -> None:
         """
         Pre-simulation hook.
-
-        start() is called when the circuit simulation is about to
-        start.
-
-        Usage in CBlocks:
-        By definition CBlocks should not require initialization.
-        start typically just calls the check_signature().
-
-        Usage in SBlocks:
-        To setup resources, e.g. to create asyncio tasks. Note that
-        init_regular() is the preferred place for initializing the
-        block's internal state and output. start() is a distinct step
-        preceding the initialization. However it is fully acceptable
-        to initialize block's state in start(), provided that:
-        - the block must define start() anyway.
-        - the initialization does not start a timer or at least not
-          a timer with a short duration. There might be a considerable
-          delay (for async initialization) between start() and the
-          rest of the circuit initialization. The timer could generate
-          events during the delay or the delay could spoil timings.
-
-        IMPORTANT: When using start() in subclasses, always call
-        the super().start()
         """
 
     def stop(self) -> None:
         """
         Post-simulation hook.
-
-        stop() is called when the circuit simulation has finished.
-        Note that if an error occurs during circuit initialization,
-        stop() may be called even when start() hasn't been called.
-
-        An exception in stop() will be logged, but otherwise ignored.
-
-        Usage in CBlocks:
-        By definition CBlocks should not require cleanup, so stop
-        is usually empty. A possible use might be gathering of some
-        statistics data for instance.
-
-        Usage in SBlocks:
-        Cleanup, e.g. stop any asyncio tasks.
-
-        IMPORTANT: When using stop() in subclasses, always call
-        the super().stop().
         """
 
     def has_method(self, method: str) -> bool:
@@ -430,19 +319,19 @@ class Block:
 
     def dummy_method(self, *args, **kwargs):
         """
-        A dummy method. A placeholder for all optional methods.
+        A placeholder for all optional methods.
 
         Key properties:
-        1. it can be safely called as super().method(...)
-           from any overriden method.
-        2. has_method() returns False for this method
+            1. it can be safely called as super().method(...)
+               from any overriden method.
+            2. has_method() returns False for this method
         """
 
     async def dummy_async_method(self, *args, **kwargs):
         """A dummy async method, see dummy_method."""
 
     def get_conf(self) -> Mapping[str, Any]:
-        """Return comprehensive static info in form of a dict."""
+        """Return static block information as a dict."""
         return {
             'class': type(self).__name__,
             'debug': self.debug,
@@ -470,13 +359,6 @@ class Addon:
 class CBlock(Block, metaclass=abc.ABCMeta):
     """
     Base class for combinational blocks.
-
-    Attributes:
-        i -- object providing access to input values
-        i0, i1, i2 -- shortcuts for first 3 inputs
-        inputs -- a dict of input and input groups by name
-        iconnections -- set of all blocks where the inputs are
-                        connected from, Const blocks excluded
     """
 
     class InputGetter:
@@ -518,70 +400,13 @@ class CBlock(Block, metaclass=abc.ABCMeta):
                             #   - a tuple of blocks in case of an input group
                             # When building a circuit, input blocks may be
                             # temporarily represented by their names
-        self.i = self.InputGetter(self)     # i.name and i[name] are two ways of getting
+        self._in = self.InputGetter(self)   # _in.name and _in[name] are two ways of getting
                                             # the value of the input or input group 'name'
         super().__init__(*args, **kwargs)
-
-    def _get_input(self, index):
-        try:
-            return self.i['_'][index]
-        except LookupError:     # LookupError = KeyError or IndexError
-            raise LookupError(f"{self}: input #{index} not connected") from None
-
-    @property
-    def i0(self):   # pylint: disable=invalid-name
-        """Shortcut: get the first unnamed input."""
-        return self._get_input(0)
-
-    @property
-    def i1(self):   # pylint: disable=invalid-name
-        """Shortcut: get the second unnamed input."""
-        return self._get_input(1)
-
-    @property
-    def i2(self):   # pylint: disable=invalid-name
-        """Shortcut: get the third unnamed input."""
-        return self._get_input(2)
 
     def connect(self, *args, **kwargs):
         """
         Connect inputs and input groups.
-
-        Inputs given as positional args (i.e. unnamed) will be stored
-        as a group named '_'. This group is created only if unnamed
-        inputs exist. Avoid '_' as a name for named inputs in kwargs.
-
-        A single input could be entered as:
-            - a Block object
-            - name of a Block object
-            - "_not_name" derived from another block's "name" as
-              a shortcut for connecting a logically inverted output.
-              A new block
-                  Invert('_not_name').connect(name)
-              will be created automatically if it does not exist
-              already. The original name must not begin with an
-              underscore. "_not__not_name" will not create an Invert.
-            - a Const object
-            - anything else except multiple inputs (see below),
-              the value will be automatically wrapped into a Const
-
-        To connect a single named input:
-            name=input
-
-        An empty name is a shortcut for connecting an eponymous block:
-            foo='' is equivalent to foo='foo'
-
-        To connect a group:
-            name=multiple inputs, i.e. any sequence (e.g. tuple, list),
-            or iterator of single inputs.
-
-        connect() must be called before the circuit initialization
-        takes place and may be called only once.
-
-        All inputs must be connected. A group may have no inputs, but
-        it must be explicitly connected as such: group=() or group=[].
-
-        Return self in order to allow a 'fluent interface'.
 
         connect() only saves the block's input connections data.
         The circuit-wide processing of interconnections will take place
@@ -618,44 +443,14 @@ class CBlock(Block, metaclass=abc.ABCMeta):
             key = input name
             value = None, if the input is a single input, or
                     number of inputs in a group, if the input is a group
-
-        The reserved group name '_' represents the group of unnamed
-        inputs if any.
         """
         return {
             iname: len(ival) if isinstance(ival, tuple) else None
             for iname, ival in self.inputs.items()}
 
-    def check_signature(self, esig: Mapping):
+    def check_signature(self, esig: Mapping) -> dict:
         """
         Check an expected signature 'esig' with the actual one.
-
-        Edzed does not support optional inputs. For a successful check
-        all keys in the 'esig' must match the actual keys from
-        input_signature().
-
-        In order to support variable input groups sizes, the expected
-        size can be given also as a range of valid values using
-        a sequence of two values [min, max] where 'max' may be None
-        for no maximum. 'min' can be also None for no minimum, but
-        zero - the lowest possible input count - has the same effect.
-
-        Raise a ValueError with a helpful description of all
-        differences if any mismatches are found.
-
-        Examples of 'esig' items:
-            'name': None        # a single input (not a group)
-            'name': 1           # a group with one input, it is not
-                                # the same as a single input!
-            'ingroup': 4            # exactly 4 inputs
-            'ingroup': [2, None]    # 2 or more inputs
-            'ingroup': [0, 4]       # 4 or less
-            'ingroup': [None, None] # input count doesn't matter
-
-        Note: an input group may be empty (0 inputs), but must be
-        explicitly connected as any other group, see connect().
-
-        Return the input_signature() data for possible further analysis.
         """
         def setdiff_msg(actual, expected):
             """Return a message describing a diff of two sets of names."""
@@ -752,11 +547,9 @@ class EventCond(EventType):
     Roughly equivalent to:
         etype = etrue if value else efalse
     where the value is taken from the event data item ['value'].
-    Missing value is evaluated as False, i.e. 'efalse' is selected
+    Missing value is evaluated as False, i.e. 'efalse' is selected.
 
     None value means no event.
-
-    This feature simplifies the block-to-block event interface.
     """
     __slots__ = ['etrue', 'efalse']
     etrue: Union[None, str, EventType]
@@ -766,35 +559,6 @@ class EventCond(EventType):
 class SBlock(Block):
     """
     Base class for sequential blocks, i.e. blocks with internal state.
-
-    The internal state and the output change in response to received
-    events. See event().
-
-    The internal state is returned by get_state(). The state of a
-    basic SBlock object is identical to its output. A derived class
-    with different internal state must customize its get_state().
-
-    SBlocks do not have directly connected inputs as CBlocks do, but
-    they can be connected indirectly using 'on_output' events.
-
-    To setup/cleanup other resources (but not the internal state)
-    use start() and its counterpart stop().
-
-    SBlocks require initialization. For this purpose init_regular()
-    method is provided. Other initialization methods are available
-    as add-ons.
-
-    A block is deemed initialized when its output value changes from
-    UNDEF to any other value. i.e. after first set_output(). An
-    initialized block must be able to process events.
-
-    Using asyncio coroutines and tasks.
-    -----------------------------------
-    See the AddonAsync for asynchronous initialization and cleanup.
-    Without the add-on, the support is limited to start()'s ability
-    to create asynchronous tasks, because it is a regular function.
-
-    See also other Addon* classes extending the SBlocks' capabilities.
     """
 
     def __init_subclass__(cls, *args, **kwargs):
@@ -802,10 +566,6 @@ class SBlock(Block):
         Verify that all add-ons precede the SBlock in the class hierarchy.
 
         This is important for a correct order of method calls.
-
-        When defining a new class derived from SBlock:
-            class NewBlock(Addon1, Addon2, SBlock): ...     # correct
-            class NewBlock(Wrong, Addon1, Addon2): ...      # wrong!
         """
         super().__init_subclass__(*args, **kwargs)
         cls._ct_handlers = {}
@@ -830,35 +590,6 @@ class SBlock(Block):
         assert sblock_seen
 
     def __init__(self, *args, **kwargs):
-        """
-        Process the 'initdef' keyword argument.
-
-        'initdef' specifies the initial internal state. Its precise
-        meaning varies depending on SBlock:
-            A. initdef is not accepted, because the internal state
-               is not adjustable (e.g. determined by date or time)
-            B. initdef is the main initial value generally used
-               to initialize the block
-            C. initdef is the default value just for the case
-               the regular initialization fails
-
-        The initdef value is saved as a attribute.
-
-        To enable the initdef keyword argument a supporting method
-        named init_from_value() is required.
-
-        Synopsis:
-            def init_from_value(self, value):
-
-        Description:
-            Initialization from a constant is expected to be error free
-            in general. Nevertheless if it is not possible to initialize
-            the block, leave it uninitialized and return.
-
-            Unlike start() it is usually not necessary to call
-            super().init_from_value(), because once the block is
-            initialized, there is nothing left to do.
-        """
         if self.has_method('init_from_value'):
             self.initdef = kwargs.pop('initdef', UNDEF)
         self._event_active = False      # guard against event recursion
@@ -879,24 +610,6 @@ class SBlock(Block):
     def _event(self, etype, data):  # pylint: disable=unused-argument, no-self-use
         """
         Handle an event.
-
-        ******************************************************
-        **  event() is the circuit's data input interface.  **
-        ******************************************************
-
-        The block may change its state and its output in response
-        to the event.
-
-        The block may return an arbitrary value. The simulator
-        makes no use of the returned value except checking for
-        the NotImplemented special value.
-
-        An event may require specific event data to be passed with
-        the event. Any additional data not needed by the event must
-        be silently ignored.
-
-        If an event is unknown, return the NotImplemented constant.
-        (do not return or raise the NotImplementedError exception!)
         """
         return NotImplemented
 
@@ -910,7 +623,7 @@ class SBlock(Block):
     #   def event(self, etype, **data):     # type hints removed
     # is that names used as positional arguments (self and etype in this case)
     # cannot be used as a keyword argument in a call:
-    #   block.event('foo', event=1)         # TypeError
+    #   block.event('foo', etype=1)         # TypeError
     #
     # pylint: disable=no-method-argument, protected-access
     def event(*args, **data) -> Any:
@@ -919,24 +632,12 @@ class SBlock(Block):
 
         Evaluate so called conditional events. See the EventCond class.
 
-        Respond with ValueError to unknown event types unless the error
-        is explicitly disabled with '_ignore_unknown=True' added to
-        event data. If the error is disabled, NotImplemented is returned
-        for unknown events.
+        Respond with ValueError to unknown event types.
 
         Handle the received event ETYPE:
             - invoke the specialzed _event_ETYPE() method if such
               method exists; otherwise
             - invoke the general _event() method
-        Note the different signatures:
-            def _event_ETYPE(self, **data)
-            def _event(self, etype, data)
-
-        When an error occurs during the event handling, raise and if the
-        event was not called from within the simulator task, also abort
-        the simulator. An unkown event error described above is not
-        considered an event handling error and will not abort the
-        simulation if event() was called from other task.
 
         IMPORTANT: application code should check Circuit.is_ready()
         before submitting external events for processing. The event()
@@ -954,7 +655,7 @@ class SBlock(Block):
             raise EdzedError(f"{self}: Forbidden recursive event() call")
         self._event_active = True
         try:
-            if isinstance(etype, EventCond):
+            while isinstance(etype, EventCond):
                 etype = etype.etrue if data.get('value') else etype.efalse
                 self.log("conditional event -> %r", etype)
                 if etype is None:
@@ -978,9 +679,7 @@ class SBlock(Block):
                     self.circuit.abort(sim_err)
                 raise
             if retval is NotImplemented:
-                if not data.get('_ignore_unknown', False):
-                    raise ValueError(f"Unknown event type '{etype}'")
-                self.warn(f"unknown event type '{etype}' ignored")
+                raise ValueError(f"{self}: Unknown event type '{etype}'")
             return retval
         finally:
             self._event_active = False
@@ -1011,7 +710,7 @@ class SBlock(Block):
             self._block._event_active = self._event_saved
 
     def put(self, value: Any, **data) -> Any:
-        """put(x) is a shortcut for event(put, value=x)."""
+        """put(x) is a shortcut for event('put', value=x)."""
         return self.event('put', **data, value=value)
 
     def get_state(self) -> Any:
@@ -1026,16 +725,6 @@ class SBlock(Block):
     def init_regular(self) -> None:
         """
         Initialize the internal state and the output.
-
-        If the block gets its initialization elsewhere, leave
-        this function empty.
-
-        If it is not possible to initialize the block, leave it
-        uninitialized and return.
-
-        Unlike start() it is usually not necessary to call
-        super().init_regular(), because once the block is
-        initialized, there is nothing left to do.
         """
 
     # optional methods

@@ -1,5 +1,7 @@
 """
 Sequential blocks for general use.
+
+Refer to the edzed documentation.
 """
 
 import asyncio
@@ -19,36 +21,6 @@ _logger = logging.getLogger(__package__)
 class Input(addons.AddonPersistence, block.SBlock):
     """
     Input with optional value validation.
-
-    Arguments:
-        initdef -- default value (initialization value of last resort)
-        persistent -- if true, initialize from the last known value
-        schema, check, allowed -- optional validators of input values
-
-    Validators of new input values (optional):
-        check -- a value test function,
-            If the function's return value evaluates to true,
-            new value is accepted, otherwise it is rejected.
-        allowed -- a sequence or set of allowed values,
-            This is roughly equivalent to:
-                check=lambda value: value in ALLOWED
-        schema -- a function possibly modifying the value:
-            If the function raises, value is rejected,
-            otherwise the input is set to the returned value.
-
-        It is recommended NOT to use more than one validator, but any
-        combination of schema, check and allowed may be used.
-
-        Schema is the only method capable of changing the value.
-        It is called last to ensure all validators test the original
-        input value.
-
-        The default is validated only when it is used as input value.
-
-    Usage:
-        input.put(<VALUE>) -- return True if the new value was accepted,
-                              False otherwise.
-        Note: it is a shortcut for input.event('put', value=<VALUE>)
     """
 
     def __init__(self, *args, schema=None, check=None, allowed=None, **kwargs):
@@ -90,8 +62,6 @@ class Input(addons.AddonPersistence, block.SBlock):
 class InputExp(Input, fsm.FSM):
     """
     Input with an expiration time.
-
-    After 'duration' replace the stored value with 'expired' value.
     """
     STATES = ['expired', 'valid']
     TIMERS = {
@@ -142,53 +112,6 @@ _STOP_CMD = object()
 class OutputAsync(addons.AddonAsync, block.SBlock):
     """
     Run a coroutine as an output task when a value arrives.
-
-    The coroutine is called with a single argument, the 'value'
-    item from the event data.
-
-    There are two operation modes: the noqueue mode (qmode is False,
-    this is the default) and the queue mode (qmode is True). The
-    difference is in the behavior when a new value arrives before
-    processing of the previous one has finished.
-
-      - In noqueue mode the task processing the previous value will be
-        cancelled (and awaited) if it is still running. All unprocessed
-        values except the last one are dropped from the output queue.
-
-      - In queue mode all values are enqueued and processed one by one
-        in order they have arrived. This may introduce delays. Make sure
-        the coroutine can keep up with the rate of incoming values.
-
-    The output of an OutputAsync block is a boolean busy flag:
-    True, when the OutputAsync block is active; False when idle.
-
-    The block can be instructed to trigger on_success/on_error events
-    depending on the result of the coroutine. Any returned value is
-    considered a success (on_success event data key: 'value'), and
-    an exception (other than CancelledError) means an error
-    (on_error event data key: 'error'). A cancelled coroutine does
-    not trigger any events.
-
-    By default on_error is set to Event('_ctrl', 'error') which
-    shuts down the simulation (see the ControlBlock). To handle the
-    error differently or to ignore it, set the on_error explicitly.
-
-    If the 'stop_value' is defined, it is inserted into the queue
-    and processed as the last item before stopping. This allows to leave
-    the controlled process in a well defined state. As this happen
-    during the stop phase, make sure the stop_timeout gives enough time
-    for a successful output coroutine run.
-
-    'guard_time' is the duration of a mandatory and uncancellable sleep
-    after each run of the output coroutine. No output activity can
-    happen during the sleep. The purpose is to limit the frequency
-    of output changes, for instance when controlling a hardware switch.
-    Default value is 0.0 [seconds], i.e. no guard_time. The 'guard_time'
-    must not be longer than the 'stop_timeout'.
-
-    Usage:
-        out = OutputAsync(NAME, coro=CORO())
-        out.put(VALUE)
     """
 
     def __init__(
@@ -246,12 +169,12 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
 
     async def _control_noqmode(self):
         """
-        Start output task for values from the queue.
+        Start an output task for values from the queue.
 
-        Only one task may be running at a time. Pending values
-        are processed asap, cancelling the current task if necessaty.
+        Only one task may be running at a time. New values
+        are processed asap, cancelling the current task if necessary.
 
-        Stop serving after receiving _STOP_CMD sentinel value.
+        Stop serving after receiving the _STOP_CMD sentinel value.
         """
         task = None
         stop = False
@@ -278,12 +201,12 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
 
     async def _control_qmode(self):
         """
-        Start output task for values from the queue.
+        Start an output task for values from the queue.
 
-        Only one task may be running at a time. Pending values wait
+        Only one task may be running at a time. New values wait
         in the queue.
 
-        Stop serving after receiving _STOP_CMD sentinel value.
+        Stop serving after receiving the _STOP_CMD sentinel value.
         """
         while True:
             value = await self._queue.get()
@@ -323,28 +246,6 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
 class OutputFunc(block.SBlock):
     """
     Run a function when a value arrives.
-
-    The function is called with a single argument, the 'value'
-    item from the event data.
-
-    The output of an OutputFunc block is always False.
-
-    The block can be instructed to trigger on_success/on_error events
-    depending on the result of the function call. A returned value is
-    considered a success (on_success event data key: 'value'),
-    an exception means an error (on_error event data key: 'error').
-
-    By default on_error is set to Event('_ctrl', 'error') which
-    shuts down the simulation (see the ControlBlock). To handle the
-    error differently or to ignore it, set the on_error explicitly.
-
-    If the 'stop_value' is defined, it is fed into the block
-    and processed as the last item before stopping. This allows
-    to leave the controlled process in a well defined state.
-
-    Usage:
-        out = OutputFunc(NAME, func=FUNC)
-        out.put(VALUE)
     """
 
     def __init__(

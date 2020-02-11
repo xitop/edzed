@@ -14,14 +14,6 @@ Usage:
     --- end ---
     2. run the demo:
         python3 circuit1.py
-
-Tip: Redirect debug messages to another terminal window:
-    1: open a new terminal window
-    2: in the auxiliary terminal window run:
-        tty
-      to get its name, e.g. /dev/pts/5
-    3: run in the main terminal window:
-        python3 circuit.py 2>/dev/pts/5
 """
 
 import ast

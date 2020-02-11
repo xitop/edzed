@@ -35,15 +35,12 @@ def test_error_checking(circuit):
 
     with pytest.raises(TypeError, match="string"):
         dest.event(333)     # event name must be a string or a EventType
-    with pytest.raises(TypeError, match="string"):
-        dest.event(333, _ignore_unknown=True)      # still a TypeError
     with pytest.raises(ValueError, match="empty"):
         dest.event('')
     with pytest.raises(ValueError):
         dest.event("no_such_event")
     with pytest.raises(ValueError):
-        dest.event("no_such_event", _ignore_unknown=False)
-    assert dest.event("no_such_event", _ignore_unknown=True) == NotImplemented
+        dest.event("no_such_event")
 
 
 def test_send(circuit):
@@ -171,6 +168,18 @@ def test_conditional_events(circuit):
     assert cnt.output == 2
 
 
+def test_nested_conditional_events(circuit):
+    """Test tested conditional events (an edge case that nobody needs)."""
+    cnt = edzed.Counter('counter')
+    init(circuit)
+
+    assert cnt.output == 0
+    cnt.event(edzed.EventCond(edzed.EventCond('inc', 'ERR'), None), value=True)
+    assert cnt.output == 1
+    cnt.event(edzed.EventCond('ERR', edzed.EventCond(None, edzed.EventCond('ERR', 'dec'))), value=0)
+    assert cnt.output == 0
+
+
 def test_init_by_event(circuit):
     """Test initialization by an event."""
     src = edzed.Input('src', on_output=edzed.Event('dest'), initdef='ok')
@@ -265,7 +274,7 @@ def test_dataedit_filter(circuit):
             efilter=(
                 edzed.DataEdit.copy('value', 'saved'),
                 edzed.DataEdit.add(a=1, b=2, c=3),
-                edzed.DataEdit.delete_except('source', 'saved', 'a'),
+                edzed.DataEdit.permit('source', 'saved', 'a'),
                 edzed.DataEdit.copy('saved', 'value'),
                 edzed.DataEdit.default(saved='NO'),
                 edzed.DataEdit.delete('saved'),

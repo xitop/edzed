@@ -1,5 +1,7 @@
 """
 FSM blocks for general use.
+
+Refer to the edzed documentation.
 """
 
 from .. import fsm
@@ -10,28 +12,6 @@ __all__ = ['Timer']
 class Timer(fsm.FSM):
     """
     A timer.
-
-    Output is True for time duration t_on, and False for duration t_off.
-
-    By default both durations are infinite (timer disabled), i.e. the
-    block is bistable. If one duration is set, the block is monostable.
-    If both durations are set, the block is astable.
-
-    See fsm.FSM for more information about durations.
-
-    Arguments:
-        restartable -- if restartable (default), a 'start' event
-            occurring while in the 'on' state restarts the timer
-            to measure the 't_on' time from the beginning. If not
-            restartable, the timer will continue to measure the
-            time and ignore the event. The same holds for the 'stop'
-            event in the 'off' state.
-        t_on -- 'on' state timer duration,
-        t_off -- 'off' state timer duration,
-        state='on' -- Start in the 'on' state (default is 'off')
-
-    A conditional event 'start:stop' is often used for Timer control.
-    See SBlock._event for description of how conditional events work.
     """
 
     STATES = ('off', 'on')

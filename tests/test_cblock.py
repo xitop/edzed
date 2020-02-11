@@ -123,16 +123,14 @@ def test_no_cross_circuit_inputs(circuit):
     init(circuit3)
 
 
-
 def test_input_access(circuit):
     """Test various methods to access input values."""
     class MyBlock(edzed.CBlock):
         def _eval(self):
             return [
-                self.i0, self.i1, self.i2,  # shortcut to first 3 inputs (there is no i3, etc.)
-                self.i['_'],                # tuple of all unnanmed inputs
-                self.i['ctrl'],             # input name as a key
-                self.i.ctrl,                # input name as an attr
+                self._in['_'],       # tuple of all unnanmed inputs
+                self._in['ctrl'],    # input name as a key
+                self._in.ctrl,       # input name as an attr
                 ]
 
     blk = MyBlock('test').connect(50, 51, 52, 53, 54, ctrl=edzed.Const('CTRL'))
@@ -140,7 +138,6 @@ def test_input_access(circuit):
 
     blk.eval_block()
     assert blk.output == [
-        50, 51, 52,
         (50, 51, 52, 53, 54),
         'CTRL',
         'CTRL',
@@ -265,6 +262,46 @@ def test_override(circuit):
         override.event('put', value=value)
         out.eval_block()
         assert out.output == (value if value != SENTINEL else "LAST")   # parenthesis required
+
+
+def test_compare(circuit):
+    """Test the compare block."""
+
+    with pytest.raises(ValueError, match="threshold"):
+        edzed.Compare(None, low=10, high=5)
+
+    inp = edzed.Input('inp', initdef=8.1)
+    cmp1 = edzed.Compare('cmp1', low=7.0, high=9.0).connect(inp)    # 8.0 +- 1
+    cmp2 = edzed.Compare('cmp2', low=8.0, high=9.0).connect(inp)    # 8.5 +- 0.5
+    cmp3 = edzed.Compare('cmp3', low=8.0, high=8.0).connect(inp)    # 8.0 no hysteresis
+    init(circuit)
+
+    cmp1.eval_block()
+    cmp2.eval_block()
+    cmp3.eval_block()
+    assert cmp1.output
+    assert not cmp2.output
+    assert cmp3.output
+
+    # pylint: disable=bad-whitespace
+    TEST1 = (8.1,  7.5,  6.0,   7.5,   100,  7.5,  7.0,  6.999, 7.0,   7.5,   9.0,  777)
+    CMP1 =  (True, True, False, False, True, True, True, False, False, False, True, True)
+
+    for t, c in zip(TEST1, CMP1):
+        inp.put(t)
+        cmp1.eval_block()
+        assert cmp1.output == c
+    assert inp.output == 777    # tested with all values?
+
+    # pylint: disable=bad-whitespace
+    TEST3 = (8.1,  7.9,   8.0,  100,  8.0,  7.0,   777)
+    CMP3 =  (True, False, True, True, True, False, True)
+
+    for t, c in zip(TEST3, CMP3):
+        inp.put(t)
+        cmp3.eval_block()
+        assert cmp3.output == c
+    assert inp.output == 777
 
 
 def test_and_or(circuit):

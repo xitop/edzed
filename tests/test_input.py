@@ -51,7 +51,6 @@ def test_events(circuit):
         inp.event('put')    # missing value
     with pytest.raises(ValueError):
         inp.event('sleep')  # unknown event
-    inp.event('sleep', _ignore_unknown=True)
 
 
 def test_schema(circuit):

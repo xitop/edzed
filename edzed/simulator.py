@@ -1,5 +1,7 @@
 """
 Simple event-driven zero-delay logic/digital circuit simulation.
+
+Refer to the edzed documentation.
 """
 
 import asyncio
@@ -37,10 +39,6 @@ def get_circuit() -> 'Circuit':
 def reset_circuit() -> None:
     """
     Clear the circuit and create a new one.
-
-    The simulation will be stopped if it is running.
-
-    reset_circuit() was introduced mainly to simplify unit testing.
     """
     global _current_circuit
 
@@ -57,14 +55,12 @@ def reset_circuit() -> None:
 
 class Circuit:
     """
-    A circuit is implemented as a directed graph where circuit blocks
-    are nodes and connections are edges.
+    A container of all blocks and their interconnections.
+
+    Not to be instantiated directly, rather call edzed.get_circuit().
 
     There exist only one circuit at a time and all created blocks
     belongs to it.
-
-    Use edzed.get_circuit() to get the current circuit.
-    Use edzed.reset() to create a new empty one.
 
     In this implementation, circuit blocks can be added, but not removed.
     """
@@ -74,7 +70,7 @@ class Circuit:
         self._simtask = None        # task running run_forever
         self._frozen = False        # no circuit modification after the initialization
         self._error = None          # exception that terminated the simulator or None
-        self.persistent_data = None # persistent_data back-end
+        self.persistent_dict = None # persistent state data back-end
         self.sblock_queue = None    # a Queue for notifying about changed SBlocks,
                                     # the queue will be created when simulation starts, because
                                     # it has a side effect of creating an event_loop if one
@@ -97,17 +93,6 @@ class Circuit:
     def is_ready(self) -> bool:
         """
         Return True only if ready to accept external events.
-
-        The simulation can be still in the initializing phase.
-
-        An error-free circuit is ready immediately after its start.
-        No special synchronization is required, but note that
-        create_task() does not start the new task:
-            asyncio.create_task(circuit.run_forever())
-            # the task is created, but not started yet; asyncio.sleep
-            # suspends the current task, allowing other tasks to run
-            await asyncio.sleep(0)
-            # OK, the circuit can now receive events
         """
         return self._simtask is not None and self._error is None
 
@@ -122,13 +107,6 @@ class Circuit:
     async def wait_init(self) -> None:
         """
         Wait until a running circuit is fully initialized.
-
-        The simulation task must be started or at least created.
-
-        wait_init() returns when all blocks are initialized and
-        the simulation is running. If this state is not reachable
-        (e.g. the task has finished), wait_init() raises an
-        EdzedInvalidState error.
         """
         await self._check_started()
         await asyncio.wait(
@@ -150,18 +128,12 @@ class Circuit:
         if self._frozen:
             raise EdzedInvalidState("No circuit changes after the start.")
 
-    def set_persistent_data(self, persistent_data: Optional[Mapping[str, Any]]) -> None:
+    def set_persistent_data(self, persistent_dict: Optional[Mapping[str, Any]]) -> None:
         """
-        Setup the persistent data storage.
-
-        The argument should be a dictionary-like object backed by
-        a disk file or similar persistent storage. It can be also
-        None to leave the feature disabled.
-
-        Persistent data must be enabled before the simulation starts.
+        Setup the persistent state data storage.
         """
         self.check_not_frozen()
-        self.persistent_data = persistent_data
+        self.persistent_dict = persistent_dict
 
     def addblock(self, blk: block.Block) -> None:
         """
@@ -205,23 +177,13 @@ class Circuit:
     def set_debug(self, value: bool, *args) -> int:
         """
         Set debug flag to given value (True/False) for selected blocks.
-
-        Pass one or more arguments to make a selection:
-            - block name
-            - Unix-style wildcard with *, ?, or [abc]
-            - block object
-            - block class (e.g. FSM)
-
-        Return number of blocks processed.
-
-        For a single block just do: blk.debug = True (or False).
         """
         todo = set()
         for arg in args:
             if isinstance(arg, str):
                 if any(ch in arg for ch in '*?['):
                     for blk in self.getblocks():
-                        if fnmatch.fnmatch(blk.name, arg):
+                        if fnmatch.fnmatchcase(blk.name, arg):
                             todo.add(blk)
                 else:
                     todo.add(self.findblock(arg))
@@ -239,10 +201,10 @@ class Circuit:
         return len(todo)
 
     def _check_persistent_data(self):
-        """Check persistent data related settings."""
+        """Check persistent state related settings."""
         persistent_blocks = [
             blk for blk in self.getblocks(addons.AddonPersistence) if blk.persistent]
-        if self.persistent_data is None:
+        if self.persistent_dict is None:
             if persistent_blocks:
                 _logger.warning(
                     "Disabling all persistent state, because the data storage was not set")
@@ -251,10 +213,10 @@ class Circuit:
         else:
             # clear the unused items
             used_keys = {blk.key for blk in persistent_blocks}
-            for key in list(self.persistent_data):
+            for key in list(self.persistent_dict):
                 if key not in used_keys:
-                    _logger.info("Removing unused persistent data item '%s'", key)
-                    del self.persistent_data[key]
+                    _logger.info("Removing unused persistent state for '%s'", key)
+                    del self.persistent_dict[key]
 
     def _validate_blk(self, blk):
         """
@@ -408,7 +370,7 @@ class Circuit:
             if not blk.is_initialized():
                 raise EdzedError(f"{blk}: not initialized")
         # save the internal states after initialization
-        if self.persistent_data is not None:
+        if self.persistent_dict is not None:
             for blk in self.getblocks(addons.AddonPersistence):
                 blk.save_persistent_state()
         # clear the queue, the simulator knows that it needs to evaluate everything
@@ -502,7 +464,7 @@ class Circuit:
         Run the circuit simulation until the coroutine is cancelled.
 
         run_forever() never exits normally without an exception. It must
-        be cancelled to stop the simulation. See also run_until_stop().
+        be cancelled to stop the simulation.
 
         Please note that the cleanup could take some time - up to the
         max of SBlocks' stop_timeout values.
@@ -571,7 +533,7 @@ class Circuit:
         if self._frozen:
             # if blocks were started (at least some of them), they must be stopped
             # save the state first, because stop may invalidate the state information
-            if self.persistent_data is not None:
+            if self.persistent_dict is not None:
                 for blk in self.getblocks(addons.AddonPersistence):
                     blk.save_persistent_state()
             await self._stop_sblocks()
@@ -606,18 +568,6 @@ class Circuit:
     async def shutdown(self) -> None:
         """
         Stop the simulation and wait until it finishes.
-
-        It is an error to await shutdown() if the simulator did
-        not start.
-
-        It is an error to await shutdown() from within the simulator
-        task itself.
-
-        It the simulation task didn't finish already, cancel the task
-        and wait until it finishes.
-
-        Returns normally when the task was cancelled. Otherwise raise
-        the exception that stopped the simulation.
         """
         await self._check_started()
         if self.is_current_task():

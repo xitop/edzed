@@ -1,5 +1,7 @@
 """
 Event filters.
+
+Refer to the edzed documentation.
 """
 
 import logging
@@ -20,25 +22,6 @@ def not_from_undef(data):
 class Edge:
     """
     Event filter for logical values.
-
-    IMPORTANT: This filter is designed to work with 'on_output' events.
-    It requires items 'previous' and 'value' to be present in the event
-    data.
-
-    An Edge filter compares logical levels (i.e. boolean values)
-    of previous and current value and passes through only explicitly
-    allowed combinations. These changes are often called the rising
-    and the falling edge in logical circuits, hence the name.
-
-    Parameters:
-        rise -- allow: False -> True
-        fall -- allow: True -> False
-        u_rise -- allow: UNDEF -> True (default: same as rise)
-        u_fall -- allow: UNDEF -> False
-
-    Note: UNDEF has False boolean value. That's why rise includes
-    UNDEF -> True. If this is not desired, use rise=True, u_rise=False
-    to filter it out.
     """
     def __init__(self, rise=False, fall=False, u_rise=None, u_fall=False):
         self._rise = bool(rise)
@@ -66,10 +49,6 @@ class Edge:
 class Delta:
     """
     Event filter for numeric values.
-
-    Compare the last accepted data value with the current value.
-    If the difference is smaller than 'delta', filter out the
-    data value.
     """
     def __init__(self, delta):
         self._delta = delta
@@ -86,8 +65,6 @@ class Delta:
 class DataEdit:
     """
     Modify the event data.
-
-    DataEdit accepts all events.
     """
     def __init__(self, func):
         self._func = func
@@ -112,7 +89,7 @@ class DataEdit:
         return cls(_edit)
 
     @classmethod
-    def delete_except(cls, *args):
+    def permit(cls, *args):
         """Delete all but listed keys."""
         def _edit(data):
             for key in list(data):
