@@ -418,6 +418,7 @@ Async add-on
   This class also implements a helper for general use:
 
   .. method:: _task_wrapper(coro: Awaitable, is_service: bool = False) -> Any
+
     :async:
 
     A coroutine wrapper delivering exceptions to the simulator.
@@ -428,6 +429,7 @@ Async add-on
     Cancellation is not considered an error, of course.
 
 .. method:: edzed.SBlock.init_async()
+
   :async:
 
   Optional async initialization coroutine, define only when needed.
@@ -456,6 +458,7 @@ Async add-on
     the value.
 
 .. method:: edzed.SBlock.stop_async()
+
   :async:
 
   Optional async cleanup coroutine, define only when needed.
@@ -492,8 +495,9 @@ Main task add-on
   not apply to the task, because task creation is a regular function.
 
   .. method:: _maintask()
-    :async:
     :abstractmethod:
+
+    :async:
 
     The task coroutine.
 

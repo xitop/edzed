@@ -60,6 +60,7 @@ Starting a simulation
 =====================
 
 .. method:: Circuit.run_forever()
+
   :async:
 
   .. important::
@@ -116,6 +117,7 @@ Starting a simulation
     # OK, the circuit can now receive events
 
 .. method:: Circuit.wait_init() -> None
+
   :async:
 
   Wait until a running circuit is fully initialized.
@@ -168,6 +170,7 @@ A running simulation can be stopped only by cancellation of the simulation task:
     when a condition is met.
 
 .. method:: Circuit.shutdown() -> None
+
   :async:
 
   If the simulation task is still running, stop the simulation by canceling

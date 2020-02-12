@@ -69,6 +69,7 @@ task sections from immediate cancellation.
 .. module:: edzed.utils.shield_cancel
 
 .. function:: shield_cancel(aw: Awaitable) -> Any
+
   :async:
 
   Shield from cancellation while *aw* is awaited.
