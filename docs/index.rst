@@ -37,8 +37,9 @@ Appendices
 ==========
 
 .. toctree::
-  :maxdepth: 2
+  :maxdepth: 1
 
+  changelog
   notes
 
 Indices and tables

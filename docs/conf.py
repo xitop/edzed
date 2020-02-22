@@ -31,7 +31,7 @@ extensions = [
     'sphinx.ext.autosectionlabel',
 ]
 
-# required by readthedocs.org
+# required by readthedocs
 master_doc = 'index'
 
 # Add any paths that contain templates here, relative to this directory.

@@ -179,7 +179,7 @@ def test_hms():
     assert now == HMS(str(now))
 
     for arg in ((25, 0), "12:61:0", [1, 2, 3, 4]):
-        with pytest.raises(ValueError, match='Invalid'):
+        with pytest.raises(ValueError):
             HMS(arg)
     for arg in (3.14, ...):     # the ellipsis (...) is also an object
         with pytest.raises(TypeError):
@@ -192,7 +192,7 @@ def test_md():
     assert md69 == (6, 9)
     assert md69.day == 9 and md69.month == 6
     assert str(md69) == 'Jun.09'
-    for dstr in ('09.Jun', ' 9.jun.', '9JUN', '09 Jun', 'Jun9', ' JUN  09 ', 'jun 9.'):
+    for dstr in ('09.JunE', ' 9.jun.', '9JUNe', '09 Jun', 'Jun9', ' JUN  09 ', 'jun 9.'):
         assert MD(dstr) == md69
 
     assert MD('Apr 10') < MD('1.may') < (5, 5) < md69 < MD('Oct 31.') < MD((11, 1))
@@ -202,7 +202,7 @@ def test_md():
 
     for arg in ([7], "okt. 10", "30.Feb", "what", (0, 2), (2, 30), (13, 13), (1, 1, 1)):
             # 'okt' is not 'oct'
-        with pytest.raises(ValueError, match='Invalid'):
+        with pytest.raises(ValueError):
             MD(arg)
     for arg in (1, 3.14, ...):
         with pytest.raises(TypeError):
@@ -211,13 +211,13 @@ def test_md():
 
 def test_dateinterval():
     DI = timeinterval.DateInterval
-    di1 = DI('Jan10 - Apr10')
+    di1 = DI('Jan10 - April10')
     def test1(m, d):
         return (1, 10) <= (m, d) <= (4, 10)
     di2 = DI('15.dec - 15.jan')
     def test2(m, d):
         return (12, 15) <= (m, d) or (m, d) <= (1, 15)
-    di12 = DI('15DEC - 15JAN, Jan.10-Apr.10')
+    di12 = DI('15DECEM. - 15JAN, Jan.10-Apr.10')
     di3 = DI('3.aug')
     assert timeinterval.MD("3.aug") in di3
     di4 = DI(' 1 jan - 31 dec ')
@@ -261,12 +261,15 @@ def test_timeinterval():
 def test_dateinterval_ranges():
     MD = timeinterval.MD
     di = timeinterval.DateInterval('15DEC - 15JAN, Jan.10-Apr.10, 6.dec.')
-    assert sorted(di.range_starts()) == [MD((1, 10)), MD((12, 6)), MD((12, 15))]
-    assert sorted(di.range_ends()) == [MD((1, 15)), MD((4, 10)), MD((12, 6))]
+    assert sorted(di.range_endpoints()) == [
+        MD((1, 10)), MD((1, 15)), MD((4, 10)),
+        MD((12, 6)), MD((12, 6)), MD((12, 15))]
 
 
 def test_timeinterval_ranges():
     HMS = timeinterval.HMS
     ti = timeinterval.TimeInterval('23:40:30-01:20:30, 10:30-21:10, 15:59:50-16:0')
-    assert sorted(ti.range_starts()) == [HMS((10, 30, 0)), HMS((15, 59, 50)), HMS((23, 40, 30))]
-    assert sorted(ti.range_ends()) == [HMS((1, 20, 30)), HMS((16, 0, 0)), HMS((21, 10, 0))]
+    assert sorted(ti.range_endpoints()) == [
+        HMS((1, 20, 30)), HMS((10, 30, 0)),
+        HMS((15, 59, 50)), HMS((16, 0, 0)),
+        HMS((21, 10, 0)), HMS((23, 40, 30))]

@@ -1,14 +1,16 @@
 """
 Simple event-driven zero-delay logic/digital circuit simulation.
 
-Refer to the edzed documentation.
+- - - - - -
+Docs: https://edzed.readthedocs.io/en/latest/
+Home: https://github.com/xitop/edzed/
 """
 
 import asyncio
 import fnmatch
 import logging
 import operator
-from typing import Any, Mapping, Optional
+from typing import Any, Iterator, Mapping, Optional
 
 from . import addons
 from . import block
@@ -79,21 +81,17 @@ class Circuit:
         self._init_done = None      # an Event for wait_init() synchronization
 
     def is_current_task(self) -> bool:
-        """
-        Return True if the simulator task is the current asyncio task.
-        """
+        """Return True if the simulator task is the current asyncio task."""
         if self._simtask is None:
             return False
         try:
             return self._simtask == asyncio.current_task()
         except Exception:
-            # for instance RuntimeError('no running event loop') during unit tests
+            # for instance RuntimeError('no running event loop')
             return False
 
     def is_ready(self) -> bool:
-        """
-        Return True only if ready to accept external events.
-        """
+        """Return True only if ready to accept external events."""
         return self._simtask is not None and self._error is None
 
     async def _check_started(self):
@@ -105,15 +103,18 @@ class Circuit:
                 raise EdzedInvalidState("The simulation task was not started")
 
     async def wait_init(self) -> None:
-        """
-        Wait until a running circuit is fully initialized.
-        """
+        """Wait until a running circuit is fully initialized."""
         await self._check_started()
         await asyncio.wait(
             [asyncio.create_task(self._init_done.wait()), self._simtask],
             return_when=asyncio.FIRST_COMPLETED)
         if self._simtask.done():
-            raise EdzedInvalidState("The simulation task is finished")
+            if self._simtask.cancelled():
+                msg = "The simulation task is finished"
+            else:
+                # normal simtask exit is not possible
+                msg = f"The simulation task failed with error: {self._simtask.exception()}"
+            raise EdzedInvalidState(msg)
 
     def check_not_frozen(self) -> None:
         """
@@ -129,9 +130,7 @@ class Circuit:
             raise EdzedInvalidState("No circuit changes after the start.")
 
     def set_persistent_data(self, persistent_dict: Optional[Mapping[str, Any]]) -> None:
-        """
-        Setup the persistent state data storage.
-        """
+        """Setup the persistent state data storage."""
         self.check_not_frozen()
         self.persistent_dict = persistent_dict
 
@@ -139,27 +138,17 @@ class Circuit:
         """
         Add a circuit block. Not an ad blocker :-)
 
-        Assign a generated name, if it is None.
-
         Application code does not call this method, because
         blocks register themselves automatically when created.
         """
         self.check_not_frozen()
         if not isinstance(blk, block.Block):
             raise TypeError(f"Expected a Block object, got {blk!r}")
-        if blk.name is None:
-            blk.name = "_@" + hex(id(blk))[2:]  # id() is unique
-        elif blk.name.startswith('_') and self._simtask is None:
-            # Reserved blocks can be added only by the simulator.
-            # Checking self._simtask is sufficient, because an application code
-            # has no chance to create a block when self._simtask is already set
-            # and self._frozen isn't set yet.
-            raise ValueError(f"{blk.name!r} is a reserved name (starting with an underscore")
         if blk.name in self._blocks:
             raise ValueError(f"Duplicate block name {blk.name}")
         self._blocks[blk.name] = blk
 
-    def getblocks(self, btype: Optional[block.Block] = None):
+    def getblocks(self, btype: Optional[block.Block] = None) -> Iterator:
         """Return an iterator of all blocks or btype blocks only."""
         allblocks = self._blocks.values()
         if btype is None:
@@ -232,10 +221,12 @@ class Circuit:
             if blk.startswith('_') and blk not in self._blocks:
                 # automatic blocks:
                 if blk == '_ctrl':
-                    return sblocks1.ControlBlock(blk, desc="Simulation Control Block")
+                    return sblocks1.ControlBlock(
+                        blk, desc="Simulation Control Block", _reserved=True)
                 if blk.startswith('_not_') and blk[5:6] != '_':
                     return cblocks.Invert(
-                        blk, desc=f"Inverted output of {blk}").connect(blk[5:])
+                        blk, desc=f"Inverted output of {blk}", _reserved=True
+                        ).connect(blk[5:])
             return self.findblock(blk)
         if not isinstance(blk, block.Block):
             return block.Const(blk)

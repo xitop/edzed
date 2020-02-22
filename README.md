@@ -10,4 +10,4 @@ The package contains:
 
 ## Documentation
 
-Please see the [online documentation](http://edzed.readthedocs.org/en/latest) for more information.
+Please see the [online documentation](https://edzed.readthedocs.io/en/latest/) for more information.

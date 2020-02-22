@@ -4,7 +4,9 @@ Add-ons extending SBlocks' capabilities.
 For each add-on there is usually also a supporting code in
 the simulator.
 
-Refer to the edzed documentation.
+- - - - - -
+Docs: https://edzed.readthedocs.io/en/latest/
+Home: https://github.com/xitop/edzed/
 """
 
 import abc
@@ -26,7 +28,6 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
     def __init__(self, *args, persistent: bool = False, sync_state: bool = True, **kwargs):
         self.persistent = bool(persistent)
         self.sync_state = bool(sync_state)
-        #self._loading_persistent_state = False
         super().__init__(*args, **kwargs)
         # str(self) (as defined in superclass!) is used as a key instead of
         # just the name, because it contains also the block type name.
@@ -89,12 +90,10 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
         except Exception as err:
             self.warn("Persistent data retrieval error: %s", err)
             return
-        #self._loading_persistent_state = True
         try:
             self._restore_state(state)
         except Exception as err:
             self.warn("Error restoring saved state: %s; state: %s", err, state)
-        #self._loading_persistent_state = False
 
     def get_conf(self) -> Mapping[str, Any]:
         return {

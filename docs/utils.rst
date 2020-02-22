@@ -48,16 +48,21 @@ A complementary pair of conversion routines is provided:
   Partial seconds are formatted to 3 decimal places.
 
 
-Clock related constants
-=======================
+Clock and calendar related constants
+====================================
 
-Seconds per day, hour, minute (integers):
 
 .. module:: edzed.utils.tconst
 
 .. data:: SEC_PER_DAY
           SEC_PER_HOUR
           SEC_PER_MIN
+
+    Seconds per day, hour, minute (integers).
+
+.. data:: MONTH_NAMES
+
+    English names for months 1 to 12, e.g. ``MONTH_NAMES[3]`` is ``"March"``.
 
 
 Improved asyncio.shield

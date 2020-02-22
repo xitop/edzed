@@ -1,176 +1,101 @@
 """
 Periodic events at fixed time/date.
 
-Refer to the edzed documentation.
+- - - - - -
+Docs: https://edzed.readthedocs.io/en/latest/
+Home: https://github.com/xitop/edzed/
 """
-
-import asyncio
-import bisect
-import collections
-from dataclasses import dataclass
-import logging
-import time
 
 from .. import addons
 from .. import block
+from .. import cron
 from .. import simulator
-from ..utils import tconst
 from ..utils import timeinterval
 
-__all__ = ['TimeDate', 'TimeDateUTC']
 
-_logger = logging.getLogger(__package__)
-
-
-# HMS is an abbreviation for clock time hour:minute:second
-# MD stands for month and day, i.e. a date within a year
-# see edzed.utils.timeinterval for details
-
-_MAX_TRACKING_ERROR = 2.0   # max. acceptable scheduler's error in seconds, must be >= 1.0
+__all__ = ['TimeDate']
 
 
-@dataclass(frozen=True)
-class _TimeData:
-    """Time in various represenations."""
-    __slots__ = ['time', 'date', 'weekday', 'subsec']
-    time: timeinterval.HMS
-    date: timeinterval.MD
-    weekday: int
-    subsec: float
+def _get_cron(utc):
+    circuit = simulator.get_circuit()
+    name = '_cron_utc' if utc else '_cron_local'
+    try:
+        return circuit.findblock(name)
+    except KeyError:
+        return cron.Cron(name, utc=utc, _reserved=True)
 
 
-class _TimeDateBase(addons.AddonAsync, block.SBlock):
+class TimeDate(addons.AddonPersistence, block.SBlock):
     """
-    Base class for TimeDate and TimeDateUTC.
+    Block for periodic events at fixed local/UTC time/date.
     """
 
-    _scheduler_task = None
-
-    # subclasses must define working timefunc
-    @classmethod
-    def timefunc(cls, ts):
-        """Convert a UNIX timestamp to struct_time."""
-        raise TypeError(f"{cls.__name__}.timefunc() not defined")
-
-    def __init__(self, *args, times=None, dates=None, weekdays=None, **kwargs):
-        self._times = None if times is None else timeinterval.TimeInterval(times)
-        self._dates = None if dates is None else timeinterval.DateInterval(dates)
-        self._weekdays = None if weekdays is None \
-            else frozenset((int(x, base=8) + 6) % 7 for x in weekdays)
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, times=None, dates=None, weekdays=None, utc=False, **kwargs):
+        self._cron = _get_cron(bool(utc))
+        self._times = self._dates = self._weekdays = None
+        # we build the initdef from times, dates, weekdays in order to simplify the usage
+        if 'initdef' in kwargs:
+            raise TypeError(
+                f"'initdef' is an invalid keyword argument for {type(self).__name__}")
+        initdef = self.parse(times, dates, weekdays)
+        super().__init__(*args, initdef=initdef, **kwargs)
 
     @classmethod
-    def _get_current_time(cls) -> _TimeData:
-        """Return the current time/date."""
-        now = time.time()
-        tstruct = cls.timefunc(now)
-        return _TimeData(
-            time=timeinterval.HMS(tstruct),
-            date=timeinterval.MD(tstruct),
-            subsec=now % 1,     # don't want to import math just for the modf()
-            weekday=tstruct.tm_wday,
-            )
+    def parse(cls, times, dates, weekdays) -> dict:
+        """Return the values in a normalized form."""
+        return cls._export3(*cls._parse3(times, dates, weekdays))
 
-    # pylint: disable=protected-access
-    @classmethod
-    async def _scheduler(cls):
-        """Perform block updates according to the schedule."""
-        alarms = collections.defaultdict(set)
-        # populate with hourly wake-ups for precise time tracking
-        # and early detection of DST changes
-        for hour in range(24):
-            alarms[timeinterval.HMS([hour, 0, 0])]  # pylint: disable=expression-not-assigned
-        newday = timeinterval.HMS([0, 0, 0])
-        for blk in simulator.get_circuit().getblocks(cls):
-            if blk._times is not None:
-                for hms in blk._times.range_starts():
-                    alarms[hms].add(blk)
-                for hms in blk._times.range_ends():
-                    alarms[hms].add(blk)
-            if blk._times is None or blk._dates is not None or blk._weekdays is not None:
-                alarms[newday].add(blk)
-        timetable = sorted(alarms)
-        tlen = len(timetable)
+    @staticmethod
+    def _parse3(times, dates, weekdays):
+        if times is not None:
+            times = timeinterval.TimeInterval(times)
+        if dates is not None:
+            dates = timeinterval.DateInterval(dates)
+        if weekdays is not None:
+            if isinstance(weekdays, str):
+                weekdays = [int(x) for x in weekdays if x != ' ']
+            if not all(0 <= x <= 7 for x in weekdays):
+                raise ValueError(
+                    "Only numbers 0 or 7 (Sun), 1 (Mon), ... 6(Sat) are accepted as weekdays")
+            weekdays = frozenset(0 if x == 7 else x for x in weekdays)
+        return times, dates, weekdays
 
-        clsname = cls.__name__
-        while True:
-            # in outer loop = initialization or reset due to a DST begin/end
-            # or other computer clock related reason
-            now = cls._get_current_time()
-            for blk in set.union(*alarms.values()):    # all instances
-                blk._recalc(now)
-            next_idx = bisect.bisect_right(timetable, now.time)
-            while True:
-                # in inner loop: cycle through the timetable; break out to the outer loop
-                # for a reset if time tracking is not accurate
-                if next_idx == tlen:
-                    next_idx = 0
-                next_hms = timetable[next_idx]
-                _logger.debug("%s: next wakeup at %s", clsname, next_hms)
-                await asyncio.sleep(next_hms.seconds_from(now.time) - now.subsec)
-                now = cls._get_current_time()
-                if now.time != next_hms:
-                    # wrong time!
-                    diff = now.time.seconds_from(next_hms) + now.subsec
-                    if diff > tconst.SEC_PER_DAY / 2:
-                        diff -= tconst.SEC_PER_DAY
-                    # diff > 0 = too late, diff < 0 = too early
-                    _logger.info(
-                        "%s: expected time: %s.000, current time: %s.%s, difference: %.3fs ",
-                        clsname, next_hms, now.time, format(now.subsec, '.3f')[2:], diff)
-                    if abs(diff) > _MAX_TRACKING_ERROR:
-                        _logger.warning("%s: Resetting due to a time tracking error.", clsname)
-                        break
-                    if diff < 0.0:
-                        # too early, everything should be fine after another sleep
-                        continue
-                for blk in alarms[next_hms]:
-                    blk._recalc(now)
-                next_idx += 1
+    @staticmethod
+    def _export3(times, dates, weekdays):
+        return {
+            'times': None if times is None else times.as_list(),
+            'dates': None if dates is None else dates.as_list(),
+            'weekdays': None if weekdays is None else sorted(weekdays),
+        }
 
-    def _recalc(self, now: _TimeData):
+    def get_state(self):
+        return self._export3(self._times, self._dates, self._weekdays)
+
+    def recalc(self, now: cron.TimeData):
         """Update the output."""
+        tnone, dnone, wnone = self._times is None, self._dates is None, self._weekdays is None
         self.set_output(
-            (self._times is None or now.time in self._times)
-            and (self._dates is None or now.date in self._dates)
-            and (self._weekdays is None or now.weekday in self._weekdays))
+            not (tnone and dnone and wnone)
+            and (tnone or now.time in self._times)
+            and (dnone or now.date in self._dates)
+            and (wnone or now.weekday in self._weekdays))
 
-    def start(self):
-        super().start()
-        cls = type(self)
-        if cls._scheduler_task is None:
-            # The first block provides its wrapper to the scheduler
-            # task which is common to all blocks of this type. Fatal
-            # scheduler errors will be reported as belonging to this
-            # first block. That might be little bit misleading, but
-            # hopefully there will be no problems to report.
-            cls._scheduler_task = asyncio.create_task(
-                self._task_wrapper(cls._scheduler(), is_service=True))
+    def _event_reconfig(self, *, times=None, dates=None, weekdays=None, **_data):
+        """Reconfigure the block."""
+        if self._times is not None:
+            for hms in self._times.range_endpoints():
+                self._cron.remove_block(hms, self)
+        self._times, self._dates, self._weekdays = self._parse3(times, dates, weekdays)
+        if self._times is not None:
+            for hms in self._times.range_endpoints():
+                self._cron.add_block(hms, self)
+        # sometimes it is necessary, sometimes not, but it is easier
+        # to always add 0:0:0 than to analyze the arguments
+        self._cron.add_block(timeinterval.HMS([0, 0, 0]), self)
+        self._cron.reload()
+        self.recalc(self._cron.get_current_time())
 
-    def stop(self):
-        cls = type(self)
-        if cls._scheduler_task is not None:
-            # the first stopped block cancels the class-wide scheduler task
-            cls._scheduler_task.cancel()
-            cls._scheduler_task = None
-        super().stop()
+    def init_from_value(self, value):
+        self._event_reconfig(**value)
 
-
-# Implementation note: do not further subclass the subclasses below,
-# because each class manages all its instances (as recognized by
-# isinstance()) and that includes also instances of subclasses.
-
-class TimeDate(_TimeDateBase):
-    """
-    Block for periodic events at fixed local time/date.
-    """
-
-    timefunc = time.localtime
-
-
-class TimeDateUTC(_TimeDateBase):
-    """
-    Block for periodic events at fixed UTC time/date.
-    """
-
-    timefunc = time.gmtime
+    _restore_state = init_from_value

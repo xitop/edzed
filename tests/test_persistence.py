@@ -62,23 +62,6 @@ def test_load_state(circuit):
     assert storage == {inp.key: 3.14}
 
 
-# feature will be removed
-def NO_test_no_output_event(circuit):
-    """Loading persistent state does not generate an ouput event."""
-    mem_p = EventMemory('mem_p')
-    inp_p = edzed.Input('inp_p', persistent=True, on_output=edzed.Event(mem_p))
-    mem_np = EventMemory('mem_np')
-    inp_np = edzed.Input('inp_np', initdef=99, on_output=edzed.Event(mem_np))
-    storage = {inp_p.key: 77}
-    circuit.set_persistent_data(storage)
-    init(circuit)
-
-    assert inp_p.output == 77
-    assert inp_np.output == 99
-
-    assert mem_p.output is None
-    assert mem_np.output == ('put', {'source': 'inp_np', 'previous': edzed.UNDEF, 'value': 99})
-
 def test_no_save_on_error(circuit):
     """Event handling error disables saving of possibly incorrect state."""
     class InputE(edzed.Input):

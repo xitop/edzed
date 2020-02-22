@@ -1,7 +1,9 @@
 """
 FSM blocks for general use.
 
-Refer to the edzed documentation.
+- - - - - -
+Docs: https://edzed.readthedocs.io/en/latest/
+Home: https://github.com/xitop/edzed/
 """
 
 from .. import fsm

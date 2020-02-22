@@ -222,59 +222,165 @@ The output blocks invoke a function in response to a ``'put'`` event.
 Time and date
 =============
 
-.. class:: edzed.TimeDate(*args, times=None, dates=None, weekdays=None, **kwargs)
+Date and time strings
+---------------------
 
-  Block for periodic events at fixed local time/date.
+``edzed`` understands these formats:
 
-  The boolean output is ``True`` only when the current time, date and the weekday all
-  match the given options. Default for an unused option is any time, any
-  date, or any weekday respectively.
+- time (e.g. ``'6:45:00'`` or ``'15:55'``)
+    The time format is H:M:S or just H:M (i.e. H:M:0) with 24 hour clock.
+    Numbers may have one or two digits. The day starts and also ends
+    at midnight ``'0:0:0'``.
 
-  Arguments:
+- date (e.g. ``'April 1'`` or ``'1.apr'``)
 
-  - *times*\="TimeFrom1-TimeTo1, TimeFrom2-TimeTo2, ... TimeFromN-TimeToN"
+    The date is defined as a day and a month in any order, without a year.
 
-      A comma separated list of time intervals. Extra whitespace around
-      time values is allowed. The ranges are left-closed and right-open intervals,
-      i.e. ``TimeFrom`` <= time < ``timeTo``.
+    - day = one or two digits
+    - month = English month name, may be abbreviated to three or more characters.
+      Case insensitive.
+    - one period (full stop) may be appended directly after the day or the month.
 
-      The time format is H:M or H:M:S with 24 hour clock. The day starts and also ends
-      at midnight ``0:0:0``.
+- year (e.g ``'1984'``) usually in addition to the date
 
-      Example:
-        ``times="23:50-01:30, 3:20-5:10"``
+    An integer >= 1970.
 
-  - *dates*\="DateFrom1-DateTo1, DateFrom2-DateTo2, ... DateFromN-DateToN"
+In all cases extra whitespace around values is allowed.
 
-      A comma separated list of date intervals. Extra whitespace
-      around date values is allowed. The ranges are closed intervals,
-      i.e. ``DateFrom`` <= date <= ``DateTo``. As a shortcut, an one day
-      interval (i.e ``DateFrom`` == date == ``DateTo``) can be written
-      as a single date.
+----
 
-      The date format:
+.. class:: edzed.TimeDate(*args, times=None, dates=None, weekdays=None, utc=False, **kwargs)
 
-      - the date consists of day and month in any order;
-        whitespace around items is allowed
-      - day = 1 or 2 digits
-      - month = three letter English acronym in lower, upper or mixed case
-      - one dot may be appended directly after the day or the month
+  Block for periodic events occurring daily, weekly or yearly. A combination
+  of conditions is possible (e.g. Every Monday morning 6-9 a.m., but only in April)
+
+  If *utc* is ``False`` (which is the default), times are in the local timezone.
+  If *utc* is ``True`` times are in UTC.
+
+  The output is a boolean.
+  When *times*, *dates* and *weekdays* are all ``None``, the output is ``False``.
+  To configure the block define at least one of them.
+  The output is then ``True`` only when the current time, date and the weekday
+  match the specified arguments. Unused arguments are not taken into account.
+
+  - *times*
+      A sequence of time intervals. Each interval is given as
+      a ``TimeFrom``, ``TimeTo`` pair. The intervals are left-closed
+      and right-open intervals, i.e. ``TimeFrom`` <= time < ``timeTo``.
+
+      Two input data formats are supported:
+
+      - as a human readable string:
+
+        A comma separated list of time intervals:
+
+          ``"TimeFrom1-TimeTo1, TimeFrom2-TimeTo2, ... TimeFromN-TimeToN"``
+
+        Example:
+          ``times="23:50-01:30, 3:20-5:10"``
+
+      - as numbers:
+
+        A sequence (typically a list or tuple) of time intervals.
+
+        Example (same values as above):
+          ``times=[[[23,50],[1,30]], [[3,20],[5,10]]]``
+
+  - *dates*
+      A comma separated list of date intervals. The ranges are closed intervals,
+      i.e. ``DateFrom`` <= date <= ``DateTo``.
+
+      - as a string:
+
+        A comma separated list of date intervals:
+
+          ``"DateFrom1-DateTo1, DateFrom2-DateTo2, ... DateFromN-DateToN"``
+
+        As a shortcut, an one day interval (i.e ``DateFrom`` == date == ``DateTo``)
+        can be written as a single date.
+
+        Examples:
+          | ``dates="02Mar-15MAR, 9.july - 20.aug."``
+          | ``dates="Sept1-Sept2, DEC 31 - JAN 05"``
+          | ``dates="May 4"``
+
+      - as numbers:
+
+        A sequence (typically a list or tuple) of date intervals. Dates are always
+        written as a sequence of two numbers: the month (1-12) followed by the day (1-31).
+        The shortcut mentioned in the string representation is not allowed here.
+
+        Examples (same values as above):
+          | ``dates=[[[3,2],[3,15]], [[7,9],[8,20]]]``
+          | ``dates=[[[9,1],[9,2]], [[12,31],[1,5]]]``
+          | ``dates=[[[5,4],[5,4]]]``
+
+
+  - *weekdays*
+      A list of weekday numbers, where:
+
+        0=Sunday, 1=Monday, ... 5=Friday, 6=Saturday, 7=Sunday (same as 0)
+
+        .. note::
+
+          The weekday numbers in the standard library:
+
+          - :func:`time.strftime`:  0 (Sunday) to 6 (Saturday)
+          - :meth:`datetime.date.weekday` and :data:`time.struct_time.wday`: 0 (Monday) to 6 (Sunday)
 
       Examples:
-        | ``dates="02Mar-15MAR, 9.jul. - 20.aug."``
-        | ``dates="Sep1-Sep2, DEC 31 - JAN 05"``
-        | ``dates="May 4"``
 
-  - *weekdays*\="weekdays numbers"
+      - as a string:
 
-      where: 0=Sunday, 1=Monday, ... 5=Friday, 6=Saturday, 7=Sunday (same as 0)
+        | ``weekdays="12345"`` (working days)
+        | ``weekdays="67"``    (the weekend)
 
-      Examples: ``"weekdays=12345"`` for working days, ``weekdays="67"`` for the weekend.
+      - in a numeric form:
+
+        | ``weekdays=[1, 2, 3, 4, 5]``
+        | ``weekdays=[6, 7]``
+
+  .. note::
+
+      Unused arguments are given as ``None``. This is different
+      than an empty string or an empty sequence. An empty value is
+      a valid argument meaning no time or no date or no weekday and
+      such block always outputs ``False``.
+
+  The numeric form of parameters is used internally. Strings are converted
+  to numbers before use. The internal parser is available should the need arise:
+
+  .. classmethod:: parse(times, dates, weekdays) -> dict
+
+      Parse the arguments, return a dict with keys ``'times'``, ``'dates'``, ``'weekdays'``
+      and values in the numeric form, i.e. as lists or nested lists of integers or ``None``.
 
 
-.. class:: edzed.TimeDateUTC
+Dynamic updates
+---------------
 
-  Like :class:`edzed.TimeDate`, but using UTC time/date.
+A :class:`edzed.TimeDate` block can be reconfigured during a simulation
+by a ``'reconfig'`` event with event data containing items
+``'times'``, ``'dates'`` and ``'weekdays'`` with exactly the same format,
+meaning and default values as the block's arguments with the same name.
+The *utc* value is fixed and cannot be changed.
+
+The mentioned three values (processed by :meth:`edzed.TimeDate.parse`) form the
+internal state. They can be retrieved with :meth:`TimeDate.get_state`.
+
+Upon receipt of a ``'reconfig'`` event, the block discards the old settings
+and replaces them with the new values. To modify the settings, retrieve the
+current values, edit them and send an event.
+
+The block supports state persistence. The *persistent* parameter is described
+:ref:`here <Base class arguments>`. Set to ``True`` to make the internal
+state persistent. It is only useful with dynamic updates, that's why it is
+documented here.
+
+If a saved state exists, it has a precedence over the arguments.
+The arguments are only a default value and as such are copied to the
+:data:`TimeDate.initdef` variable. An *initdef* argument is not accepted
+though.
 
 
 Counter

@@ -27,12 +27,11 @@ An FSM block implements several additional features:
   An FSM also defines states and events. Their relationship is:
 
   - FSM state is a part of SBlock's internal state.
-  - event is either an FSM event (processed by the FSM)
-    or a non-FSM event (processed by the underlying SBlock)
-
-    Usually there are no non-FSM events defined, but please note
-    that it is possible to add such events to an FSM. Refer to
-    :meth:`edzed.SBlock._event_ETYPE`
+  - all events are delivered using the :meth:`edzed.SBlock.event` method as in
+    any other sequential block. Usually all events are processed by the FSM code,
+    i.e. they are FSM events, but please note that it is possible to add non-FSM
+    events to be processed by the underlying SBlock and bypassing the FSM.
+    See :meth:`edzed.SBlock._event_ETYPE`.
 
   In this chapter by 'state' and 'event' we usually mean an FSM state
   and an FSM event respectively.
@@ -108,6 +107,9 @@ All states and regular events are represented by a name (string).
 Avoid any special characters in names, because function names are
 derived from them. States and events form two separate namespaces,
 but using the same name for both is discouraged.
+
+The :meth:`event` method returns ``True`` for accepted FSM events
+and ``False`` for rejected FSM events.
 
 .. note::
 
@@ -273,10 +275,8 @@ and may exist as:
 - a method defined in the class, and/or
 - an external callback defined in the instance with ``cond_EVENT=function`` keyword argument
 
-
-``cond_EVENT`` is called without arguments. Read-only access to the
-event data dict is provided through the ``'fsm_event_data'``
-`context variable <https://docs.python.org/3/library/contextvars.html>`_.
+``cond_EVENT`` is called without arguments. :ref:`Access to event data` is
+provided through a context variable.
 
 ``cond_EVENT`` should return a value. If it evaluates to boolean true,
 the ``EVENT`` will be processed. If it evaluates to boolean false,
@@ -312,11 +312,24 @@ The actions may be defined as:
 - methods in the class, and/or
 - external callbacks defined in the instance with a keyword argument
 
-The functions are called without arguments. Read-only
-access to the event data dict is provided through the
-``'fsm_event_data'`` `context variable <https://docs.python.org/3/library/contextvars.html>`_.
+The functions are called without arguments. :ref:`Access to event data` is
+provided through a context variable.
 Note that event data for ``enter_STATE`` and ``exit_STATE`` are not the same,
 but belonging to two distinct events.
+
+
+Access to event data
+--------------------
+
+.. data:: edzed.fsm_event_data
+
+  Read-only access to the current event data dict is provided through the
+  :data:`fsm_event_data`
+  `context variable <https://docs.python.org/3/library/contextvars.html>`_.
+
+  You don't have to be familiar with the context variables, just use this line::
+
+    data = edzed.fsm_event_data.get()
 
 
 Chained state transitions

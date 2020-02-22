@@ -8,12 +8,89 @@ This module defines:
       Intervals support the operation "value in interval".
 """
 
-import abc
+import collections.abc as cabc
 import re
 import time
-from typing import Iterator, Sequence, Union
+from typing import Generator, Sequence, Union
 
 from .tconst import *   # pylint: disable=wildcard-import
+
+
+DAYS = (None, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+# match group 1 = stripped match
+RE_YEAR = re.compile(r'\s*(\d{4,})\s*', flags=re.ASCII)
+RE_MONTH = re.compile(r'\s*([A-Z]{3,})\.?\s*', flags=re.ASCII|re.IGNORECASE)
+RE_TIME = re.compile(r'\s*(\d{1,2}\s*:\s*\d{1,2}(\s*:\s*\d{1,2})?)\s*', flags=re.ASCII)
+RE_DAY = re.compile(r'\s*(\d{1,2})\.?\s*', flags=re.ASCII)
+
+
+def _cut(match):
+    """
+    Cut matched characters from the searched string.
+    Join the remaining pieces with a space.
+    """
+    string, start, end = match.string, match.start(), match.end()
+    if start == 0:
+        return string[end:]
+    if end == len(string):
+        return string[:start]
+    return ' '.join((string[:start], string[end:]))
+
+# pylint: disable=invalid-name
+def _convert2(string, y=False, d=False, t=False):
+    """
+    Convert string to year (if y), month, day (if d), hour, minute, second (if t).
+
+    The result is not fully validated.
+    """
+
+    year = month = day = None
+    hms = (None, None, None)
+    if t:
+        match = RE_TIME.search(string)
+        if not match:
+            raise ValueError("missing time (H:M or H:M:S)")
+        hms = [int(x) for x in match.group(1).split(':')]
+        if len(hms) == 2:
+            hms.append(0)
+        string = _cut(match)
+    if y:
+        match = RE_YEAR.search(string)
+        if not match:
+            raise ValueError("missing year")
+        year = int(match.group(1))
+        if year < 1970:
+            # just a precaution, not a strict requirement
+            raise ValueError(f"year {year} before start of the Unix Epoch 1.1.1970")
+        string = _cut(match)
+    if d:
+        match = RE_MONTH.search(string)
+        if not match:
+            raise ValueError("missing month")
+        name = match.group(1).capitalize()
+        for i in range(1, 13):
+            if MONTH_NAMES[i].startswith(name):
+                month = i
+                break
+        else:
+            raise ValueError(f"invalid month name: {match.group(1)!r}")
+        string = _cut(match)
+    if d:
+        match = RE_DAY.search(string)
+        if not match:
+            raise ValueError("missing day of month")
+        day = int(match.group(1))
+        string = _cut(match)
+    if string:
+        raise ValueError(f"offending part: {string!r}")
+
+    return (year, month, day, *hms)
+
+def _convert(string, *args, **kwargs):
+    try:
+        return _convert2(string, *args, **kwargs)
+    except Exception as err:
+        raise ValueError(f"Could not convert {string!r}: {err}") from None
 
 
 class HMS(tuple):
@@ -54,20 +131,20 @@ class HMS(tuple):
             hms3 = (hours, minutes, seconds)
         else:
             if isinstance(hms, str):
-                hms3 = hms.split(':')
+                hms3 = _convert(hms, t=True)[3:6]
             else:
                 try:
                     hms3 = list(hms)
                 except TypeError:
                     raise TypeError(
                         f"Cannot convert argument of this type: {hms!r}") from None
-            if len(hms3) == 2:
-                hms3.append(0)
-            elif len(hms3) != 3:
-                raise ValueError(f"Invalid time specification: '{hms}'")
-            hms3 = [int(x) for x in hms3]
+                if len(hms3) == 2:
+                    hms3.append(0)
+                elif len(hms3) != 3:
+                    raise ValueError(f"Invalid time specification: '{hms}'")
+                hms3 = [int(x) for x in hms3]
             if not 0 <= hms3[0] < 24 or not 0 <= hms3[1] < 60 or not 0 <= hms3[2] < 60:
-                raise ValueError(f"Invalid time of day: '{hms}'")
+                raise ValueError(f"Time '{hms}' not between 0:0:0 and 23:59:59")
         return super().__new__(cls, hms3)
 
     @property
@@ -117,16 +194,6 @@ class MD(tuple):
     Individual fields are accessible as day and month attributes.
     """
 
-    NAMES = (
-        None,
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')
-    DAYS = (None, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
-    _RE_D = r'(?P<day>[0-9]{1,2})\.?'
-    _RE_M = r'(?P<month>[a-zA-Z]{3})\.?'
-    _RE_S = r'\s*'
-    _RE1 = re.compile(_RE_D + _RE_S + _RE_M)
-    _RE2 = re.compile(_RE_M + _RE_S + _RE_D)
-
     def __new__(cls, md: Union[None, 'MD', time.struct_time, str, Sequence[int]] = None):
         """
         MD() or MD(None) = use the current date
@@ -140,8 +207,8 @@ class MD(tuple):
         letter English acronym in order to avoid ambiguities. The rules:
             - day = 1 or 2 digits
             - month = 3 letters in lower, upper or mixed case
-            - there may be one dot appended directly to the day
-              or the month
+            - there may be one period (full stop) appended
+              directly to the day or the month
             - the date consists of day and month in this or in
               reversed order
             - leading, trailing whitespace and any whitespace between
@@ -157,16 +224,7 @@ class MD(tuple):
             md = (md.tm_mon, md.tm_mday)
         else:
             if isinstance(md, str):
-                md = md.strip()
-                mres = cls._RE1.fullmatch(md) or cls._RE2.fullmatch(md)
-                if mres is None:
-                    raise ValueError(f"Invalid date specification: '{md}'")
-                day = int(mres.group('day'))
-                try:
-                    month = cls.NAMES.index(mres.group('month').capitalize())
-                except ValueError:
-                    raise ValueError(f"Invalid month name: '{mres.group('month')}'") from None
-                md = (month, day)
+                md = month, day = _convert(md, d=True)[1:3]
             else:
                 try:
                     month, day = md
@@ -177,7 +235,7 @@ class MD(tuple):
                     raise ValueError(f"Invalid date specification: {md}") from None
             if not 1 <= month <= 12:
                 raise ValueError(f"Invalid month number: {month}")
-            if not 1 <= day <= cls.DAYS[month]:
+            if not 1 <= day <= DAYS[month]:
                 raise ValueError(f"Invalid day in month number: {day}")
         return super().__new__(cls, md)
 
@@ -191,7 +249,7 @@ class MD(tuple):
 
     def __str__(self):
         """Output format is 'Jun.09'"""
-        return f'{self.NAMES[self.month]}.{self.day:02d}'
+        return f'{MONTH_NAMES[self.month][:3]}.{self.day:02d}'
 
     def __repr__(self):
         cls = type(self)
@@ -200,9 +258,12 @@ class MD(tuple):
 
 SEPCHAR = ','
 RANGECHAR = '-'
-class Interval(metaclass=abc.ABCMeta):
+class _Interval:
     """
-    A list of ranges (subintervals).
+    The common part of TimeInterval and DateInterval.
+
+    Warning: time/date intervals do not follow strict mathematic
+    interval definition.
     """
 
     # https://en.wikipedia.org/wiki/Interval_(mathematics)#Terminology
@@ -210,15 +271,14 @@ class Interval(metaclass=abc.ABCMeta):
     _RCLOSED_INTERVAL = False # are the subintervals also right-closed?
 
     @staticmethod
-    @abc.abstractmethod
-    def _convert(val: str):
+    def _convert(val: Union[str, Sequence]):
         """Convert interval endpoint."""
 
-    def __init__(self, ivalue: Union[None, 'Interval', str] = None):
+    def __init__(self, ivalue: Union[None, '_Interval', str, Sequence] = None):
         """
-        Interval() = empty interval
-        Interval(interval) = copy of interval
-        Interval('string') = converted from a string containing comma
+        _Interval() = empty interval
+        _Interval(interval) = copy of interval
+        _Interval('string') = converted from a string containing comma
             separated ranges:
                 "FROM1-TO1,FROM2-TO2".
             If _RCLOSED_INTERVAL is True a single value is accepted
@@ -226,6 +286,8 @@ class Interval(metaclass=abc.ABCMeta):
                 "FROM1-TO1,VALUE2"
             is equivalent to "FROM1-TO1, VALUE2-VALUE2".
             The input string may contain whitespace around any value.
+        _Interval([[from1, to1], [from2, to2], ...]) = create from
+            a sequence of pairs
         """
         if ivalue is None:
             self._interval = []
@@ -235,9 +297,11 @@ class Interval(metaclass=abc.ABCMeta):
             self._interval = ivalue._interval.copy()
             return
         if isinstance(ivalue, str):
-            interval = []
+            self._interval = []
+            ivalue = ivalue.strip()
+            if not ivalue:
+                return
             for rstr in ivalue.split(SEPCHAR):
-                rstr = rstr.strip()
                 try:
                     split_here = rstr.index(RANGECHAR, 1, -1)
                 except ValueError:
@@ -245,20 +309,20 @@ class Interval(metaclass=abc.ABCMeta):
                         raise ValueError(f"Invalid range '{rstr}'") from None
                     low = high = self._convert(rstr)
                 else:
-                    low = self._convert(rstr[:split_here].rstrip())
-                    high = self._convert(rstr[split_here+1:].lstrip())
-                interval.append((low, high))
-            self._interval = interval
+                    low = self._convert(rstr[:split_here])
+                    high = self._convert(rstr[split_here+1:])
+                self._interval.append((low, high))
+            return
+        if isinstance(ivalue, (cabc.Sequence, cabc.Iterator)):
+            self._interval = [(self._convert(low), self._convert(high)) for low, high in ivalue]
             return
         raise TypeError("Invalid interval value")
 
-    def range_starts(self) -> Iterator:
-        """Return an iterator of all range start values."""
-        return (low for low, high in self._interval)
-
-    def range_ends(self) -> Iterator:
-        """Return an iterator of all range end values."""
-        return (high for low, high in self._interval)
+    def range_endpoints(self) -> Generator:
+        """Yield all range start and stop values."""
+        for low, high in self._interval:
+            yield low
+            yield high
 
     @staticmethod
     def _cmp_open(low, item, high):
@@ -286,6 +350,14 @@ class Interval(metaclass=abc.ABCMeta):
     def __contains__(self, item):
         return any(self._cmp(low, item, high) for low, high in self._interval)
 
+    def as_list(self):
+        """
+        Return the intervals as a nested list of integers.
+
+        The output is suitable as an input argument.
+        """
+        return [[list(low), list(high)] for low, high in self._interval]
+
     def __str__(self):
         def fmt(low, high):
             if self._RCLOSED_INTERVAL and low == high:
@@ -298,7 +370,7 @@ class Interval(metaclass=abc.ABCMeta):
         return f"{cls.__module__}.{cls.__qualname__}('{self}')"
 
 
-class TimeInterval(Interval):
+class TimeInterval(_Interval):
     """
     List of time ranges.
 
@@ -310,10 +382,19 @@ class TimeInterval(Interval):
     """
 
     _RCLOSED_INTERVAL = False
-    _convert = HMS
+    def _convert(self, val):
+        if isinstance(val, int):
+            # HMS can convert int, but in this context it is almost
+            # certainly a result of a malformed input. Compare:
+            #   incorrect: [[h1,m1],[h2,m2]]
+            #   correct:  [[[h1,m1],[h2,m2]]]
+            raise TypeError(
+                f"Expected was [H, M] or [H, M, S], but got an int ({val}); "
+                "check the structure of the input argument")
+        return HMS(val)
 
 
-class DateInterval(Interval):
+class DateInterval(_Interval):
     """
     List of date ranges and single dates.
 

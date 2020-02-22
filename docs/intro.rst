@@ -115,10 +115,10 @@ It does not allow to pass twice nor to pay twice::
 
   class Turnstile(FSM):
       STATES = ['locked', 'unlocked']
-      EVENTS = [ 
+      EVENTS = [
           ['coin', ['locked'], 'unlocked'],
           ['push', ['unlocked'], 'locked'],
-      ]   
+      ]
 
   Turnstile('ts', desc="example turnstile")
 
@@ -129,12 +129,12 @@ Below is a sample output. We will send some events, observe the responses:
 
 - :meth:`event` responds with ``True`` to accepted events and ``False`` to rejected events
 - if an event is accepted, the state changes between ``'locked'`` and ``'unlocked'``;
-  ignore the ``None`` in the state for now (it means no timers).
+  ignore the ``None`` in the state for now (it means no timers)
 - the block's output is always ``False``, you may ignore it too
 
 ::
 
-  $ python3 turnstile.py 
+  $ python3 turnstile.py
 
   Type 'help' to get a summary of available commands.
   --- edzed 0> help
@@ -189,10 +189,10 @@ The final example shows the same turnstile enanced wit two counters::
 
   class Turnstile(FSM):
       STATES = ['locked', 'unlocked']
-      EVENTS = [ 
+      EVENTS = [
           ['coin', ['locked'], 'unlocked'],
           ['push', ['unlocked'], 'locked'],
-      ]   
+      ]
 
   def push_locked_filter(data):
       return data if data['state'] == 'locked' and data['event'] == 'push' else None

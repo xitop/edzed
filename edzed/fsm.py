@@ -1,7 +1,9 @@
 """
 Event driven finite-state machine (FSM) extended with optional timers.
 
-Refer to the edzed documentation.
+- - - - - -
+Docs: https://edzed.readthedocs.io/en/latest/
+Home: https://github.com/xitop/edzed/
 """
 
 import asyncio

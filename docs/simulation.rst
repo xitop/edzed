@@ -264,7 +264,7 @@ Circuit monitoring
 Finding blocks
 --------------
 
-.. method:: Circuit.getblocks(btype: Optional[edzed.Block] = None)
+.. method:: Circuit.getblocks(btype: Optional[edzed.Block] = None) -> Iterator
 
   Return an iterator of all blocks or *btype* blocks only.
 
@@ -347,7 +347,8 @@ Inspecting blocks
 .. attribute:: edzed.Block.x_anyname
 .. attribute:: edzed.Block.X_ANYNAME
 
-  (with any arbitrary name) Reserved for application data, see: :class:`edzed.Block`
+  (with any arbitrary name) Reserved for application data, ignored by ``edzed``.
+  See: :class:`edzed.Block`.
 
 .. data:: edzed.UNDEF
 

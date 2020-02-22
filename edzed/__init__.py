@@ -6,9 +6,13 @@ The edzed package contains:
  - methods for building a circuit by connecting the blocks
  - a simple event-driven zero-delay digital circuit simulator
 
-Written by Vlado Potisk <edzed@poti.sk>.
+- - - - - -
+Copyright (c) 2019-2020 Vlado Potisk <edzed@poti.sk>.
 
 Released under the MIT License.
+
+Docs: https://edzed.readthedocs.io/en/latest/
+Home: https://github.com/xitop/edzed/
 """
 
 # pylint: disable=wildcard-import,undefined-variable

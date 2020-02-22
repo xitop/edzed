@@ -7,7 +7,7 @@ Example: "20h15m10" = 20 hours + 15 minutes + 10 seconds = 72910 seconds
 import re
 from typing import Union
 
-from .tconst import *   # pylint: disable=wildcard-import
+from .tconst import *   # pylint: disable=wildcard-import, unused-wildcard-import
 
 # pylint: disable=invalid-name
 def timestr(seconds: Union[int, float]) -> str:

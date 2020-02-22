@@ -371,14 +371,10 @@ def test_context(circuit):
             assert data['sent_to'] == self.name
             return True
 
-    def add_st(st):
-        def efilter(data):
-            data['sent_to'] = st
-            return data
-        return efilter
-
-    afsm = Simple('A', on_enter_st1=edzed.Event('B', 'ev01', efilter=add_st('B')))
-    bfsm = Simple('B', on_enter_st1=edzed.Event('C', 'ev01', efilter=add_st('C')))
+    afsm = Simple(
+        'A', on_enter_st1=edzed.Event('B', 'ev01', efilter=edzed.DataEdit.add(sent_to='B')))
+    bfsm = Simple(
+        'B', on_enter_st1=edzed.Event('C', 'ev01', efilter=edzed.DataEdit.add(sent_to='C')))
     cfsm = Simple('C')
 
     init(circuit)

@@ -98,7 +98,7 @@ Instructions for creating a new CBlock:
 Input signatures
 ----------------
 
-An input signatures is a :class:`dict` with the following structure:
+An input signature is a :class:`dict` with the following structure:
 
 - key: the input name (string)
     The reserved group name ``'_'`` represents the group of unnamed inputs, if any.
@@ -220,7 +220,7 @@ There are two ways to handle :ref:`events <Events>`:
     def _event_put(self, *, value, **_data):
        ...
 
-2. Do it in the default event handler.
+2. Utilize the default event handler.
 
   .. method:: edzed.SBlock._event(etype, data) -> Any
 
@@ -288,6 +288,11 @@ State related methods
 
   This method *must* be redefined for more complex SBlocks
   to return the real internal state.
+
+  It is recommended that this method produces JSON serializable data,
+  especially when the block supports persistent state.
+  JSON serializable data can be stored or transfered with minimum
+  difficulties.
 
 .. method:: edzed.SBlock.init_regular() -> None
 
@@ -406,6 +411,11 @@ and passes it as an argument.
   Note that :meth:`_restore_state` is sometimes identical with
   :meth:`edzed.SBlock.init_from_value`.
 
+.. attribute:: edzed.SBlock.key
+
+  The persistent dict key associated with this block. It equals the string representation
+  ``str(self)`` - see :meth:`edzed.Block.__str__` - but this may be changed in the future.
+
 
 Async add-on
 ++++++++++++
@@ -423,7 +433,7 @@ Async add-on
 
     A coroutine wrapper delivering exceptions to the simulator.
 
-    Couroutines marked as services (*is_service*  is ``True``) are supposed
+    Coroutines marked as services (*is_service*  is ``True``) are supposed
     to run until cancelled - even a normal exit is treated as an error.
 
     Cancellation is not considered an error, of course.

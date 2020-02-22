@@ -14,6 +14,10 @@ Usage:
     --- end ---
     2. run the demo:
         python3 circuit1.py
+
+- - - - - -
+Docs: https://edzed.readthedocs.io/en/latest/
+Home: https://github.com/xitop/edzed/
 """
 
 import ast

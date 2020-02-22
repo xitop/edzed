@@ -1,7 +1,9 @@
 """
 Circuit blocks.
 
-Refer to the edzed documentation.
+- - - - - -
+Docs: https://edzed.readthedocs.io/en/latest/
+Project home: https://github.com/xitop/edzed/
 """
 
 import abc
@@ -243,12 +245,18 @@ class Block:
     Base class for a circuit building block.
     """
     def __init__(
-            self, name: Optional[str], *, desc: str = "", on_output: EventsArg = (), **kwargs):
+            self,
+            name: Optional[str], *,
+            desc: str = "", on_output: EventsArg = (), _reserved=False, **kwargs):
         """
         Create a block. Add it to the circuit.
         """
-        if name is not None:
+        if name is None:
+            name = "_@" + hex(id(self))[2:]  # id() is unique
+        else:
             checkname(name, "block name")
+            if name.startswith('_') and not _reserved:
+                raise ValueError(f"{name!r} is a reserved name (starting with an underscore")
         self.name = name
         is_cblock = isinstance(self, CBlock)
         is_sblock = isinstance(self, SBlock)

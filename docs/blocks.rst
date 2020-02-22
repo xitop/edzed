@@ -53,7 +53,7 @@ Regardless of type, every block has the following properties:
   application data.
 
   Overview of common attributes and methods,
-  more details can be found :ref:`here<Inspecting blocks>`:
+  more details can be found :ref:`here <Inspecting blocks>`:
 
   .. attribute:: name
     :noindex:
@@ -75,10 +75,14 @@ Regardless of type, every block has the following properties:
 
     Boolean, enable :ref:`logging<Circuit block debug messages>` of block's debugging information.
 
-  .. method:: get_conf()
+  .. method:: get_conf
     :noindex:
 
     Return static block information such as the name and type.
+
+  .. method:: __str__
+
+    The string representation of a block is ``"<Type 'name'>"``.
 
 
 Combinational blocks
