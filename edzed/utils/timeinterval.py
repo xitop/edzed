@@ -36,8 +36,9 @@ def _cut(match):
         return string[:start]
     return ' '.join((string[:start], string[end:]))
 
+
 # pylint: disable=invalid-name
-def _convert2(string, y=False, d=False, t=False):
+def _ydt_convert(string, y=False, d=False, t=False):
     """
     Convert string to year (if y), month, day (if d), hour, minute, second (if t).
 
@@ -59,9 +60,6 @@ def _convert2(string, y=False, d=False, t=False):
         if not match:
             raise ValueError("missing year")
         year = int(match.group(1))
-        if year < 1970:
-            # just a precaution, not a strict requirement
-            raise ValueError(f"year {year} before start of the Unix Epoch 1.1.1970")
         string = _cut(match)
     if d:
         match = RE_MONTH.search(string)
@@ -86,11 +84,38 @@ def _convert2(string, y=False, d=False, t=False):
 
     return (year, month, day, *hms)
 
-def _convert(string, *args, **kwargs):
+
+def ydt_convert(string, *args, **kwargs):
     try:
-        return _convert2(string, *args, **kwargs)
+        return _ydt_convert(string, *args, **kwargs)
     except Exception as err:
         raise ValueError(f"Could not convert {string!r}: {err}") from None
+
+
+def _validate(y=None, md=None, hms=None):
+    if y is not None:
+        if y < 1970:
+            # just a precaution, not a strict requirement
+            raise ValueError(f"year {y} before start of the Unix Epoch (January 1, 1970)")
+    if md is not None:
+        month, day = md
+        if not 1 <= month <= 12:
+            raise ValueError(f"Invalid month number: {month}")
+        if not 1 <= day <= DAYS[month]:
+            raise ValueError(f"Invalid day in month number: {day}")
+    if hms is not None:
+        # leap second H:M:60 is accepted
+        if not 0 <= hms[0] < 24 or not 0 <= hms[1] < 60 or not 0 <= hms[2] <= 60:
+            raise ValueError(f"Time {hms} not between 0:0:0 and 23:59:59")
+
+
+def _to_intlist(seq):
+    try:
+        return [int(x) for x in seq]
+    except TypeError:
+        raise TypeError(f"Cannot convert this type: '{seq!r}'")
+    except ValueError:
+        raise ValueError(f"Cannot convert this value: '{seq}'")
 
 
 class HMS(tuple):
@@ -108,13 +133,13 @@ class HMS(tuple):
             cls,
             hms: Union[None, 'HMS', time.struct_time, int, str, Sequence[int]] = None):
         """
-        HMS() or HMS(None) = use the current time of day
+        HMS() or HMS(None) = use the current local time of day
         HMS(hms) = return the existing instance
         HMS(time.struct_time) = use the provided time
         HMS(integer) = convert the seconds counted from midnight 00:00:00
         HMS(string) = convert from "HH:MM" or "HH:MM:SS" format
-        HMS(iterable with 2 elements) = use as hours and minutes value
-        HMS(iterable with 3 elements) = use as hours, minutes, and seconds
+        HMS(iterable with 2 elements) = use as hour and minute value
+        HMS(iterable with 3 elements) = use as hour, minute, and second
                                         (avoid unordered iterables)
         """
         if isinstance(hms, cls):
@@ -131,20 +156,14 @@ class HMS(tuple):
             hms3 = (hours, minutes, seconds)
         else:
             if isinstance(hms, str):
-                hms3 = _convert(hms, t=True)[3:6]
+                hms3 = ydt_convert(hms, t=True)[3:6]
             else:
-                try:
-                    hms3 = list(hms)
-                except TypeError:
-                    raise TypeError(
-                        f"Cannot convert argument of this type: {hms!r}") from None
+                hms3 = _to_intlist(hms)
                 if len(hms3) == 2:
                     hms3.append(0)
                 elif len(hms3) != 3:
                     raise ValueError(f"Invalid time specification: '{hms}'")
-                hms3 = [int(x) for x in hms3]
-            if not 0 <= hms3[0] < 24 or not 0 <= hms3[1] < 60 or not 0 <= hms3[2] < 60:
-                raise ValueError(f"Time '{hms}' not between 0:0:0 and 23:59:59")
+            _validate(hms=hms3)
         return super().__new__(cls, hms3)
 
     @property
@@ -177,7 +196,7 @@ class HMS(tuple):
         return sec + SEC_PER_DAY if sec < 0 else sec
 
     def __str__(self):
-        return '{0[0]:02d}:{0[1]:02d}:{0[2]:02d}'.format(self)
+        return f"{self.hour:02d}:{self.minute:02d}:{self.second:02d}"
 
     def __repr__(self):
         cls = type(self)
@@ -196,7 +215,7 @@ class MD(tuple):
 
     def __new__(cls, md: Union[None, 'MD', time.struct_time, str, Sequence[int]] = None):
         """
-        MD() or MD(None) = use the current date
+        MD() or MD(None) = use the current local date
         MD(md) = return the existing instance
         MD(time.struct_time) = use the provided date
         MD(string) = convert from a string
@@ -217,27 +236,21 @@ class MD(tuple):
             09.Jun   9.jun.   9JUN   09 Jun   Jun9   JUN 09   Jun.9.
         """
         if isinstance(md, cls):
+            # OK, it is immutable
             return md
         if md is None:
             md = time.localtime()
         if isinstance(md, time.struct_time):
-            md = (md.tm_mon, md.tm_mday)
+            md2 = (md.tm_mon, md.tm_mday)
         else:
             if isinstance(md, str):
-                md = month, day = _convert(md, d=True)[1:3]
+                md2 = ydt_convert(md, d=True)[1:3]
             else:
-                try:
-                    month, day = md
-                except TypeError:
-                    raise TypeError(
-                        f"Cannot convert argument of this type: {md!r}") from None
-                except ValueError:
-                    raise ValueError(f"Invalid date specification: {md}") from None
-            if not 1 <= month <= 12:
-                raise ValueError(f"Invalid month number: {month}")
-            if not 1 <= day <= DAYS[month]:
-                raise ValueError(f"Invalid day in month number: {day}")
-        return super().__new__(cls, md)
+                md2 = _to_intlist(md)
+                if len(md) != 2:
+                    raise ValueError(f"Invalid month, day specification: '{md}'")
+            _validate(md=md2)
+        return super().__new__(cls, md2)
 
     @property
     def month(self) -> int:
@@ -250,6 +263,78 @@ class MD(tuple):
     def __str__(self):
         """Output format is 'Jun.09'"""
         return f'{MONTH_NAMES[self.month][:3]}.{self.day:02d}'
+
+    def __repr__(self):
+        cls = type(self)
+        return f"{cls.__module__}.{cls.__qualname__}('{self}')"
+
+
+class YDT(tuple):
+    """
+    YDT stands for year, date (as in MD) and time (as in HMS).
+    It is a 6-tuple of integers: (year, month, date, hour, minute, second).
+
+    It can be directly compared with other tuples of the same format.
+
+    Individual fields are accessible as attributes.
+    """
+
+    def __new__(cls, ydt: Union[None, 'YDT', time.struct_time, str, Sequence[int]] = None):
+        """
+        YDT() or YDT(None) = use the current local date and time
+        YDT(ydt) = return the existing instance
+        YDT(time.struct_time) = use the provided time
+        YDT(string) = convert from a string
+        YDT(iterable with 5 elements) = use as year, month, day, hour and minute value
+        YDT(iterable with 6 elements) = use as year, ... second
+                                        (avoid unordered iterables)
+        """
+        if isinstance(ydt, cls):
+            # OK, it is immutable
+            return ydt
+        if ydt is None:
+            ydt = time.localtime()
+        if isinstance(ydt, time.struct_time):
+            ydt6 = tuple(ydt[0:6])
+        else:
+            if isinstance(ydt, str):
+                ydt6 = ydt_convert(ydt, y=True, d=True, t=True)
+            else:
+                ydt6 = _to_intlist(ydt)
+                if len(ydt6) == 5:
+                    ydt6.append(0)
+                elif len(ydt6) != 6:
+                    raise ValueError(f"Invalid date and time specification: '{ydt}'")
+                _validate(y=ydt6[0], md=ydt6[1:3], hms=ydt6[3:6])
+        return super().__new__(cls, ydt6)
+
+    @property
+    def year(self) -> int:
+        return self[0]
+
+    @property
+    def month(self) -> int:
+        return self[1]
+
+    @property
+    def day(self) -> int:
+        return self[2]
+
+    @property
+    def hour(self) -> int:
+        return self[3]
+
+    @property
+    def minute(self) -> int:
+        return self[4]
+
+    @property
+    def second(self) -> int:
+        return self[5]
+
+    def __str__(self):
+        return f"{self.year} {MONTH_NAMES[self.month][:3]}.{self.day:02d} " \
+               f"{self.hour:02d}:{self.minute:02d}:{self.second:02d}"
 
     def __repr__(self):
         cls = type(self)
@@ -374,9 +459,7 @@ class TimeInterval(_Interval):
     """
     List of time ranges.
 
-    Times are in 24-hour clock and HH:MM or HH:MM:SS format (leading
-    zero is optional, i.e. 01:05 and 1:5 are equivalent). Example:
-        23:50-01:30, 3:20-5:10
+    See the HMS class for time formats.
 
     The whole day is 00:00 - 00:00.
     """
@@ -398,11 +481,24 @@ class DateInterval(_Interval):
     """
     List of date ranges and single dates.
 
-    See the MD class for date formats, e.g.
-        May1-May15, 31.Dec
-
-    The whole year is 1.jan - 31.dec.
+    See the MD class for date formats.
     """
 
     _RCLOSED_INTERVAL = True
     _convert = MD
+
+
+class DateTimeInterval(_Interval):
+    """
+    List of date+time ranges.
+
+    See the YDT class.
+    """
+
+    _RCLOSED_INTERVAL = False
+    _convert = YDT
+
+    @staticmethod
+    def _cmp_open(low, item, high):
+        """Compare function for non-repeating intervals."""
+        return low <= item < high

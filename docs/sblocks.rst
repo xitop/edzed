@@ -247,7 +247,9 @@ Date and time strings
 
 In all cases extra whitespace around values is allowed.
 
-----
+
+Periodic events
+---------------
 
 .. class:: edzed.TimeDate(*args, times=None, dates=None, weekdays=None, utc=False, **kwargs)
 
@@ -266,7 +268,7 @@ In all cases extra whitespace around values is allowed.
   - *times*
       A sequence of time intervals. Each interval is given as
       a ``TimeFrom``, ``TimeTo`` pair. The intervals are left-closed
-      and right-open intervals, i.e. ``TimeFrom`` <= time < ``timeTo``.
+      and right-open intervals, i.e. ``TimeFrom`` <= time < ``TimeTo``.
 
       Two input data formats are supported:
 
@@ -356,8 +358,7 @@ In all cases extra whitespace around values is allowed.
       and values in the numeric form, i.e. as lists or nested lists of integers or ``None``.
 
 
-Dynamic updates
----------------
+**Dynamic updates**
 
 A :class:`edzed.TimeDate` block can be reconfigured during a simulation
 by a ``'reconfig'`` event with event data containing items
@@ -377,9 +378,86 @@ The block supports state persistence. The *persistent* parameter is described
 state persistent. It is only useful with dynamic updates, that's why it is
 documented here.
 
-If a saved state exists, it has a precedence over the arguments.
+If a saved state exists, it has higher precedence than the arguments.
 The arguments are only a default value and as such are copied to the
 :data:`TimeDate.initdef` variable. An *initdef* argument is not accepted
+though.
+
+
+Non-periodic events
+-------------------
+
+.. class:: edzed.TimeSpan(*args, span=(), utc=False, **kwargs)
+
+  Block for non-periodic events occurring in intervals between start and stop
+  defined with full date and time, i.e. year, month, day, hour, minute and second.
+  Any number of intervals can be specified, including zero.
+
+  If *utc* is ``False`` (which is the default), times are in the local timezone.
+  If *utc* is ``True`` times are in UTC.
+
+  The output is a boolean and it is ``True`` when the current time and date are inside
+  of any of the intervals.
+
+  The *span* argument is a sequence of intervals. Each interval is given as
+  a ``DateTimeFrom``, ``DateTimeTo`` pair. The intervals are left-closed
+  and right-open intervals, i.e. ``DateTimeFrom`` <= date_time < ``DateTimeTo``.
+
+  Two input data formats are supported:
+
+  - as a human readable string:
+
+    A comma separated list of intervals. Each endpoint must contain the year, the date
+    and the time in any order:
+
+      ``"DateTimeFrom1-DateTimeTo1, ... DateTimeFromN-DateTimeToN"``
+
+      Example::
+
+        span="2020 March 1 12:00 - 2020 March 7 18:30," \
+             "10:30 Oct. 10 2020 - 22:00 Oct.10 2020"
+
+  - a numeric form:
+
+    A sequence (typically a list or tuple) of time intervals.
+
+    Example (same values as above). The seconds may be omitted if it zero::
+
+      span=[
+        [[2020,  3,  1, 12,  0],    [2020,  3,  7, 18, 30]   ],
+        [[2020, 10, 10, 10, 30, 0], [2020, 10, 10, 22,  0, 0]],
+        ]
+
+  The numeric form of parameters is used internally. A string is converted
+  with this parser:
+
+
+  .. classmethod:: parse(span) -> list
+
+      Parse the *span* and return a list of intervals, where each interval
+      is defined by a pair of lists with 6 integers [year, month, day, hour, minute, second].
+
+**Dynamic updates**
+
+A :class:`edzed.TimeSpan` block can be reconfigured during a simulation
+by a ``'reconfig'`` event with event data containing a ``'span'`` item
+with exactly the same format, meaning and default value as the block's
+*span* argument. The *utc* value is fixed and cannot be changed.
+
+The *span* value (processed by :meth:`edzed.TimeSpan.parse`) forms the internal state.
+It can be retrieved with :meth:`TimeSpan.get_state`.
+
+Upon receipt of a ``'reconfig'`` event, the block discards the old settings
+and replaces them with the new values. To modify the settings, retrieve the
+current values, edit them and send an event.
+
+The block supports state persistence. The *persistent* parameter is described
+:ref:`here <Base class arguments>`. Set to ``True`` to make the internal
+state persistent.
+
+If a saved state exists, it has higher precedence than the arguments.
+The arguments are only a default value and as such are copied to the
+:data:`TimeSpan.initdef` variable. An *initdef* argument is not accepted
 though.
 
 

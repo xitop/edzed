@@ -5,6 +5,7 @@ Test the TimeDate block as much as possible in short time.
 # pylint: disable=missing-docstring, no-self-use, protected-access
 # pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
 # pylint: disable=wildcard-import, unused-wildcard-import
+# pylint: disable=bad-whitespace
 
 import asyncio
 import time
@@ -24,7 +25,7 @@ pytest_plugins = ('pytest_asyncio',)
 @pytest.mark.asyncio
 async def test_null(circuit):
     null = edzed.TimeDate('null')
-    empty = edzed.TimeDate('empty', dates='', times='', weekdays=[])
+    empty = edzed.TimeDate('empty', dates=' ', times='', weekdays=[])
     asyncio.create_task(circuit.run_forever())
     await circuit.wait_init()
     assert not null.output
@@ -37,9 +38,9 @@ async def test_null(circuit):
 @pytest.mark.asyncio
 async def test_args(circuit):
     kwargs = {
-        'dates': [[[6, 21], [12, 20]]],
-        'times': [[[1, 30, 0], [2, 45, 0]], [[17, 1, 10], [17, 59, 10]]],
-        'weekdays': [1, 5],
+        'dates': [[[6,21], [12,20]]],
+        'times': [[[1,30,0], [2,45,0]], [[17,1,10], [17,59,10]]],
+        'weekdays': [1,5],
     }
     td_str = edzed.TimeDate(
         'str_args', dates='21.jun-20.dec', times='1:30-2:45, 17:01:10-17:59:10', weekdays='15')
@@ -186,7 +187,7 @@ async def test_cron(circuit):
     assert td.get_state() == {'times': None, 'dates': None, 'weekdays': None}
     assert td.initdef == tinit
 
-    conf = {'times': [[[20, 20, 0], [8, 30, 0]]], 'dates': None, 'weekdays': [4]}
+    conf = {'times': [[[20,20,0], [8,30,0]]], 'dates': None, 'weekdays': [4]}
     tdu.event('reconfig', **conf)
     assert cronu.event('get_schedule') == {
         '00:00:00': {'utc'}, '08:30:00': {'utc'}, '20:20:00': {'utc'}}
@@ -198,9 +199,9 @@ def test_parse():
     parse = edzed.TimeDate.parse
     assert parse(None, None, None) == {'times': None, 'dates': None, 'weekdays': None}
     assert parse("17:0:30-18:14", "Nov30", "134") == {
-        'times': [[[17, 0, 30], [18, 14, 0]]],
-        'dates': [[[11, 30], [11, 30]]],
-        'weekdays': [1, 3, 4]
+        'times': [[[17,0,30], [18,14,0]]],
+        'dates': [[[11,30], [11,30]]],
+        'weekdays': [1,3,4]
         }
 
 

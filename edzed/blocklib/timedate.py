@@ -13,7 +13,7 @@ from .. import simulator
 from ..utils import timeinterval
 
 
-__all__ = ['TimeDate']
+__all__ = ['TimeDate', 'TimeSpan']
 
 
 def _get_cron(utc):
@@ -27,7 +27,7 @@ def _get_cron(utc):
 
 class TimeDate(addons.AddonPersistence, block.SBlock):
     """
-    Block for periodic events at fixed local/UTC time/date.
+    Block for periodic events at given time/date.
     """
 
     def __init__(self, *args, times=None, dates=None, weekdays=None, utc=False, **kwargs):
@@ -76,9 +76,10 @@ class TimeDate(addons.AddonPersistence, block.SBlock):
         tnone, dnone, wnone = self._times is None, self._dates is None, self._weekdays is None
         self.set_output(
             not (tnone and dnone and wnone)
-            and (tnone or now.time in self._times)
-            and (dnone or now.date in self._dates)
-            and (wnone or now.weekday in self._weekdays))
+            and (tnone or now.hms in self._times)
+            and (dnone or timeinterval.MD(now.tstruct) in self._dates)
+            # convert 0-6 (Mon-Sun) to 0-6 (Sun-Sat)
+            and (wnone or (now.tstruct.tm_wday + 1) % 7 in self._weekdays))
 
     def _event_reconfig(self, *, times=None, dates=None, weekdays=None, **_data):
         """Reconfigure the block."""
@@ -97,5 +98,52 @@ class TimeDate(addons.AddonPersistence, block.SBlock):
 
     def init_from_value(self, value):
         self._event_reconfig(**value)
+
+    _restore_state = init_from_value
+
+
+class TimeSpan(addons.AddonPersistence, block.SBlock):
+    """
+    Block active between start and stop time/date.
+    """
+
+    def __init__(self, *args, span=(), utc=False, **kwargs):
+        self._cron = _get_cron(bool(utc))
+        self._span = timeinterval.DateTimeInterval(())
+        # we build the initdef
+        if 'initdef' in kwargs:
+            raise TypeError(
+                f"'initdef' is an invalid keyword argument for {type(self).__name__}")
+        initdef = self.parse(span)
+        super().__init__(*args, initdef=initdef, **kwargs)
+
+    @classmethod
+    def parse(cls, span) -> list:
+        """Return the value in a normalized form."""
+        return timeinterval.DateTimeInterval(span).as_list()
+
+    def get_state(self):
+        return self._span.as_list()
+
+    def recalc(self, now: cron.TimeData):
+        """Update the output."""
+        self.set_output(timeinterval.YDT(now.tstruct) in self._span)
+
+    def _event_reconfig(self, *, span=(), **_data):
+        """Reconfigure the block."""
+        for ydt in self._span.range_endpoints():
+            self._cron.remove_block(timeinterval.HMS(ydt[3:6]), self)
+        self._span = timeinterval.DateTimeInterval(span)
+        now = self._cron.get_current_time()
+        now_ymd = tuple(now.tstruct[0:3])
+        for ydt in self._span.range_endpoints():
+            if ydt[0:3] >= now_ymd:
+                # future events only
+                self._cron.add_block(timeinterval.HMS(ydt[3:6]), self)
+        self._cron.reload()
+        self.recalc(now)
+
+    def init_from_value(self, value):
+        self._event_reconfig(span=value)
 
     _restore_state = init_from_value

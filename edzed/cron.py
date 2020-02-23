@@ -29,10 +29,9 @@ _MAX_TRACKING_ERROR = 2.0   # max. acceptable scheduler's error in seconds, must
 @dataclass(frozen=True)
 class TimeData:
     """Time in various represenations."""
-    __slots__ = ['time', 'date', 'weekday', 'subsec']
-    time: timeinterval.HMS
-    date: timeinterval.MD
-    weekday: int
+    __slots__ = ['hms', 'tstruct', 'subsec']
+    hms: timeinterval.HMS
+    tstruct: time.struct_time
     subsec: float
 
 
@@ -76,6 +75,8 @@ class Cron(addons.AddonMainTask, block.SBlock):
         """
         if not hasattr(blk, 'recalc'):
             raise TypeError("{blk} is not compatible with the cron internal service")
+        if not isinstance(hms, timeinterval.HMS):
+            raise TypeError(f"argument 'hms': expected an HMS object, got {hms!r}")
         if hms in self._alarms:
             self._alarms[hms].add(blk)
         else:
@@ -105,10 +106,9 @@ class Cron(addons.AddonMainTask, block.SBlock):
         now = time.time()
         tstruct = self._timefunc(now)
         return TimeData(
-            time=timeinterval.HMS(tstruct),
-            date=timeinterval.MD(tstruct),
+            hms=timeinterval.HMS(tstruct),
+            tstruct=tstruct,
             subsec=now % 1,     # don't want to import math just for the modf()
-            weekday=(tstruct.tm_wday + 1) % 7,  # convert 0-6 (Mon-Sun) to 0-6 (Sun-Sat)
             )
 
     async def _maintask(self):
@@ -126,7 +126,7 @@ class Cron(addons.AddonMainTask, block.SBlock):
             if reload:
                 timetable = sorted(set.union(set(self._alarms), SET24))
                 tlen = len(timetable)
-            next_idx = bisect.bisect_left(timetable, now.time)
+            next_idx = bisect.bisect_left(timetable, now.hms)
             reset = reload = False
             while True:
                 # in inner loop: cycle through the timetable; break out to the outer loop
@@ -136,7 +136,7 @@ class Cron(addons.AddonMainTask, block.SBlock):
                 next_hms = timetable[next_idx]
                 self.log("next wakeup at %s", next_hms)
                 now = self.get_current_time()
-                sleeptime = next_hms.seconds_from(now.time) - now.subsec
+                sleeptime = next_hms.seconds_from(now.hms) - now.subsec
                 try:
                     await asyncio.wait_for(self._queue.get(), sleeptime)
                 except asyncio.TimeoutError:
@@ -145,16 +145,16 @@ class Cron(addons.AddonMainTask, block.SBlock):
                     reload = True
                     break
                 now = self.get_current_time()
-                if now.time != next_hms:
+                if now.hms != next_hms:
                     # wrong time!
-                    diff = now.time.seconds_from(next_hms) + now.subsec
+                    diff = now.hms.seconds_from(next_hms) + now.subsec
                     if diff > tconst.SEC_PER_DAY / 2:
                         diff -= tconst.SEC_PER_DAY
                     # diff > 0 = too late, diff < 0 = too early
                     reset = abs(diff) > _MAX_TRACKING_ERROR
                     self.warn(
                         "expected time: %s.000, current time: %s.%s, difference: %.3fs ",
-                        next_hms, now.time, format(now.subsec, '.3f')[2:], diff)
+                        next_hms, now.hms, format(now.subsec, '.3f')[2:], diff)
                     if reset:
                         self.warn("Resetting due to a time tracking error.")
                         break

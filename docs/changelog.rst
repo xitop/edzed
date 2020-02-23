@@ -3,6 +3,11 @@ Changelog
 =========
 
 
+2020.2.24
+=========
+
+- :class:`edzed.TimeSpan` was added
+
 2020.2.23
 =========
 
