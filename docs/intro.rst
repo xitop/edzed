@@ -182,7 +182,7 @@ Below is a sample output. We will send some events, observe the responses:
   state: ('locked', None)
   --- edzed 7>
 
-The final example shows the same turnstile enanced wit two counters::
+The final example shows the same turnstile enhanced with two counters::
 
   import asyncio
   from edzed import FSM, Counter, Event, OutputFunc, demo

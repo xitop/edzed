@@ -120,6 +120,9 @@ class Cron(addons.AddonMainTask, block.SBlock):
             # - reset: DST begin/end or other computer clock related reason
             # - reload: self._alarms has changed
             now = self.get_current_time()
+            if now.tstruct.tm_year < 2020:
+                # this software did not exist back then
+                raise RuntimeError("System clock is not set correctly.")
             if reset:
                 for blk in set.union(*self._alarms.values()):    # all blocks
                     blk.recalc(now)

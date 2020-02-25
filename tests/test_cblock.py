@@ -78,11 +78,12 @@ def test_missing_funcblock_inputs(circuit):
             'test4', desc='a3 name unexpected', func=lambda a1, a2: None
             ).connect(a1=1, a2=2, a3=3),
         ]
-    init(circuit)
+
+    circuit._init_connections()
 
     for blk in errblks:
-        with pytest.raises(TypeError, match="argument"):
-            blk.eval_block()
+        with pytest.raises(TypeError, match="does not match the connected inputs"):
+            blk.start()
 
 
 def test_input_by_name(circuit):

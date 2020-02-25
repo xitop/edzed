@@ -6,6 +6,8 @@ Docs: https://edzed.readthedocs.io/en/latest/
 Home: https://github.com/xitop/edzed/
 """
 
+import inspect
+
 from .. import block
 
 __all__ = ['Invert', 'FuncBlock', 'Compare', 'Override']
@@ -39,6 +41,18 @@ class FuncBlock(block.CBlock):
         if self._unpack:
             return self._func(*args, **kwargs)
         return self._func(args, **kwargs)
+
+    def start(self):
+        try:
+            func = self._func
+            self._func = inspect.signature(func).bind
+            self._eval()
+        except TypeError as err:
+            raise TypeError(
+                f"function {func.__qualname__} does not match the connected inputs: {err}")
+        finally:
+            self._func = func
+        super().start()
 
 
 class Compare(block.CBlock):

@@ -3,6 +3,13 @@ Changelog
 =========
 
 
+2020.2.25
+=========
+
+- :class:`edzed.FuncBlock` now checks if the function signature
+  is compatible with the connected inputs. This helps to find
+  an error more quickly.
+
 2020.2.24
 =========
 

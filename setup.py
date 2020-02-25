@@ -20,7 +20,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='edzed',
-    version='2020.2.24',
+    version='2020.2.25',
     description='A library for building small automated systems',
     long_description=long_description,
     long_description_content_type="text/markdown",
