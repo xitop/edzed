@@ -107,7 +107,7 @@ of the regular simulator.
 ----
 
 Let's test :ref:`this turnstile <FSM Example>`. It allows one person
-to pass by pushing, but only if it was unlocked with a coin.
+to pass by pushing it, but only if it was unlocked with a coin.
 It does not allow to pass twice nor to pay twice::
 
   import asyncio

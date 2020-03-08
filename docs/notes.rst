@@ -8,12 +8,10 @@ The project:
 - ``edzed`` was written by Vlado Potisk, a software developer from Slovakia.
 - Any help with the documentation is appreciated, especially with the English language
   and grammar.
-- Release numbering scheme is date based: ``YYYY.MM.DD`` (PEP-440 compliant)
+- Release numbering scheme is date based: ``year-2000.month.day`` (PEP-440 compliant)
 
 The development:
 
-- The development is done in a private git repository, we publish on github
-  when there is an important change in the code or several small changes.
 - We may make backward incompatible changes.
 - We will reject requests to add new blocks except for really useful general purpose blocks
   with functionality not easily obtainable with existing blocks.

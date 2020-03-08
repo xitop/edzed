@@ -27,7 +27,6 @@ building of a new one.
   .. warning::
 
     A process restart is preferred over the circuit reset.
-
     A new process guarantees a clear state.
 
     A reset relies on the quality of cleanup routines. It cannot

@@ -3,7 +3,7 @@ Circuit simulation
 ==================
 
 The simulator computes block outputs when any of the inputs changes,
-dispatches events, and detects errors.
+dispatches events and detects errors.
 
 The main object is a ``Circuit`` instance representing the current circuit.
 
@@ -110,7 +110,7 @@ Starting a simulation
   ``asyncio.create_task`` does not start the new task::
 
     circuit = edzed.get_circuit()
-    asyncio.create_task(run_forever())
+    asyncio.create_task(circuit.run_forever())
     # the task is created, but not started yet;
     # asyncio.sleep suspends the current task, allowing other tasks to run
     await asyncio.sleep(0)

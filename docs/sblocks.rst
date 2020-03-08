@@ -545,7 +545,7 @@ Simulator control block
 
  - ``'error'``
     Stop the simulation due to an error. An ``'error'`` item
-    must be present in the event data, its value could be an :exc:`Exception`
+    must be present in the event data, its value can be an :exc:`Exception`
     object or just an error message.
 
  There is no reason to have more than one control block in an circuit.
