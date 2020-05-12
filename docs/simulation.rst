@@ -52,15 +52,14 @@ Skip this step if this feature is not required.
   Persistent data storage must be set before the simulation starts.
 
   The *persistent_dict* must be ready to use. If it needs to be closed
-  after use in some way, the application is responsible for that. It could
-  automatize the cleanup with `atexit <https://docs.python.org/3/library/atexit.html>`_.
+  after use, the application is responsible for that. The cleanup could
+  be performed automatically with `atexit <https://docs.python.org/3/library/atexit.html>`_.
 
 
 Starting a simulation
 =====================
 
 .. method:: Circuit.run_forever()
-
   :async:
 
   .. important::
@@ -117,16 +116,15 @@ Starting a simulation
     # OK, the circuit can now receive events
 
 .. method:: Circuit.wait_init() -> None
-
   :async:
 
   Wait until a running circuit is fully initialized.
 
   The simulation task must be started or at least created.
 
-  :meth:`wait_init()` returns when all blocks are initialized and
+  :meth:`wait_init` returns when all blocks are initialized and
   the simulation is running. If this state is not reachable
-  (e.g. the simulation task has finished already), :meth:`wait_init()` raises
+  (e.g. the simulation task has finished already), :meth:`wait_init` raises
   an :exc:`edzed.EdzedInvalidState` error.
 
 
@@ -170,14 +168,13 @@ A running simulation can be stopped only by cancellation of the simulation task:
     when a condition is met.
 
 .. method:: Circuit.shutdown() -> None
-
   :async:
 
   If the simulation task is still running, stop the simulation by canceling
   the task and wait until it finishes. Return normally when the task was cancelled.
   Otherwise the exception that stopped the simulation is raised.
 
-  It is an error to await :meth:`shutdown()`:
+  It is an error to await :meth:`shutdown`:
 
   - if the simulator task was not started
   - from within the simulator task itself

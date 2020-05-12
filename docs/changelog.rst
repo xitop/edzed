@@ -2,6 +2,8 @@
 Changelog
 =========
 
+Version numbers are based on the release date (Y.M.D).
+
 20.3.8
 ======
 
@@ -39,6 +41,6 @@ Changelog
 - The :class:`edzed.TimeDate` now supports dynamic updates.
 
 2020.2.11
-=========
+---------
 
 First public release.

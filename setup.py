@@ -20,7 +20,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='edzed',
-    version='20.3.8',
+    version='20.5.13',
     description='A library for building small automated systems',
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -36,6 +36,10 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
     ],
+    project_urls={
+        'Source': 'https://github.com/xitop/edzed',
+        'Documentation': 'https://edzed.readthedocs.io/en/latest/',
+    },
 
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().

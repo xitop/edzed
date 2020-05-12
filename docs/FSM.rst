@@ -359,8 +359,8 @@ looks like a straightforward S1 -> S3 transition.
 Output
 ======
 
-The output value is set in :meth:`_eval` method which is called during a state
-transition after ``enter_STATE`` action and before ``on_enter_STATE``
+The output value is set in the :meth:`FSM._eval` method which is called during
+a state transition after ``enter_STATE`` action and before ``on_enter_STATE``
 and ``on_output`` events:
 
 .. method:: FSM._eval

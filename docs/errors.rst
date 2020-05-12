@@ -82,5 +82,5 @@ and one to events.
       Because event delivery is synchronous, the only possible cause for this exception
       is the forbidden loop described above.
 
-    Exception from the rule: A FSM may send one event to itself under specific circumstances
+    Exception from the rule: An FSM may send one event to itself under specific circumstances
     described in :ref:`chained state transitions<Chained state transitions>`.

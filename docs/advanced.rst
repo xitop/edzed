@@ -404,7 +404,7 @@ and passes it as an argument.
 .. method:: edzed.SBlock._restore_state(state: Any) -> None
   :abstractmethod:
 
-  Initialize by restoring the *state* (presumably created by :meth:`get_state()`)
+  Initialize by restoring the *state* (presumably created by :meth:`get_state`)
   and the corresponding output.
 
   Note that :meth:`_restore_state` is sometimes identical with
@@ -427,7 +427,6 @@ Async add-on
   This class also implements a helper for general use:
 
   .. method:: _task_wrapper(coro: Awaitable, is_service: bool = False) -> Any
-
     :async:
 
     A coroutine wrapper delivering exceptions to the simulator.
@@ -438,7 +437,6 @@ Async add-on
     Cancellation is not considered an error, of course.
 
 .. method:: edzed.SBlock.init_async()
-
   :async:
 
   Optional async initialization coroutine, define only when needed.
@@ -467,7 +465,6 @@ Async add-on
     the value.
 
 .. method:: edzed.SBlock.stop_async()
-
   :async:
 
   Optional async cleanup coroutine, define only when needed.
@@ -505,7 +502,6 @@ Main task add-on
 
   .. method:: _maintask()
     :abstractmethod:
-
     :async:
 
     The task coroutine.

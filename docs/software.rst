@@ -23,8 +23,8 @@ the ``--user`` option.
 
 Install from PyPi (recommended) with::
 
-  pip3 install --upgrade edzed
+  python3 -m pip install --upgrade edzed
 
 Alternatively install from github with::
 
-  pip3 install --upgrade git+https://github.com/xitop/edzed.git
+  python3 -m pip install --upgrade git+https://github.com/xitop/edzed.git
