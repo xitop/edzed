@@ -71,6 +71,23 @@ class DataEdit:
     def __init__(self, func):
         self._func = func
 
+    def __getattribute__(self, name):
+        """
+        Disallow chaining of edit functions.
+
+        Without this check, expressions similar to this one:
+            DataEdit.add(key1).delete(key2)
+        would be valid code, but wouldn't work as expected. Only the
+        last operation will be performed. We better disallow this
+        type of usage entirely.
+        """
+        attr = super().__getattribute__(name)   # raises if attr not found
+        if not name.startswith('_'):
+            # hide the filter functions in instances, the class must be the only source
+            raise AttributeError(
+                f"'{type(self).__name__}' object does not allow access to attribute '{name}'")
+        return attr
+
     @classmethod
     def add(cls, **kwargs):
         """Add key=value pairs. Existing values wil be overwritten."""
@@ -105,6 +122,20 @@ class DataEdit:
         """Copy data[src] to data[dst]."""
         def _edit(data):
             data[dst] = data[src]
+            return data
+        return cls(_edit)
+
+    REJECT = object()
+
+    @classmethod
+    def modify(cls, key, func):
+        """Apply the func to a value identified by key."""
+        def _edit(data):
+            current = data[key]
+            replacement = func(current)
+            if replacement is cls.REJECT:
+                return None
+            data[key] = replacement
             return data
         return cls(_edit)
 

@@ -158,7 +158,7 @@ A running simulation can be stopped only by cancellation of the simulation task:
       except Exception as err:
           print(f"simulation error {err}")
 
-  - A simpler alternative is to use :meth:`circuit.shutdown`.
+  - A simpler alternative is to use :meth:`Circuit.shutdown`.
     It cancels the simulation task and waits
     until it terminates just like the code above.
 

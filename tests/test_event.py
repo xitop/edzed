@@ -251,34 +251,47 @@ def test_filter_pipe(circuit):
     assert dest.output == ('put', {'source': 'src', 'value': 'V', 'new': 'XYZ??'})
 
 
+def test_no_chained_edit():
+    """Chaining of event data edit functions is disallowed."""
+    with pytest.raises(AttributeError):
+        edzed.DataEdit.add(a=0).delete('b')
+    with pytest.raises(AttributeError):
+        edzed.DataEdit.permit('a', 'b').add(c=1).require('d')
+
+
 def test_dataedit_filter(circuit):
     """Test the DataEdit helper."""
-    def new_X(data):
-        return {'new': 'X', **data}
-    def add_Y(data):
-        return {**data, 'new': data['new'] + 'Y'}
-    def add_Z(data):
-        # modify in place
-        data['new'] += 'Z'
-        return data
-    def add_qmark(data):
-        return {**data, 'new': data['new'] + '?'}
-    def del_previous(data):
-        del data['previous']
-        return data
+    def check(expected):
+        def _check(data):
+            assert data == expected
+            return data
+        return _check
 
     src = edzed.Input(
         'src',
         on_output=edzed.Event(
             'dest',
             efilter=(
+                edzed.not_from_undef,
+                check({'previous': None, 'source': 'src', 'value': 'V'}),
                 edzed.DataEdit.copy('value', 'saved'),
+                check({'previous': None, 'source': 'src', 'value': 'V', 'saved': 'V'}),
                 edzed.DataEdit.add(a=1, b=2, c=3),
+                check(
+                    {'previous': None, 'source': 'src', 'value': 'V', 'saved': 'V',
+                     'a': 1, 'b': 2, 'c': 3}),
                 edzed.DataEdit.permit('source', 'saved', 'a'),
+                check({'source': 'src', 'saved': 'V', 'a': 1}),
                 edzed.DataEdit.copy('saved', 'value'),
+                check({'source': 'src', 'saved': 'V', 'value': 'V', 'a': 1}),
                 edzed.DataEdit.default(saved='NO'),
+                check({'source': 'src', 'saved': 'V', 'value': 'V', 'a': 1}),
                 edzed.DataEdit.delete('saved'),
+                check({'source': 'src', 'value': 'V', 'a': 1}),
+                edzed.DataEdit.modify('a', lambda x: x+50),
+                check({'source': 'src', 'value': 'V', 'a': 51}),
                 edzed.DataEdit.default(saved='YES'),
+                check({'source': 'src', 'saved': 'YES', 'value': 'V', 'a': 51}),
                 edzed.DataEdit.default(saved='MAYBE'),
             )),
         initdef=None)
@@ -286,7 +299,8 @@ def test_dataedit_filter(circuit):
     init(circuit)
 
     src.put('V')
-    assert dest.output == ('put', {'source': 'src', 'value': 'V', 'a': 1, 'saved': 'YES'})
+    assert dest.output == ('put', {'source': 'src', 'value': 'V', 'a': 51, 'saved': 'YES'})
+
 
 def test_edge_detector_from_undef(circuit):
     """Test the edge detector's parameters u_rise, u_fall."""
@@ -367,7 +381,7 @@ def test_not_from_undef(circuit):
     init(circuit)
 
     assert src.output == 1
-    assert dest.output is None  # UNDEF -> new value suppressed by the filter
+    assert dest.output is None  # UNDEF -> 1 suppressed by the filter
     src.put(3)
     assert src.output == 3
     assert dest.output == 3
@@ -394,6 +408,7 @@ def test_delta(circuit):
         src.put(num)
     assert trace == [0, 2, 3.71, 6, 8, 15, 12]
     assert dest.output == 12
+
 
 def test_event_handlers(circuit):
     """test event_ETYPE."""

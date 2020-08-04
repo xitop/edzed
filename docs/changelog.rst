@@ -4,6 +4,11 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+20.8.4
+======
+
+- The :func:`edzed.DataEdit.modify` event filter was added.
+
 20.3.8
 ======
 

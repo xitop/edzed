@@ -76,6 +76,26 @@ List of :ref:`event filters<Event filters>`.
 
     Delete all items *except* the given keys.
 
+  .. classmethod:: modify(key, func)
+
+    Modify an event data value using the *func*.
+
+    The *key* must be present in the event data.
+    The corresponding value is replaced by the return value
+    of the function *func*: ``data[key] = func(data[key])``.
+
+    As a special case, if the function returns the :const:`DataEdit.REJECT`
+    constant, the event will be rejected.
+
+    Examples::
+
+      # convert a numeric value to a readable text
+      table = {0: "red", 1: "green", 2: "blue"}
+      efilter=edzed.DataEdit.modify('color', table.__getitem__)
+
+      # enforce an upper limit of 100.0
+      efilter=edzed.DataEdit.modify('value', lambda v: min(v, 100.0))
+
 ----
 
 .. note::
