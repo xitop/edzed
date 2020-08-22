@@ -9,12 +9,12 @@ Project home: https://github.com/xitop/edzed/
 import abc
 import collections.abc as cabc
 from dataclasses import dataclass
+import difflib
 import logging
 from typing import Any, Callable, Iterable, Mapping, Optional, Sequence, Tuple, Union
 import weakref
 
 from .exceptions import EdzedError, EdzedInvalidState
-from .utils import corrections
 
 
 __all__ = [
@@ -140,7 +140,7 @@ class Event:
         elif not isinstance(etype, EventType):
             raise TypeError(f"event type must be a string or EventType, but got {etype!r}")
 
-    # TODO in Python3.8+ (see Block.event for an explanation):
+    # TODO in Python3.8+ (see SBlock.event for an explanation):
     #   def send(self, source: 'Block', /, **data) -> bool:
     # pylint: disable=no-method-argument, protected-access
     def send(*args, **data) -> bool:
@@ -468,9 +468,9 @@ class CBlock(Block, metaclass=abc.ABCMeta):
             if unexpected:
                 subparts = []
                 for name in unexpected:
-                    suggestions = corrections.suggest_corrections(name, missing)
+                    suggestions = difflib.get_close_matches(name, missing, n=3)
                     if suggestions:
-                        top3 = ' or '.join(repr(s) for s in suggestions[:3])
+                        top3 = ' or '.join(repr(s) for s in suggestions)
                         subparts.append(f"{name!r} (did you mean {top3} ?)")
                     else:
                         subparts.append(repr(name))

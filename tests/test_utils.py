@@ -9,7 +9,6 @@ import time
 
 import pytest
 
-from edzed.utils import corrections
 from edzed.utils import tconst
 from edzed.utils import timeunits
 from edzed.utils import timeinterval
@@ -32,17 +31,17 @@ def test_compare_logs(circuit):
             [(0, 'start'), (22, 'String')]) # s vs S in string
     # delta_abs tests
     compare_logs(
-        [(3, 'start'), (15, 'x')],          # tlog (test)
+        [(0, 'start'), (15, 'x')],          # tlog (test)
         [(0, 'start'), (10, 'x')],          # slog (standard)
         delta_abs=5, delta_rel=0)
-    with pytest.raises(AssertionError, match="15 is not approx. 10"):
+    with pytest.raises(AssertionError, match="15 is way above expected 10"):
         compare_logs(
-            [(3, 'start'), (15, 'x')],
+            [(0, 'start'), (15, 'x')],
             [(0, 'start'), (10, 'x')],
             delta_abs=4, delta_rel=0)       # NOT 5 < 4 ms
-    with pytest.raises(AssertionError, match="8.5 is not approx. 10"):
+    with pytest.raises(AssertionError, match="8.5 is way below expected 10"):
         compare_logs(
-            [(3, 'start'), (8.5, 'x')],     # negative difference -> 1/5 of delta
+            [(0, 'start'), (8.5, 'x')],     # negative difference -> 1/5 of delta
             [(0, 'start'), (10, 'x')],
             delta_abs=4, delta_rel=0)       # NOT 1.5 < 0.8 (1/5 of 4) ms
     # delta_rel tests
@@ -50,12 +49,12 @@ def test_compare_logs(circuit):
         [(490, 'y')],
         [(460, 'y')],
         delta_abs=0, delta_rel=0.10)        # 6.5% < 10%
-    with pytest.raises(AssertionError, match="is not approx."):
+    with pytest.raises(AssertionError):
         compare_logs(
             [(490, 'y')],
             [(460, 'y')],
             delta_abs=0, delta_rel=0.05)    # 6.5% < 5%
-    with pytest.raises(AssertionError, match="is not approx."):
+    with pytest.raises(AssertionError):
         compare_logs(
             [(460, 'y')],                  # negative difference -> 1/5 of delta
             [(490, 'y')],
@@ -82,14 +81,6 @@ def test_timelogger_marks(circuit):
     time.sleep(0.05)
     logger.stop()
     logger.compare([(0, '--start--'), (50, '--stop--')])
-
-
-def test_suggest_corrections():
-    corr = corrections.suggest_corrections
-    assert corr('Some Word', ('same word', 'Sane world', 'snake wrap', 'silent wasp')) == \
-        ['same word', 'Sane world']
-    assert corr('Eggplant', {'Pear', 'Peach', 'apple', 'grapefruit'}) == []
-    assert corr('EgPlant', ['eggplant']) == ['eggplant']
 
 
 def test_tconst():

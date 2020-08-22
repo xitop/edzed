@@ -89,14 +89,14 @@ async def test_undef(circuit):
         func=acq,
         interval=0.03,
         on_output=edzed.Event(logger))
-    timelimit(0.22, error=False)
+    timelimit(0.23, error=False)
     # --- time 0.000:
     # Timelogger starts
     # ValuePoll polls for the first time, receives UNDEF, remains uninitialized
     # --- time 0.030:
     # ValuePoll polls for the second time, receives 2, is now initialized (init_async)
-    # timelimit timer starts counting its 0.220
-    # --- time 0.250:
+    # timelimit timer starts counting its 0.230
+    # --- time 0.260:
     # timelimit stops the circuit
 
     try:

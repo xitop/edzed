@@ -4,6 +4,13 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+20.8.23
+=======
+
+- Tiny code and documentation cleanup.
+- tests: asyncio warnings were fixed.
+- tests: timing tests were modified in order to reduce false negative results.
+
 20.8.4
 ======
 
@@ -17,6 +24,9 @@ Version numbers are based on the release date (Y.M.D).
   Sorry for the inconvenience.
 
 ----
+
+Releases with old version numbering
+===================================
 
 .. note::
 

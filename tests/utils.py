@@ -46,24 +46,28 @@ def compare_logs(tlog, slog, delta_abs=10, delta_rel=0.1):
 
     The allowed negative difference is only 1/5 of the allowed positive
     difference, because due to CPU load and overhead the tlog is
-    expected to lag behind the slog, not outrun it.
+    expected to lag behind the slog, and not to outrun it.
 
     delta_abs is in milliseconds (10 = +10/-2 ms difference allowed),
     delta_rel is a ratio (0.1 = +10/-2 % difference allowed),
-    the timestamp values must pass at least one delta test.
+    the timestamp values must pass the combined delta.
+
+    Timestamp 0.0 (expected value) is not checked at all,
+    because most false negatives were caused by startup
+    delays.
     """
     for (tts, tmsg), (sts, smsg) in itertools.zip_longest(tlog, slog, fillvalue=(_FILL, None)):
         assert tts is not _FILL, f"Missing: {(sts, smsg)}"
         assert sts is not _FILL, f"Extra: {(tts, tmsg)}"
         assert tmsg == smsg, f"data: {(tts, tmsg)} does not match {(sts, smsg)}"
-        if sts is None:
-            continue    # no value to compare with
-        if -delta_abs/5 <= (tts - sts) <= delta_abs:
-            continue    # absolute difference OK
-        if sts != 0 and -delta_rel/5 <= (tts/sts - 1.0) <= delta_rel:
-            continue    # relative difference OK
-        assert False, f"timestamps: {tts} is not approx. {sts} " \
-            "(timing tests may produce a false negative under high load!)"
+        if sts is None or sts == 0:
+            continue
+        if (tts - delta_abs)/sts > 1.0 + delta_rel:
+            assert False, f"timestamps: {tts} is way above expected {sts} " \
+            "(please repeat; timing tests may produce a false negative under high load!)"
+        if (tts + delta_abs/5)/sts < 1.0 - delta_rel/5:
+            assert False, f"timestamps: {tts} is way below expected {sts} " \
+            "(please repeat; timing tests may produce a false negative under high load!)"
 
 
 DEFAULT_SELECT = lambda data: data.get('value')
@@ -125,6 +129,26 @@ def timelimit(limit, error):
         )
 
 
+class _FakeSimTask:
+    """
+    A fake asyncio task that can be cancelled (and nothing else).
+
+    The usage of _FakeSimTask in init() below prevents these warnings:
+      - coroutine ... was never awaited
+      - Task was destroyed but it is pending!
+    """
+    def __init__(self):
+        self._cancelled = False
+
+    def cancel(self):
+        self._cancelled = True
+
+    def cancelled(self):
+        return self._cancelled
+
+    done = cancelled
+
+
 def init(circ):
     """
     Initialize circuit for testing without requiring asyncio.
@@ -133,7 +157,7 @@ def init(circ):
     with the regular simulator.
     """
     # code from Circuit.run_forever()
-    circ._simtask = asyncio.get_event_loop().create_task(asyncio.sleep(999))    # fake simtask
+    circ._simtask = _FakeSimTask()
     circ.sblock_queue = asyncio.Queue()
     circ._resolve_events()
     circ._init_connections()

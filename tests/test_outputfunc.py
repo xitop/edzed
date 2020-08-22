@@ -16,7 +16,7 @@ from .utils import *
 
 
 pytest_plugins = ('pytest_asyncio',)
-pytestmark = pytest.mark.asyncio    # mark all tests
+pytestmark = pytest.mark.asyncio
 
 
 async def output_func(circuit, *, log, v2=2, **kwargs):

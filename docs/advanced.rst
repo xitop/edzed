@@ -225,7 +225,7 @@ There are two ways to handle :ref:`events <Events>`:
 
     :meth:`_event` will be called for events without a specialized event handler.
 
-    Return value :const:`NotImplemented` indicate an unknown event type. Return
+    Return :const:`NotImplemented` to indicate an unknown event type. Return
     anything else for recognized event types.
 
     Example::
@@ -235,7 +235,7 @@ There are two ways to handle :ref:`events <Events>`:
               # handle event ying here
               return None
 
-          if etype == 'ying':
+          if etype == 'yang':
               # handle event yang here
               return None
 
