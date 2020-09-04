@@ -258,6 +258,13 @@ Example: debug all blocks except Inputs::
 Circuit monitoring
 ==================
 
+.. warning::
+
+  All values related to blocks' input and output connections and internal state
+  are valid only after the simulation start. Accessing these data before this
+  point gives undefined results.
+
+
 Finding blocks
 --------------
 
@@ -279,11 +286,6 @@ Finding blocks
 
 Inspecting blocks
 -----------------
-
-.. note::
-
-  Values related to input and output connections are available only
-  after the simulation start.
 
 .. method:: edzed.Block.get_conf() -> dict
 
@@ -376,19 +378,19 @@ Inspecting SBlocks
 Inspecting CBlocks
 ^^^^^^^^^^^^^^^^^^
 
-.. attribute:: edzed.SBlock.iconnections
+.. attribute:: edzed.CBlock.iconnections
 
-  Set of all blocks connected to inputs.
+  A set of all blocks connected to inputs.
 
-.. attribute:: edzed.SBlock.input
+.. attribute:: edzed.CBlock.input
 
-  Block's input connections as a :class:dict:. Dict keys
-  are input names, dict values are either single blocks or tuples
+  Block's input connections as a :class:`dict`, where keys
+  are input names and values are either single blocks or tuples
   of blocks for input groups. The structure directly corresponds
   to parameters given to :meth:`edzed.CBlock.connect`.
 
-  The same data, but with block names, can be obtained with
-  :meth:`Block.get_conf`, extract the ``'inputs'`` value
-  from the result.
+  The same data, but with block names instead of block objects,
+  can be obtained with :meth:`edzed.Block.get_conf`; extract
+  the ``'inputs'`` value from the result.
 
 .. seealso:: :ref:`Input signatures`

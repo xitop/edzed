@@ -156,8 +156,10 @@ class Event:
             raise EdzedError(f"event destination {self.dest} is not in the current circuit")
         data['source'] = source.name
         for efilter in self._filters:
-            data = efilter(data)
-            if not isinstance(data, dict):
+            retval = efilter(data)
+            if isinstance(retval, dict):
+                data = retval
+            elif not retval:
                 source.log(f"Not sending event {self} (rejected by a filter)")
                 return False
         dest = self.dest

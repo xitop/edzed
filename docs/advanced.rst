@@ -81,7 +81,7 @@ Instructions for creating a new CBlock:
   :meth:`stop` is called when the circuit simulation has finished.
 
   By definition CBlocks do not require cleanup, so :meth:`stop`
-  is usually not used. A possible use-case might be for instance retrieval
+  is usually not used. A possible use-case might be processing
   of some gathered statistics data.
 
   Note that if an error occurs during circuit initialization,
@@ -254,7 +254,7 @@ The :meth:`edzed.SBlock.event` is responsible for:
 
 .. note::
 
-  Note the different ways the event data is passed to a handler::
+  Note the different ways the event data is passed to a handler (it is intentional)::
 
     def _event_ETYPE(self, **data):  # as keyword args
     def _event(self, etype, data):   # as a dict

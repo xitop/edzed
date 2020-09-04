@@ -203,7 +203,7 @@ def test_no_circular_init_by_event(circuit):
 def test_filter(circuit):
     """Test event filter."""
     def even_numbers_only(data):
-        return None if data.get('value', 1) % 2 else data
+        return data.get('value', 1) % 2 == 0
 
     dest = edzed.Input('dest', initdef=None)
     src = edzed.Input('src', on_output=edzed.Event(dest, efilter=even_numbers_only), initdef=0)

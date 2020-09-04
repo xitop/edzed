@@ -255,12 +255,14 @@ listed below until one of the steps succeeds to initialize the block.
 
 Each block defines only those steps that are appropriate.
 
-1. asynchronous initialization routine (subject to *init_timeout*);
+1. by the asynchronous initialization routine defined in the block's class
+   (subject to *init_timeout* parameter);
    this step is skipped if an incoming event is pending
-2. from persistent data
-3. regular initialization routine
-4. from the *initdef* value
-5. initialization by an incoming event triggered by
+2. from saved persistent data
+3. by the regular (i.e. not async) initialization routine
+   defined in the block's class
+4. from the *initdef* parameter
+5. as a result of an incoming event triggered by
    other circuit block's initialization
 
    .. note:: An incoming event is always processed.
@@ -268,7 +270,7 @@ Each block defines only those steps that are appropriate.
       rely on the side effect of setting the internal
       state.
 
-The simulation fails if any block remain uninitialized.
+The simulation fails if any block remains uninitialized.
 
 
 Events
@@ -415,19 +417,28 @@ It's the conditional event simplifying the block-to-block event delivery:
   where the ``value`` is taken from the event data item ``'value'``.
   Missing ``value`` is evaluated as ``False``, i.e. ``efalse`` is selected.
 
-  ``None`` as *etrue* or *efalse* means no event in this case.
+  ``None`` as *etrue* or *efalse* means no event in that case.
 
 Event filters
 ^^^^^^^^^^^^^
 
-Event filters serve two purposes. As the name suggests, they can filter out an event,
-i.e. cancel its delivery. The second use is to modify the filter data.
+Event filters serve two purposes. As the name suggests, they can filter out
+an event, i.e. cancel its delivery. The second use is to modify the filter data.
 
 An event filter function is called with the event data
-as its sole argument (i.e. as a :class:`dict`). If it returns a dict, the returned
-dict becomes the new event data. It is O.K. to return the same
-dict modified in-place. If the function returns anything other
-than a dict, the event will be filtered out.
+as its sole argument (i.e. as a :class:`dict`).
+
+- If it returns a :class:`dict`, the event is accepted and the returned
+  dict becomes the new event data.
+
+- If the function returns anything else than a :class:`dict` instance,
+  the event will be accepted or rejected depending on the boolean value
+  of the returned value (true = accept, false (e.g. ``False`` or ``None``) = reject).
+
+  .. versionchanged:: 20.9.5
+     every non-dict return value did mean a reject in previous releases.
+
+Event filters may modify the event data in-place.
 
 Multiple filters are called in their definition order like a *pipeline*.
 

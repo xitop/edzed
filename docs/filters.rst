@@ -78,6 +78,8 @@ List of :ref:`event filters<Event filters>`.
 
   .. classmethod:: modify(key, func)
 
+    .. versionadded:: 20.8.4
+
     Modify an event data value using the *func*.
 
     The *key* must be present in the event data.

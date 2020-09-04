@@ -40,12 +40,12 @@ class Edge:
         previous = data['previous']
         if previous is block.UNDEF:
             if self._urise if value else self._ufall:
-                return data
+                return True
         else:
             previous = bool(previous)
             if (not previous and self._rise) if value else (previous and self._fall):
-                return data
-        return None
+                return True
+        return False
 
 
 class Delta:
@@ -60,8 +60,8 @@ class Delta:
         value = data['value']
         if self._last is block.UNDEF or abs(self._last - value) >= self._delta:
             self._last = value
-            return data
-        return None
+            return True
+        return False
 
 
 class DataEdit:

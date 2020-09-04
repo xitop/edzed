@@ -475,9 +475,9 @@ Initialization rules
 
 During initialization, i.e. when the very first state is entered:
 
-- ``exit_STATE`` is not executed, because there is no ``STATE`` to exit
+- ``exit_STATE`` is not executed, because there is no ``STATE`` to exit.
 - ``cond_EVENT`` is not executed, because the first state needs
-  to be entered unconditionally
+  to be entered unconditionally.
 - ``enter_STATE`` and ``on_enter_STATE`` are executed except when
   initializing from saved (persistent) state. Initialization
   from persistent state is considered a restoration of a state that was

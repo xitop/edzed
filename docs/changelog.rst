@@ -4,10 +4,15 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+20.9.5
+======
+
+- :ref:`Event filters`: (incompatible change) the meaning of the returned value
+  was altered
+
 20.8.23
 =======
 
-- Tiny code and documentation cleanup.
 - tests: asyncio warnings were fixed.
 - tests: timing tests were modified in order to reduce false negative results.
 

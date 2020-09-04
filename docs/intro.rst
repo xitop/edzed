@@ -195,7 +195,7 @@ The final example shows the same turnstile enhanced with two counters::
       ]
 
   def push_locked_filter(data):
-      return data if data['state'] == 'locked' and data['event'] == 'push' else None
+      return data['state'] == 'locked' and data['event'] == 'push'
 
   def p_coins(cnt):
       print(f"[ coins paid: {cnt} ]")

@@ -9,7 +9,7 @@ class Turnstile(FSM):
     ]
 
 def push_locked_filter(data):
-    return data if data['state'] == 'locked' and data['event'] == 'push' else None
+    return data['state'] == 'locked' and data['event'] == 'push'
 
 def p_coins(cnt):
     print(f"[ coins paid: {cnt} ]")
@@ -27,4 +27,5 @@ Turnstile(
 )
 
 if __name__ == '__main__':
+    print("Documentation: https://edzed.readthedocs.io/en/latest/intro.html#cli-demo-tool\n")
     asyncio.run(demo.run_demo())
