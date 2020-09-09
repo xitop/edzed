@@ -160,7 +160,7 @@ def init(circ):
     circ._simtask = _FakeSimTask()
     circ.sblock_queue = asyncio.Queue()
     circ._resolve_events()
-    circ._init_connections()
+    circ.finalize()
     for blk in circ.getblocks():
         blk.start()
     # code from Circuit._init_sblocks_sync()

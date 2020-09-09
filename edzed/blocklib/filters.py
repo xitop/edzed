@@ -18,13 +18,14 @@ _logger = logging.getLogger(__package__)
 
 def not_from_undef(data):
     """Filter out the initial change from UNDEF to the first real value."""
-    return None if data.get('previous', block.UNDEF) is block.UNDEF else data
+    return data.get('previous', block.UNDEF) is not block.UNDEF
 
 
 class Edge:
     """
     Event filter for logical values.
     """
+
     def __init__(self, rise=False, fall=False, u_rise=None, u_fall=False):
         self._rise = bool(rise)
         self._fall = bool(fall)
@@ -52,6 +53,7 @@ class Delta:
     """
     Event filter for numeric values.
     """
+
     def __init__(self, delta):
         self._delta = delta
         self._last = block.UNDEF
@@ -68,6 +70,7 @@ class DataEdit:
     """
     Modify the event data.
     """
+
     def __init__(self, func):
         self._func = func
 

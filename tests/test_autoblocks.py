@@ -26,7 +26,7 @@ def test_invert(circuit):
     with pytest.raises(KeyError):
         circuit.findblock('_not_src')
     init(circuit)
-    # _not_src was just created automatically by _init_connections()
+    # _not_src was just created automatically by finalize()
     assert sum(1 for blk in circuit.getblocks()) == 5
     invert = circuit.findblock('_not_src')
 

@@ -1,3 +1,5 @@
+.. currentmodule:: edzed
+
 ============================
 List of combinational blocks
 ============================
@@ -7,7 +9,7 @@ Only block specific properties are documented here. For common features
 refer to the :ref:`previous chapter <Common features>`.
 
 
-.. class:: edzed.FuncBlock(*args, func, unpack: bool = True, **kwargs)
+.. class:: FuncBlock(*args, func, unpack: bool = True, **kwargs)
 
   Create a circuit block from a regular Python function *func*.
 
@@ -17,7 +19,7 @@ refer to the :ref:`previous chapter <Common features>`.
     possible functionality a corresponding custom function can be written.
     All other combinational blocks exist just for convenience.
 
-  Inputs as defined by :meth:`edzed.CBlock.connect`'s positional
+  Inputs as defined by :meth:`CBlock.connect`'s positional
   and keyword arguments will be passed to the function as its respective
   positional and keyword arguments. The return value of *func*
   is the block's output.
@@ -28,12 +30,12 @@ refer to the :ref:`previous chapter <Common features>`.
   :func:`any` (logical OR), :func:`sum`, etc.
 
 
-.. class:: edzed.Invert(*args, **kwargs)
+.. class:: Invert(*args, **kwargs)
 
   Boolean negation (logical NOT). This block has one unnamed input.
 
 
-.. class:: edzed.Compare(*args, low, high, **kwargs)
+.. class:: Compare(*args, low, high, **kwargs)
 
   A comparator with hysteresis.
 
@@ -50,7 +52,7 @@ refer to the :ref:`previous chapter <Common features>`.
   and ``False`` in the opposite case.
 
 
-.. class:: edzed.Override(*args, null_value=None, **kwargs)
+.. class:: Override(*args, null_value=None, **kwargs)
 
   Either pass input to output unchanged or override it with a value.
 

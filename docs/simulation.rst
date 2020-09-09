@@ -1,3 +1,5 @@
+.. currentmodule:: edzed
+
 ==================
 Circuit simulation
 ==================
@@ -5,32 +7,74 @@ Circuit simulation
 The simulator computes block outputs when any of the inputs changes,
 dispatches events and detects errors.
 
-The main object is a ``Circuit`` instance representing the current circuit.
+The main object is a :class:`Circuit` instance representing the current circuit.
+
+A new circuit is empty. Circuit blocks and their interconnections
+must be created before the circuit simulation.
+
+The simulation itself is executed by an asynchronous coroutine.
+The circuit is operational while the coroutine is running.
+
+When the simulation terminates, the final state is reached.
+A restart is not possible.
 
 Applications are supposed to build and simulate only one circuit.
 
-.. class:: Circuit()
+.. class:: edzed.simulator.Circuit()
 
   The circuit class. It registers individual blocks as circuit members
   and can run a simulation when the circuit is completed.
 
   The Circuit class should not to be instantiated directly;
-  always call :func:`edzed.get_circuit`.
-  The class is not even exported to edzed's API (there is no edzed.Circuit).
+  always call :func:`get_circuit`.
+  The class is not even exported to edzed's API (there is no :class:`edzed.Circuit`).
 
-.. function:: edzed.get_circuit() -> Circuit
+.. function:: get_circuit() -> Circuit
 
   Return the current circuit. Create one if it does not exist.
 
 .. seealso::
 
-  :func:`edzed.reset_circuit`
+  :func:`reset_circuit`
 
 
 Pre-start preparations
 ======================
 
-Preparation steps apart from having a completed circuit.
+A circuit
+---------
+
+Of course, a valid circuit (i.e. set of interconnected blocks) is needed.
+How to design one is beyond he scope of this document.
+
+The completed circuit may be explicitly finalized.
+
+.. method:: Circuit.finalize() -> None
+
+  Finalize the current circuit and disallow any later modifications.
+
+  Process and validate interconnection data (see :meth:`CBlock.connect`):
+
+  - resolve temporary references by name
+  - create :class:`Invert` blocks for ``"_not_name"`` shortcuts 
+
+  and initialize related attributes:
+
+  - :attr:`Block.oconnections`
+  - :attr:`CBlock.iconnections`
+  - :attr:`CBlock.inputs`
+
+  This method is called automatically at the simulation start.
+  An explicit call is only necessary if access to the interconnection
+  data listed above is required before the simulation start.
+
+  This action cannot be undone.
+
+.. method:: Circuit.is_finalized() -> bool
+
+   Return ``True`` only if :meth:`finalize` has been called
+   successfully.
+
 
 Storage for persistent state
 ----------------------------
@@ -74,17 +118,15 @@ Starting a simulation
 
   When started, the coroutine follows these instructions:
 
-  #. "Freeze" the circuit, i.e. disallow any modifications. No new
-     blocks, no changes to interconnections are possible.
-
-  #. Resolve block references by name.
+  #. Finalize the circuit with :meth:`finalize`.
+     No changes are possible after this point.
 
   #. Make the circuit ready to accept external events.
      :meth:`is_ready` can be used to check if this state was reached.
 
   #. Initialize all blocks. Asynchronous block initialization routines
      (if any) are invoked in parallel. After the initialization all
-     blocks have a valid output, i.e any value except :const:`edzed.UNDEF`.
+     blocks have a valid output, i.e any value except :const:`UNDEF`.
      If you need to synchronize with this stage, use :meth:`wait_init`.
 
   #. Run the circuit simulation in an infinite loop.
@@ -101,19 +143,25 @@ Starting a simulation
 
 .. method:: Circuit.is_ready() -> bool
 
-  Return ``True`` only if ready to accept external events.
+  Return ``True`` only if the circuit is operational,
+  i.e. ready to accept external events.
 
-  The simulation can be still in the initializing phase, because
-  an error-free circuit is ready immediately after its start.
-  No special synchronization is required, but remember that
-  ``asyncio.create_task`` does not start the new task::
+  The ``is_ready()`` value changes from ``False`` to ``True`` immediately
+  after the simulation start. At this moment the circuit is finalized,
+  but the simulation can be still in the initializing phase.
+
+  Because a started circuit is immediately ready,
+  no special synchronization is required, but remember that
+  ``asyncio.create_task()`` does not start the new task::
 
     circuit = edzed.get_circuit()
     asyncio.create_task(circuit.run_forever())
-    # the task is created, but not started yet;
+    # the task is created, but not started yet (the circuit is NOT ready yet)
     # asyncio.sleep suspends the current task, allowing other tasks to run
     await asyncio.sleep(0)
-    # OK, the circuit can now receive events
+    # OK, the circuit can now receive events (is ready now)
+
+  The ``is_ready()`` value reverts to ``False`` when the simulation stops.
 
 .. method:: Circuit.wait_init() -> None
   :async:
@@ -125,7 +173,7 @@ Starting a simulation
   :meth:`wait_init` returns when all blocks are initialized and
   the simulation is running. If this state is not reachable
   (e.g. the simulation task has finished already), :meth:`wait_init` raises
-  an :exc:`edzed.EdzedInvalidState` error.
+  an :exc:`EdzedInvalidState` error.
 
 
 Stopping the simulation
@@ -179,6 +227,11 @@ A running simulation can be stopped only by cancellation of the simulation task:
   - if the simulator task was not started
   - from within the simulator task itself
 
+.. attribute:: Circuit.error
+
+  The exception that stopped the simulation or ``None`` if the simulation
+  wasn't stopped. This is a read-only attribute.
+
 
 Logging
 =======
@@ -222,7 +275,7 @@ To allow logging of those messages, at least the :const:`INFO` level must be ena
 
 Block debugging messages must be enabled.
 
-.. attribute:: edzed.Block.debug
+.. attribute:: Block.debug
 
   Boolean flag, allow debugging messages.
 
@@ -243,7 +296,7 @@ For multiple blocks we have this tool:
     to match multiple block names.
     For details refer to the `fnmatch module <https://docs.python.org/3/library/fnmatch.html>`_.
   - block object
-  - block class (e.g. ``edzed.FSM``) to select all blocks of given type
+  - block class (e.g. ``FSM``) to select all blocks of given type
     (the given class and its subclasses)
 
   Number of blocks processed is returned.
@@ -258,17 +311,10 @@ Example: debug all blocks except Inputs::
 Circuit monitoring
 ==================
 
-.. warning::
-
-  All values related to blocks' input and output connections and internal state
-  are valid only after the simulation start. Accessing these data before this
-  point gives undefined results.
-
-
 Finding blocks
 --------------
 
-.. method:: Circuit.getblocks(btype: Optional[edzed.Block] = None) -> Iterator
+.. method:: Circuit.getblocks(btype: Optional[Block] = None) -> Iterator
 
   Return an iterator of all blocks or *btype* blocks only.
 
@@ -279,7 +325,7 @@ Finding blocks
   If the result has to be stored, you may want to convert the returned
   iterator to a :class:`list` or a :class:`set`.
 
-.. method:: Circuit.findblock(name: str) -> edzed.Block
+.. method:: Circuit.findblock(name: str) -> Block
 
   Get block by name. Raise a :exc:`KeyError` when not found.
 
@@ -287,7 +333,7 @@ Finding blocks
 Inspecting blocks
 -----------------
 
-.. method:: edzed.Block.get_conf() -> dict
+.. method:: Block.get_conf() -> dict
 
   Return a summary of static block information.
 
@@ -303,7 +349,7 @@ Inspecting blocks
     }
 
   All items are self-explaining. Not applicable items are excluded,
-  e.g. 'inputs' is shown for combinational blocks only.
+  e.g. 'inputs' is shown for combinational blocks in a finalized circuit only.
   New items may be added in future releases.
   Note that *name* and *desc* can be accessed also as block attributes:
 
@@ -311,45 +357,47 @@ Inspecting blocks
 
   Do not modify any block attributes unless explicitly permitted.
 
-.. attribute:: edzed.Block.circuit
+.. attribute:: Block.circuit
 
   The :class:`Circuit` object the block belongs to. Usually there is
   only one circuit and this value is of little interest.
 
-.. attribute:: edzed.Block.desc
+.. attribute:: Block.desc
 
   String, block's description. May be modified.
 
-.. attribute:: edzed.Block.debug
+.. attribute:: Block.debug
   :noindex:
 
   Boolean, see :ref:`Circuit block debug messages`. May be modified.
 
-.. attribute:: edzed.Block.name
+.. attribute:: Block.name
 
   String, the assigned block's name.
 
-.. attribute:: edzed.Block.oconnections
+.. attribute:: Block.oconnections
 
   Set of all blocks where the output is connected to.
+  Undefined before the circuit finalization.
+  (see :meth:`Circuit.finalize`)
 
-.. attribute:: edzed.Block.output
+.. attribute:: Block.output
 
   Block's output value, a read-only property.
 
   Each block has exactly one output value of any type.
 
-  A special :const:`edzed.UNDEF` value is assigned to newly created blocks.
-  It is an error, if :const:`edzed.UNDEF` value appears on block's output after
+  A special :const:`UNDEF` value is assigned to newly created blocks.
+  It is an error, if :const:`UNDEF` value appears on block's output after
   the circuit initialization.
 
-.. attribute:: edzed.Block.x_anyname
-.. attribute:: edzed.Block.X_ANYNAME
+.. attribute:: Block.x_anyname
+.. attribute:: Block.X_ANYNAME
 
   (with any arbitrary name) Reserved for application data, ignored by ``edzed``.
-  See: :class:`edzed.Block`.
+  See: :class:`Block`.
 
-.. data:: edzed.UNDEF
+.. data:: UNDEF
 
   A constant representing undefined value. All other output values
   are valid, including ``None``.
@@ -358,19 +406,20 @@ Inspecting blocks
 Inspecting SBlocks
 ^^^^^^^^^^^^^^^^^^
 
-.. method:: edzed.SBlock.get_state() -> Any
+.. method:: SBlock.get_state() -> Any
 
   Return the :ref:`internal state<Internal state>`.
-  Only meaningful after a successful initialization.
+  Undefined before a successful block initialization.
+  (see :meth:`Circuit.wait_init`)
 
   The format and semantics of returned data depends on the block type.
 
   Only sequential blocks have state.
   Combinational blocks do not implement this method.
 
-.. attribute:: edzed.SBlock.initdef
+.. attribute:: SBlock.initdef
 
-  Saved value of the *initdef* argument or :const:`edzed.UNDEF`,
+  Saved value of the *initdef* argument or :const:`UNDEF`,
   if the argument was not given. Only present if the block
   accepts this argument. See: :ref:`Base class arguments`.
 
@@ -378,19 +427,24 @@ Inspecting SBlocks
 Inspecting CBlocks
 ^^^^^^^^^^^^^^^^^^
 
-.. attribute:: edzed.CBlock.iconnections
+.. attribute:: CBlock.iconnections
 
   A set of all blocks connected to inputs.
+  Undefined before the circuit finalization.
+  (see :meth:`Circuit.finalize`)
 
-.. attribute:: edzed.CBlock.input
+.. attribute:: CBlock.inputs
 
   Block's input connections as a :class:`dict`, where keys
   are input names and values are either single blocks or tuples
   of blocks for input groups. The structure directly corresponds
-  to parameters given to :meth:`edzed.CBlock.connect`.
+  to parameters given to :meth:`CBlock.connect`.
 
   The same data, but with block names instead of block objects,
-  can be obtained with :meth:`edzed.Block.get_conf`; extract
+  can be obtained with :meth:`Block.get_conf`; extract
   the ``'inputs'`` value from the result.
+
+  Not defined before the circuit finalization.
+  (see :meth:`Circuit.finalize`)
 
 .. seealso:: :ref:`Input signatures`

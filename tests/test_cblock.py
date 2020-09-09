@@ -79,7 +79,7 @@ def test_missing_funcblock_inputs(circuit):
             ).connect(a1=1, a2=2, a3=3),
         ]
 
-    circuit._init_connections()
+    circuit.finalize()
 
     for blk in errblks:
         with pytest.raises(TypeError, match="does not match the connected inputs"):
@@ -170,6 +170,15 @@ def test_connection_attrs(circuit):
     assert not main.oconnections
 
 
+def test_signature_exc(circuit):
+    """Test exception getting a signature of an unconnected block."""
+    blk = Noop('noname')
+    with pytest.raises(edzed.EdzedInvalidState):
+        blk.input_signature()
+    blk.connect(foo=(0,0,0))
+    assert blk.input_signature() == {'foo': 3}
+
+
 def test_signature_and_get_conf(circuit):
     """Test input signature related functions."""
     blk1 = Noop('test1', desc=' without unnamed inputs').connect(
@@ -181,6 +190,7 @@ def test_signature_and_get_conf(circuit):
         inpB=[edzed.Const('B2')],   # named sequence
         inpC=range(5),              # named iterator
         )
+    assert 'inputs' not in blk1.get_conf()  # no data before finalization
     init(circuit)
 
     assert blk1.input_signature() == ({'inp1': None, 'inp2': None, 'inp3': None,})
@@ -339,7 +349,7 @@ def test_invert(circuit):
     src2 = edzed.Invert('src2').connect(notsrc)
     init(circuit)
 
-    # Invert blocks are a special case in _init_connections()
+    # Invert blocks are a special case in finalize()
     assert notsrc.iconnections == {src}
     assert notsrc.oconnections == {src2}
     for value in (True, False, True, False):

@@ -1,3 +1,5 @@
+.. currentmodule:: edzed
+
 ======
 Errors
 ======
@@ -5,17 +7,17 @@ Errors
 Exceptions
 ==========
 
-`edzed` defines these exceptions:
+``edzed`` defines these exceptions:
 
-.. exception:: edzed.EdzedError
+.. exception:: EdzedError
 
   Exception raised for any error related to the circuit and its blocks
   where a standard exception like :exc:`ValueError` or :exc:`TypeError`
   is not fully appropriate.
 
-.. exception:: edzed.EdzedInvalidState
+.. exception:: EdzedInvalidState
 
-  Subclass of :exc:`edzed.EdzedError`. This exception is raised
+  Subclass of :exc:`EdzedError`. This exception is raised
   for calls that are made in a wrong situation, e.g. when trying
   to start a simulation when it is already running.
 
@@ -54,10 +56,10 @@ There are several options (and combinations):
 And, of course, check the results of terminated tasks.
 
 
-Forbidden circuit actions
+Forbidden circuit behavior
 ==========================
 
-The simulator aborts the simulation when in detects forbidden behavior
+The simulator aborts the simulation when in detects forbidden activity
 described below. Both cases are similar, one is related to outputs
 and one to events.
 

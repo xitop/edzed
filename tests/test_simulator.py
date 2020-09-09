@@ -171,16 +171,16 @@ async def no_shutdown_before_start(circuit):
 
 
 async def test_state_check(event_loop, circuit):
-    """Test check_not_frozen()."""
+    """Test check_not_finalized()."""
     Noop('block')
-    circuit.check_not_frozen()
+    circuit.check_not_finalized()
     simtask = asyncio.create_task(circuit.run_forever())
     await asyncio.sleep(0)
     with pytest.raises(edzed.EdzedInvalidState):
-        circuit.check_not_frozen()
+        circuit.check_not_finalized()
     await circuit.shutdown()
     with pytest.raises(edzed.EdzedInvalidState):
-        circuit.check_not_frozen()
+        circuit.check_not_finalized()
 
 
 async def test_no_simulator_restart(circuit):

@@ -21,12 +21,12 @@ from .exceptions import EdzedError, EdzedInvalidState
 
 __all__ = ['get_circuit', 'reset_circuit']
 
-_logger = logging.getLogger(__package__)
-_current_circuit = None
-
-
 # limit for oscillation/instability detection:
 _MAX_EVALS_PER_BLOCK = 3
+
+
+_logger = logging.getLogger(__package__)
+_current_circuit = None
 
 
 def get_circuit() -> 'Circuit':
@@ -70,7 +70,7 @@ class Circuit:
     def __init__(self):
         self._blocks = {}           # all blocks belonging to this circuit by name
         self._simtask = None        # task running run_forever
-        self._frozen = False        # no circuit modification after the initialization
+        self._finalized = False     # no circuit modification after the initialization
         self._error = None          # exception that terminated the simulator or None
         self.persistent_dict = None # persistent state data back-end
         self.sblock_queue = None    # a Queue for notifying about changed SBlocks,
@@ -90,11 +90,19 @@ class Circuit:
             # for instance RuntimeError('no running event loop')
             return False
 
+    def is_finalized(self) -> bool:
+        """Return True only if finalize() was called."""
+        return self._finalized
+
     def is_ready(self) -> bool:
         """Return True only if ready to accept external events."""
         return self._simtask is not None and self._error is None
 
-    async def _check_started(self):
+    @property
+    def error(self) -> Optional[BaseException]:
+        return self._error
+
+    async def _check_started(self) -> None:
         """Raise if the simulation was not started yet."""
         if self._simtask is None:
             # just created?
@@ -116,22 +124,17 @@ class Circuit:
                 msg = f"The simulation task failed with error: {self._simtask.exception()}"
             raise EdzedInvalidState(msg)
 
-    def check_not_frozen(self) -> None:
-        """
-        Raise an error if the circuit is frozen.
-
-        All blocks and interconnections must be created before the
-        simulator starts. The simulator then freezes the circuit to
-        disallow any modifications.
-        """
+    def check_not_finalized(self) -> None:
+        """Raise an error if the circuit has been finalized."""
         if self._error:
+            # there is an even bigger problem
             raise EdzedInvalidState("The circuit was shut down")
-        if self._frozen:
-            raise EdzedInvalidState("No circuit changes after the start.")
+        if self._finalized:
+            raise EdzedInvalidState("No changes allowed in a finalized circuit")
 
     def set_persistent_data(self, persistent_dict: Optional[Mapping[str, Any]]) -> None:
         """Setup the persistent state data storage."""
-        self.check_not_frozen()
+        self.check_not_finalized()
         self.persistent_dict = persistent_dict
 
     def addblock(self, blk: block.Block) -> None:
@@ -141,7 +144,7 @@ class Circuit:
         Application code does not call this method, because
         blocks register themselves automatically when created.
         """
-        self.check_not_frozen()
+        self.check_not_finalized()
         if not isinstance(blk, block.Block):
             raise TypeError(f"Expected a Block object, got {blk!r}")
         if blk.name in self._blocks:
@@ -244,7 +247,7 @@ class Circuit:
                     f"Event destination block {event.dest} is not a sequential block")
         block.Event.instances.clear()   # free some memory
 
-    def _init_connections(self):
+    def _finalize(self):
         """
         Complete the initialization of circuit block interconnections.
 
@@ -280,6 +283,12 @@ class Circuit:
                     if not isinstance(inp, block.Const):
                         blk.iconnections.add(inp)
                         self._blocks[inp.name].oconnections.add(blk)
+
+    def finalize(self):
+        """A wrapper for _finalize()."""
+        if not self._finalized:
+            self._finalize()
+            self._finalized = True
 
     async def _run_tasks(self, jobname, btt_list):
         """
@@ -471,6 +480,7 @@ class Circuit:
                 msg = "The simulator is already running."
             raise EdzedInvalidState(msg)
         self._simtask = asyncio.current_task()
+        blocks_started = False
         try:
             try:
                 if self._error is not None:
@@ -483,10 +493,10 @@ class Circuit:
                 self._init_done = asyncio.Event()
                 self._check_persistent_data()
                 self._resolve_events()
-                self._init_connections()
-                self._frozen = True
+                self.finalize()
 
                 _logger.debug("Setting up circuit blocks")
+                blocks_started = True
                 for blk in self.getblocks():
                     blk.start()
                 # return control to the loop in order to run any tasks created by start()
@@ -521,7 +531,7 @@ class Circuit:
             _logger.critical(
                 "Fatal circuit simulation error: %s", self._error, exc_info=self._error)
 
-        if self._frozen:
+        if blocks_started:
             # if blocks were started (at least some of them), they must be stopped
             # save the state first, because stop may invalidate the state information
             if self.persistent_dict is not None:

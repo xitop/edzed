@@ -1,8 +1,10 @@
+.. currentmodule:: edzed
+
 ==================
 List of FSM blocks
 ==================
 
-.. class:: edzed.Timer(*args, restartable=True, **kwargs)
+.. class:: Timer(*args, restartable=True, **kwargs)
 
   A timer (:ref:`source <Example (Timer)>`).
 
@@ -45,5 +47,5 @@ List of FSM blocks
   - ``'toggle'``
       Go from ``'on'`` to ``'off'`` or vice versa.
 
-  A conditional event :class:`edzed.EventCond`\ ``('start', 'stop')``
+  A conditional event :class:`EventCond`\ ``('start', 'stop')``
   is often used for ``Timer`` control.

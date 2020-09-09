@@ -1,3 +1,5 @@
+.. currentmodule:: edzed
+
 =====================
 Finite-State Machines
 =====================
@@ -27,11 +29,11 @@ An FSM block implements several additional features:
   An FSM also defines states and events. Their relationship is:
 
   - FSM state is a part of SBlock's internal state.
-  - all events are delivered using the :meth:`edzed.SBlock.event` method as in
+  - all events are delivered using the :meth:`SBlock.event` method as in
     any other sequential block. Usually all events are processed by the FSM code,
     i.e. they are FSM events, but please note that it is possible to add non-FSM
     events to be processed by the underlying SBlock and bypassing the FSM.
-    See :meth:`edzed.SBlock._event_ETYPE`.
+    See :meth:`SBlock._event_ETYPE`.
 
   In this chapter by 'state' and 'event' we usually mean an FSM state
   and an FSM event respectively.
@@ -76,7 +78,7 @@ Creating FSMs types
 A new FSM is created by subclassing the base class.
 Instances of the subclasses will be circuit blocks.
 
-.. class:: edzed.FSM
+.. class:: FSM
 
   Base class for creating FSMs.
 
@@ -108,7 +110,7 @@ Avoid any special characters in names, because function names are
 derived from them. States and events form two separate namespaces,
 but using the same name for both is discouraged.
 
-The :meth:`event` method returns ``True`` for accepted FSM events
+The :meth:`FSM.event` method returns ``True`` for accepted FSM events
 and ``False`` for rejected FSM events.
 
 .. note::
@@ -193,7 +195,7 @@ and ``False`` for rejected FSM events.
 
   If the duration is 0.0, the *timed_event* is generated immediately.
 
-  If the duration is :const:`edzed.INF_TIME` (infinite time to expiration),
+  If the duration is :const:`INF_TIME` (infinite time to expiration),
   the timer won't be set at all.
 
   Instances can modify the default duration with ``t_STATE=value``
@@ -206,11 +208,11 @@ and ``False`` for rejected FSM events.
   The timer duration may be given as:
     - number of seconds (int, float), negative values are replaced with 0.0
     - a :ref:`string with time units<Time intervals with units>`
-    - :const:`edzed.INF_TIME`
+    - :const:`INF_TIME`
     - ``None``, i.e. the duration is not set here
       and must be obtained from other source
 
-.. data:: edzed.INF_TIME
+.. data:: INF_TIME
 
   Equals to ``float('+Inf')`` constant. This is a timer duration that
   disables a timer so it never expires.
@@ -219,7 +221,7 @@ and ``False`` for rejected FSM events.
 Goto special event
 ^^^^^^^^^^^^^^^^^^
 
-.. class:: edzed.Goto(state)
+.. class:: Goto(state)
 
   A ``Goto('state')`` event causes a direct and unconditional transition
   to the given state. The transition table lookup is bypassed.
@@ -321,7 +323,7 @@ but belonging to two distinct events.
 Access to event data
 --------------------
 
-.. data:: edzed.fsm_event_data
+.. data:: fsm_event_data
 
   Read-only access to the current event data dict is provided through the
   :data:`fsm_event_data`
@@ -367,7 +369,7 @@ and ``on_output`` events:
 
   Return the block's output value computed from the internal state data.
 
-  Return :const:`edzed.UNDEF` to leave the output unchanged.
+  Return :const:`UNDEF` to leave the output unchanged.
 
   The default implementation outputs a fixed ``False`` value.
 
@@ -378,7 +380,7 @@ and ``on_output`` events:
 Example (Timer)
 ===============
 
-:class:`edzed.Timer` source::
+:class:`Timer` source::
 
   class Timer(edzed.FSM):
       STATES = ('off', 'on')
@@ -413,7 +415,7 @@ Creating FSMs blocks
 FSM arguments
 -------------
 
-Summary of keyword arguments accepted by a class derived from :class:`edzed.FSM`.
+Summary of keyword arguments accepted by a class derived from :class:`FSM`.
 
 ``'STATE'`` and ``'EVENT'`` are placeholders to be substituted by real
 state and event names.

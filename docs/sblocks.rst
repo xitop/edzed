@@ -1,3 +1,5 @@
+.. currentmodule:: edzed
+
 =========================
 List of sequential blocks
 =========================
@@ -15,7 +17,7 @@ Feeding data into the circuit
 
 .. important::
 
-  :meth:`edzed.SBlock.event` is the data input entry point.
+  :meth:`SBlock.event` is the data input entry point.
 
 .. important::
 
@@ -30,7 +32,7 @@ may serve as a part of the circuit's input interface.
 
 The most common data entry block is the :class:`Input`:
 
-.. class:: edzed.Input(*args, schema=None, check=None, allowed=None, **kwargs)
+.. class:: Input(*args, schema=None, check=None, allowed=None, **kwargs)
 
   An input block with optional value validation.
 
@@ -74,12 +76,12 @@ The most common data entry block is the :class:`Input`:
   input value.
 
 
-.. class:: edzed.InputExp(*args, duration, expired=None, **kwargs)
+.. class:: InputExp(*args, duration, expired=None, **kwargs)
 
-  Like :class:`edzed.Input`, but after certain time after the ``'put'`` event
+  Like :class:`Input`, but after certain time after the ``'put'`` event
   replace the current value with the *expired* value.
 
-  An InputExp takes the same arguments as :class:`edzed.Input`
+  An InputExp takes the same arguments as :class:`Input`
   plus two additional ones:
 
   - *duration*
@@ -102,7 +104,7 @@ Polling data sources
 
 A specialized block is provided for this task:
 
-.. class:: edzed.ValuePoll(*args, func, interval, **kwargs)
+.. class:: ValuePoll(*args, func, interval, **kwargs)
 
   A source of measured or computed values.
 
@@ -142,12 +144,12 @@ The output blocks invoke a function in response to a ``'put'`` event.
 
 .. tip::
 
-  See also the :class:`edzed.Repeat` block. Repeated output actions
+  See also the :class:`Repeat` block. Repeated output actions
   may increase the robustness of applications where it is appropriate.
   Note: actions that may be repeated without changing the result are called *idempotent*.
 
 
-.. class:: edzed.OutputFunc(*args, func, on_success=(), on_error=None, stop_value=UNDEF, **kwargs)
+.. class:: OutputFunc(*args, func, on_success=(), on_error=None, stop_value=UNDEF, **kwargs)
 
   Call a function when a value arrives.
 
@@ -162,7 +164,7 @@ The output blocks invoke a function in response to a ``'put'`` event.
   the *on_error* event data as: ``'error'``.
 
   By default *on_error* is set to ``edzed.Event('_ctrl', 'error')`` which
-  terminates the simulation (see the :class:`edzed.ControlBlock`). To handle the
+  terminates the simulation (see the :class:`ControlBlock`). To handle the
   error differently or to ignore it, set the *on_error* explicitly.
 
   If the *stop_value* is defined, it is fed into the block
@@ -171,7 +173,7 @@ The output blocks invoke a function in response to a ``'put'`` event.
 
   The output of an OutputFunc block is always ``False``.
 
-.. class:: edzed.OutputAsync(*args, coro, guard_time=0.0, qmode=False, on_success=(), on_error=None, stop_value=block.UNDEF, **kwargs)
+.. class:: OutputAsync(*args, coro, guard_time=0.0, qmode=False, on_success=(), on_error=None, stop_value=block.UNDEF, **kwargs)
 
   Run a coroutine *coro* as an asycio task when a value arrives.
 
@@ -202,7 +204,7 @@ The output blocks invoke a function in response to a ``'put'`` event.
   A cancelled task does not trigger any events.
 
   By default *on_error* is set to ``edzed.Event('_ctrl', 'error')`` which
-  terminates the simulation (see the :class:`edzed.ControlBlock`). To handle the
+  terminates the simulation (see the :class:`ControlBlock`). To handle the
   error differently or to ignore it, set the *on_error* explicitly.
 
   If the *stop_value* is defined, it is inserted into the queue
@@ -251,7 +253,7 @@ In all cases extra whitespace around values is allowed.
 Periodic events
 ---------------
 
-.. class:: edzed.TimeDate(*args, times=None, dates=None, weekdays=None, utc=False, **kwargs)
+.. class:: TimeDate(*args, times=None, dates=None, weekdays=None, utc=False, **kwargs)
 
   Block for periodic events occurring daily, weekly or yearly. A combination
   of conditions is possible (e.g. Every Monday morning 6-9 a.m., but only in April)
@@ -360,13 +362,13 @@ Periodic events
 
 **Dynamic updates**
 
-A :class:`edzed.TimeDate` block can be reconfigured during a simulation
+A :class:`TimeDate` block can be reconfigured during a simulation
 by a ``'reconfig'`` event with event data containing items
 ``'times'``, ``'dates'`` and ``'weekdays'`` with exactly the same format,
 meaning and default values as the block's arguments with the same name.
 The *utc* value is fixed and cannot be changed.
 
-The mentioned three values (processed by :meth:`edzed.TimeDate.parse`) form the
+The mentioned three values (processed by :meth:`TimeDate.parse`) form the
 internal state. They can be retrieved with :meth:`TimeDate.get_state`.
 
 Upon receipt of a ``'reconfig'`` event, the block discards the old settings
@@ -387,7 +389,7 @@ though.
 Non-periodic events
 -------------------
 
-.. class:: edzed.TimeSpan(*args, span=(), utc=False, **kwargs)
+.. class:: TimeSpan(*args, span=(), utc=False, **kwargs)
 
   Block for non-periodic events occurring in intervals between start and stop
   defined with full date and time, i.e. year, month, day, hour, minute and second.
@@ -439,12 +441,12 @@ Non-periodic events
 
 **Dynamic updates**
 
-A :class:`edzed.TimeSpan` block can be reconfigured during a simulation
+A :class:`TimeSpan` block can be reconfigured during a simulation
 by a ``'reconfig'`` event with event data containing a ``'span'`` item
 with exactly the same format, meaning and default value as the block's
 *span* argument. The *utc* value is fixed and cannot be changed.
 
-The *span* value (processed by :meth:`edzed.TimeSpan.parse`) forms the internal state.
+The *span* value (processed by :meth:`TimeSpan.parse`) forms the internal state.
 It can be retrieved with :meth:`TimeSpan.get_state`.
 
 Upon receipt of a ``'reconfig'`` event, the block discards the old settings
@@ -464,7 +466,7 @@ though.
 Counter
 =======
 
-.. class:: edzed.Counter(*args, modulo=None, initdef=0, **kwarg)
+.. class:: Counter(*args, modulo=None, initdef=0, **kwarg)
 
   A counter.
 
@@ -496,7 +498,7 @@ Counter
 Repeat
 ======
 
-.. class:: edzed.Repeat(*args, dest, etype='put', interval, **kwargs)
+.. class:: Repeat(*args, dest, etype='put', interval, **kwargs)
 
   Periodically repeat the last received event.
 
@@ -531,7 +533,7 @@ Repeat
 Simulator control block
 =======================
 
-.. class:: edzed.ControlBlock
+.. class:: ControlBlock
 
  .. note::
 

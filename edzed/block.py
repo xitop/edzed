@@ -422,7 +422,7 @@ class CBlock(Block, metaclass=abc.ABCMeta):
         The circuit-wide processing of interconnections will take place
         in Circuit._init_connections().
         """
-        self.circuit.check_not_frozen()
+        self.circuit.check_not_finalized()
         if self.inputs:
             raise EdzedInvalidState("connect() may by called only once")
         if not args and not kwargs:
@@ -454,6 +454,8 @@ class CBlock(Block, metaclass=abc.ABCMeta):
             value = None, if the input is a single input, or
                     number of inputs in a group, if the input is a group
         """
+        if not self.inputs:
+            raise EdzedInvalidState("not connect()'ed yet")
         return {
             iname: len(ival) if isinstance(ival, tuple) else None
             for iname, ival in self.inputs.items()}
@@ -540,13 +542,13 @@ class CBlock(Block, metaclass=abc.ABCMeta):
         return True
 
     def get_conf(self) -> Mapping[str, Any]:
-        return {
-            'inputs': {
+        conf = super().get_conf()
+        conf['type'] = 'combinational'
+        if self.circuit.is_finalized():
+            conf['inputs'] = {
                 iname: tuple(g.name for g in ival) if isinstance(ival, tuple) else ival.name
-                for iname, ival in self.inputs.items()},
-            'type': 'combinational',
-            **super().get_conf()
-        }
+                for iname, ival in self.inputs.items()}
+        return conf
 
 
 @dataclass(frozen=True)
@@ -743,10 +745,9 @@ class SBlock(Block):
     init_from_value = Block.dummy_method
 
     def get_conf(self) -> Mapping[str, Any]:
-        return {
-            'type': 'sequential',
-            **super().get_conf()
-        }
+        conf = super().get_conf()
+        conf['type'] = 'sequential'
+        return conf
 
 
 # importing at the end when all names are defined resolves a circular import issue

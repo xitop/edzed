@@ -1,3 +1,5 @@
+.. currentmodule:: edzed
+
 ==============
 Circuit blocks
 ==============
@@ -20,7 +22,7 @@ Common features
 
 Regardless of type, every block has the following properties:
 
-.. class:: edzed.Block(name: Optional[str], *, desc: str = "", on_output=(), **kwargs)
+.. class:: Block(name: Optional[str], *, desc: str = "", on_output=(), **kwargs)
 
   :class:`Block` is the base class for all blocks.
   It cannot be instantiated directly.
@@ -90,7 +92,7 @@ Combinational blocks
 
 The output of a combinational block depends only on its present input values.
 
-.. class:: edzed.CBlock(*args, **kwargs)
+.. class:: CBlock(*args, **kwargs)
 
   The base class for combinational blocks does not
   add any new arguments compared to :class:`Block`.
@@ -154,7 +156,7 @@ The output of a combinational block depends only on its present input values.
     All block's inputs must be connected. A group may have no inputs, but
     it must be explicitly connected as such: ``group=()`` or ``group=[]``.
 
-.. class:: edzed.Const(value: Any)
+.. class:: Const(value: Any)
 
   A pseudo-block with a constant value on its output. ``Const`` objects
   are not registered as members of the circuit.
@@ -166,7 +168,7 @@ Sequential blocks
 Base class arguments
 --------------------
 
-.. class:: edzed.SBlock(*args, **kwargs)
+.. class:: SBlock(*args, **kwargs)
 
   Arguments accepted by the :class:`SBlock` are not uniform.
   Refer to descriptions of individual blocks for details
@@ -292,7 +294,7 @@ Receiving events
 An event is delivered by calling the :meth:`SBlock.event` method
 of the destination block.
 
-.. method:: edzed.SBlock.event(etype: Union[str, edzed.EventType], /, **data) -> Any
+.. method:: SBlock.event(etype: Union[str, EventType], /, **data) -> Any
 
   Handle the event of type *etype* with attached *data* items (key=value pairs).
 
@@ -329,7 +331,7 @@ of the destination block.
     even if the caller handles the exception with a ``try-except`` construct.
     This is a measure to protect the integrity of internal state.
 
-.. method:: edzed.SBlock.put(value: Any, **data) -> Any
+.. method:: SBlock.put(value: Any, **data) -> Any
 
   This is a shortcut for the frequently used ``event('put', value=value, ...)``.
 
@@ -352,7 +354,7 @@ certain situations have names starting with an ``"on_"`` prefix.
 They accept either an :class:`Event` object or multiple (zero or more)
 Events objects given as a tuple, list or other sequence.
 
-.. class:: edzed.Event(dest: Union[str, edzed.Block], etype: nion[str, edzed.EventType] = 'put', efilter=())
+.. class:: Event(dest: Union[str, Block], etype: nion[str, EventType] = 'put', efilter=())
 
   Specify an event of type *etype* addressed to the *dest* block
   together with optional event filters to be applied.
@@ -362,7 +364,7 @@ Events objects given as a tuple, list or other sequence.
   :ref:`Event filters` are functions (callables) documented below. The *efilter* argument
   can be a single function or a tuple, list or other sequence of functions.
 
-  .. method:: send(source: edzed.Block, /, **data) -> bool
+  .. method:: send(source: Block, /, **data) -> bool
 
     Apply filters and send this event with the given data.
 
@@ -373,7 +375,7 @@ Events objects given as a tuple, list or other sequence.
     .. note::
 
       block-to-block events are one-way communication. The return
-      value from the :meth:`edzed.SBlock.event` is disregarded.
+      value from the :meth:`SBlock.event` is disregarded.
 
     .. note::
 
@@ -408,7 +410,7 @@ instead of names.
 There is only one such event type for general use.
 It's the conditional event simplifying the block-to-block event delivery:
 
-.. class:: edzed.EventCond(etrue, efalse)
+.. class:: EventCond(etrue, efalse)
 
   A conditional event type, roughly equivalent to::
 

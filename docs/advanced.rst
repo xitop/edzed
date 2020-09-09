@@ -1,3 +1,5 @@
+.. currentmodule:: edzed
+
 ===============
 Advanced topics
 ===============
@@ -16,7 +18,7 @@ There cannot be multiple circuit simulations in parallel,
 but it is possible to remove the current circuit and start over with
 building of a new one.
 
-.. function:: edzed.reset_circuit()
+.. function:: reset_circuit()
 
   Clear the circuit and create a new one.
 
@@ -38,21 +40,21 @@ building of a new one.
 Creating combinational blocks
 =============================
 
-As noted elsewhere, the :class:`edzed.FuncBlock` is an universal
+As noted elsewhere, the :class:`FuncBlock` is an universal
 combinational block and there is almost no reason to write a new one.
 
 Instructions for creating a new CBlock:
 
-- subclass from :class:`edzed.CBlock`
-- define :meth:`edzed.CBlock._eval`
-- optional: define :meth:`edzed.CBlock.start` and :meth:`edzed.CBlock.stop`
+- subclass from :class:`CBlock`
+- define :meth:`CBlock._eval`
+- optional: define :meth:`CBlock.start` and :meth:`CBlock.stop`
 
-.. method:: edzed.CBlock._eval() -> Any
+.. method:: CBlock._eval() -> Any
   :abstractmethod:
 
   Compute and return the output value.
 
-.. attribute:: edzed.CBlock._in
+.. attribute:: CBlock._in
 
   An object providing access to input values.
 
@@ -61,7 +63,7 @@ Instructions for creating a new CBlock:
 
   The result is a single value or a tuple of values, if the input is a group.
 
-.. method:: edzed.CBlock.start() -> None
+.. method:: CBlock.start() -> None
 
   Pre-simulation hook.
 
@@ -74,7 +76,7 @@ Instructions for creating a new CBlock:
 
     When using :meth:`start`, always call the ``super().start()``.
 
-.. method:: edzed.CBlock.stop() -> None
+.. method:: CBlock.stop() -> None
 
   Post-simulation hook.
 
@@ -107,17 +109,20 @@ An input signature is a :class:`dict` with the following structure:
   - ``None``, if the input is a single input
   - the number of inputs in a group, if the input is a group
 
-.. method:: edzed.CBlock.input_signature() -> dict
+.. method:: CBlock.input_signature() -> dict
 
-  Return the input signature. The data is available only after
-  the simulation start.
+  Return the input signature. The data is available after
+  connecting the inputs with :meth:`CBlock.connect`.
 
-.. method:: edzed.CBlock.check_signature(esig: Mapping) -> dict
+  An :exc:`EdzedInvalidState` is raised when called before
+  connecting the inputs.
+
+.. method:: CBlock.check_signature(esig: Mapping) -> dict
 
   Compare the expected signature *esig* with the actual one.
 
   For a successful result items in the *esig* and
-  items from :meth:`edzed.CBlock.input_signature` must match.
+  items from :meth:`CBlock.input_signature` must match.
 
   If no problems are detected, the input signature data for possible further analysis
   is returned.
@@ -146,7 +151,7 @@ An input signature is a :class:`dict` with the following structure:
 Example (Invert)
 ----------------
 
-:class:`edzed.Invert` source::
+:class:`Invert` source::
 
   class Invert(edzed.CBlock):
       def _eval(self):
@@ -162,7 +167,7 @@ Creating sequential blocks
 
 Instructions for creating a new SBlock:
 
-- subclass from :class:`edzed.SBlock` and appropriate :ref:`add-ons <Add-ons>`
+- subclass from :class:`SBlock` and appropriate :ref:`add-ons <Add-ons>`
 - define :ref:`event handlers <Event handlers>`
 - define :ref:`state related methods <State related methods>`
 - define :ref:`start and stop methods <Start and stop>`
@@ -172,13 +177,13 @@ with links to corresponding sections added. Each block defines only those steps 
 appropriate to its functionality.
 
 1. asynchronous initialization routine
-     see: :class:`edzed.AddonAsync` and :meth:`edzed.SBlock.init_async`
+     see: :class:`AddonAsync` and :meth:`SBlock.init_async`
 2. from persistent data
-     see: :class:`edzed.AddonPersistence` and :meth:`edzed.SBlock._restore_state`
+     see: :class:`AddonPersistence` and :meth:`SBlock._restore_state`
 3. regular initialization routine
-     see :meth:`edzed.SBlock.init_regular`
+     see :meth:`SBlock.init_regular`
 4. from the *initdef* value
-     see :meth:`edzed.SBlock.init_from_value`
+     see :meth:`SBlock.init_from_value`
 
 .. important::
 
@@ -195,7 +200,7 @@ There are two ways to handle :ref:`events <Events>`:
 
 1. Add specialized event handlers.
 
-  .. method:: edzed.SBlock._event_ETYPE(**data) -> Any
+  .. method:: SBlock._event_ETYPE(**data) -> Any
 
     If a method with matching event type ``'ETYPE'`` is defined,
     it will be called to handle that event type.
@@ -221,7 +226,7 @@ There are two ways to handle :ref:`events <Events>`:
 
 2. Utilize the default event handler.
 
-  .. method:: edzed.SBlock._event(etype, data) -> Any
+  .. method:: SBlock._event(etype, data) -> Any
 
     :meth:`_event` will be called for events without a specialized event handler.
 
@@ -245,9 +250,9 @@ There are two ways to handle :ref:`events <Events>`:
 
 Do not confuse the internal method :meth:`_event` with the API method :meth:`event`.
 The latter should be left untouched.
-The :meth:`edzed.SBlock.event` is responsible for:
+The :meth:`SBlock.event` is responsible for:
 
-- resolving the conditional events (see :class:`edzed.EventCond`)
+- resolving the conditional events (see :class:`EventCond`)
 - dispatching events to a proper handler
 - translating :const:`NotImplemented` to raised :exc:`ValueError`
 - aborting the simulation on error
@@ -266,19 +271,19 @@ Setting the output
 Event handlers and initialization functions manage the internal
 state and the output value. The output setter is:
 
-.. method:: edzed.SBlock.set_output(value: Any) -> None
+.. method:: SBlock.set_output(value: Any) -> None
 
-  Set the output value. The *value* must not be :const:`edzed.UNDEF`.
+  Set the output value. The *value* must not be :const:`UNDEF`.
 
   A block is deemed initialized when its output value changes from
-  :const:`edzed.UNDEF` to any other value. i.e. after
+  :const:`UNDEF` to any other value. i.e. after
   the first :meth:`set_output` call.
 
 
 State related methods
 ---------------------
 
-.. method:: edzed.SBlock.get_state() -> Any
+.. method:: SBlock.get_state() -> Any
   :noindex:
 
   Return the internal state.
@@ -293,13 +298,13 @@ State related methods
   JSON serializable data can be stored or transfered with minimum
   difficulties.
 
-.. method:: edzed.SBlock.init_regular() -> None
+.. method:: SBlock.init_regular() -> None
 
   Initialize the internal state to a fixed value and set the output.
 
   Define only if the block can be initialized this way.
 
-.. method:: edzed.SBlock.init_from_value(value) -> None
+.. method:: SBlock.init_from_value(value) -> None
 
   Initialize the internal state from the given *value*
   and set the output.
@@ -307,17 +312,17 @@ State related methods
   Define only if the block can be initialized this way.
 
   Defining this method automatically enables
-  :class:`edzed.SBlock`\'s keyword argument *initdef*.
+  :class:`SBlock`\'s keyword argument *initdef*.
 
 
 Start and stop
 --------------
 
-:meth:`start` is called when the circuit simulation is about to start,
+:meth:`SBlock.start` is called when the circuit simulation is about to start,
 before the block initialization;
-:meth:`stop` is called when the circuit simulation has finished.
+:meth:`SBlock.stop` is called when the circuit simulation has finished.
 
-.. method:: edzed.SBlock.start() -> None
+.. method:: SBlock.start() -> None
 
   Pre-simulation hook.
 
@@ -342,12 +347,12 @@ before the block initialization;
     i.e. defined at the module level. Importing such module should not
     have any negative effects.
 
-.. method:: edzed.SBlock.stop() -> None
+.. method:: SBlock.stop() -> None
 
   Post-simulation hook.
 
   This is a function dedicated for cleanup actions.
-  It's a counterpart of :meth:`edzed.SBlock.start`.
+  It's a counterpart of :meth:`start`.
 
   If an error occurs during circuit initialization,
   :meth:`stop` may be called even when :meth:`start` hasn't been called.
@@ -365,7 +370,7 @@ Add-ons
 .. important::
 
   In the list of new block's bases always put the add-on classes
-  before the :class:`edzed.SBlock`::
+  before the :class:`SBlock`::
 
     class NewBlock(edzed.AddonPersistence, edzed.SBlock): ...
 
@@ -373,11 +378,11 @@ Add-ons
 Persistent state add-on
 +++++++++++++++++++++++
 
-.. class:: edzed.AddonPersistence
+.. class:: AddonPersistence
 
   Inheriting from this class adds a persistent state.
 
-  The internal state (as returned by :meth:`edzed.SBlock.get_state` can be
+  The internal state (as returned by :meth:`SBlock.get_state` can be
   saved to persistent storage provided by the circuit. Instances can enable
   persistent state feature with the *persistent* keyword argument.
 
@@ -388,7 +393,7 @@ Persistent state add-on
   - by default also after each event; this can be disabled
     with *sync_state* keyword argument.
 
-  Saving of persistent state is disabled after an error in :meth:`edzed.SBlock.event`
+  Saving of persistent state is disabled after an error in :meth:`SBlock.event`
   in order to prevent saving of possibly corrupted state.
 
   .. method:: save_persistent_state()
@@ -401,25 +406,25 @@ For state restoration :meth:`_restore_state` must be implemented.
 The simulator retrieves the saved state from the persistent storage
 and passes it as an argument.
 
-.. method:: edzed.SBlock._restore_state(state: Any) -> None
+.. method:: SBlock._restore_state(state: Any) -> None
   :abstractmethod:
 
   Initialize by restoring the *state* (presumably created by :meth:`get_state`)
   and the corresponding output.
 
   Note that :meth:`_restore_state` is sometimes identical with
-  :meth:`edzed.SBlock.init_from_value`.
+  :meth:`SBlock.init_from_value`.
 
-.. attribute:: edzed.SBlock.key
+.. attribute:: SBlock.key
 
   The persistent dict key associated with this block. It equals the string representation
-  ``str(self)`` - see :meth:`edzed.Block.__str__` - but this may be changed in the future.
+  ``str(self)`` - see :meth:`Block.__str__` - but this may be changed in the future.
 
 
 Async add-on
 ++++++++++++
 
-.. class:: edzed.AddonAsync
+.. class:: AddonAsync
 
   Inheriting from this class adds asynchronous support, in particular
   asynchronous initialization and asynchronous cleanup.
@@ -436,7 +441,7 @@ Async add-on
 
     Cancellation is not considered an error, of course.
 
-.. method:: edzed.SBlock.init_async()
+.. method:: SBlock.init_async()
   :async:
 
   Optional async initialization coroutine, define only when needed.
@@ -445,7 +450,7 @@ Async add-on
   systems and as such should be utilized solely by circuit inputs.
 
   The existence of this method automatically enables the *init_timeout*
-  :class:`edzed.SBlock` keyword argument.
+  :class:`SBlock` keyword argument.
 
   :meth:`init_async` is run as a task and is waited for *init_timeout*
   seconds. When a timeout occurs, the task is cancelled and the
@@ -453,7 +458,7 @@ Async add-on
 
   Implementation detail: The simulator may wait longer than
   specified if it is also concurrently initializing another
-  :class:`edzed.AddonAsync` based block with a longer *init_timeout*.
+  :class:`AddonAsync` based block with a longer *init_timeout*.
 
   .. important::
 
@@ -464,15 +469,15 @@ Async add-on
     it should check whether the block is still uninitialized before applying
     the value.
 
-.. method:: edzed.SBlock.stop_async()
+.. method:: SBlock.stop_async()
   :async:
 
   Optional async cleanup coroutine, define only when needed.
 
   The existence of this method automatically enables the *stop_timeout*
-  :class:`edzed.SBlock` keyword argument.
+  :class:`SBlock` keyword argument.
 
-  This coroutine is awaited after the regular :meth:`edzed.SBlock.stop`.
+  This coroutine is awaited after the regular :meth:`stop`.
 
   :meth:`stop_async` is run as a task and is waited for *stop_timeout*
   seconds. When a timeout occurs, the task is cancelled.
@@ -480,25 +485,25 @@ Async add-on
 
   .. tip::
 
-    Use :func:`edzed.utils.shield_cancel.shield_cancel` to protect small
+    Use :func:`utils.shield_cancel.shield_cancel` to protect small
     critical task sections from immediate cancellation.
 
 
 Main task add-on
 ++++++++++++++++
 
-.. class:: edzed.AddonMainTask
+.. class:: AddonMainTask
 
-  A subclass of :class:`edzed.AddonAsync`. In addition to :class:`AddonAsync`\'s
-  features, inheriting from this add-on adds support for a task running from
-  simulation start to stop.
+  A subclass of :class:`AddonAsync`. In addition to :class:`AddonAsync`\'s
+  features, inheriting from this add-on adds support for a task automatically
+  running from simulation start to stop.
 
-  The add-on manages everything from start to stop including
-  task monitoring. If the task terminates before stop,
-  the simulation will be aborted.
+  The add-on manages everything necessary including task monitoring. If the task
+  terminates before stop, the simulation will be aborted.
 
-  Adjust the *stop_timeout* if necessary. Note that the *init_timeout* does
-  not apply to the task, because task creation is a regular function.
+  Adjust the *stop_timeout* (:class:`SBlock`\'s argument) if necessary.
+  Note that the *init_timeout* argument does not apply, because task creation
+  is a regular function.
 
   .. method:: _maintask()
     :abstractmethod:
@@ -510,7 +515,7 @@ Main task add-on
 Example (Input)
 ---------------
 
-An input block like :class:`edzed.Input`, but without data validation::
+An input block like :class:`Input`, but without data validation::
 
   class Input(edzed.AddonPersistence, edzed.SBlock):
       def init_from_value(self, value):
@@ -528,13 +533,13 @@ Helper methods
 
 When creating new blocks, you may find these methods useful:
 
-.. method:: edzed.Block.is_initialized() -> bool
+.. method:: Block.is_initialized() -> bool
 
   Return ``True`` only if the block has been initialized.
 
-  This method simply checks if the output is not :const:`edzed.UNDEF`.
+  This method simply checks if the output is not :const:`UNDEF`.
 
-.. method:: edzed.Block.log(msg: str, *args, **kwargs) -> None
+.. method:: Block.log(msg: str, *args, **kwargs) -> None
 
   Log a debug message.
 
@@ -542,7 +547,7 @@ When creating new blocks, you may find these methods useful:
   are enabled for this block, the block name is prepended to the *msg*
   and then the arguments are passed to :meth:`logging.info`
 
-.. method:: edzed.Block.warn(msg: str, *args, **kwargs) -> None
+.. method:: Block.warn(msg: str, *args, **kwargs) -> None
 
   Log a warning message.
 

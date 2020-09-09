@@ -1,14 +1,22 @@
+.. currentmodule:: edzed
+
 =========
 Changelog
 =========
 
 Version numbers are based on the release date (Y.M.D).
 
+20.9.10
+=======
+
+- :meth:`Circuit.finalize` and :attr:`Circuit.error` were added
+- documentation: symbol references are printed without the ``edzed`` package name
+
 20.9.5
 ======
 
 - :ref:`Event filters`: (incompatible change) the meaning of the returned value
-  was altered
+  was altered.
 
 20.8.23
 =======
@@ -19,7 +27,7 @@ Version numbers are based on the release date (Y.M.D).
 20.8.4
 ======
 
-- The :func:`edzed.DataEdit.modify` event filter was added.
+- The :func:`DataEdit.modify` event filter was added.
 
 20.3.8
 ======
@@ -40,25 +48,25 @@ Releases with old version numbering
 2020.2.25
 ---------
 
-- :class:`edzed.FuncBlock` now checks if the function signature
+- :class:`FuncBlock` now checks if the function signature
   is compatible with the connected inputs. This helps to find
   an error more quickly.
 
 2020.2.24
 ---------
 
-- :class:`edzed.TimeSpan` was added
+- :class:`TimeSpan` was added
 
 2020.2.23
 ---------
 
-- The :class:`edzed.TimeDateUTC` block was removed,
-  use :class:`edzed.TimeDate` with ``utc=True`` instead.
+- The :class:`TimeDateUTC` block was removed,
+  use :class:`TimeDate` with ``utc=True`` instead.
 
-- The specification of :class:`edzed.TimeDate`\'s arguments
+- The specification of :class:`TimeDate`\'s arguments
   *dates*, *times*, or *weekdays* was updated.
 
-- The :class:`edzed.TimeDate` now supports dynamic updates.
+- The :class:`TimeDate` now supports dynamic updates.
 
 2020.2.11
 ---------

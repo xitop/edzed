@@ -88,6 +88,8 @@ A thermostat example::
       asyncio.run(circuit.run_forever())
 
 
+.. module:: edzed.demo
+
 CLI demo tool
 =============
 
@@ -95,8 +97,8 @@ A simple interactive command line demo tool is provided in the package.
 Input values can be entered from keyboard, state changes are printed to the screen.
 It allows you to test ``edzed`` to some extent without writing own applications.
 
-To use this tool, just run the :func:`edzed.demo.run_demo` coroutine instead
-of the regular simulator.
+To use this tool, import ``edzed.demo`` and run the :func:`edzed.demo.run_demo`
+coroutine instead of the regular simulator :func:`edzed.run_forever`.
 
 .. warning::
 

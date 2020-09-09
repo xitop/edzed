@@ -1,10 +1,12 @@
+.. currentmodule:: edzed
+
 =====================
 List of event filters
 =====================
 
 List of :ref:`event filters<Event filters>`.
 
-.. class:: edzed.Edge(rise=False, fall=False, u_rise=None, u_fall=False)
+.. class:: Edge(rise=False, fall=False, u_rise=None, u_fall=False)
 
   Event filter for logical values.
 
@@ -32,7 +34,7 @@ List of :ref:`event filters<Event filters>`.
   :const:`UNDEF` -> ``True``. If this is not desired, use ``rise=True, u_rise=False``
   to filter it out.
 
-.. function:: edzed.not_from_undef
+.. function:: not_from_undef
 
   Filter out the initial transition from :const:`UNDEF` to the first real value.
 
@@ -40,7 +42,7 @@ List of :ref:`event filters<Event filters>`.
   It checks the item ``'previous'`` in the event data.
 
 
-.. class:: edzed.Delta(delta)
+.. class:: Delta(delta)
 
   Event filter for numeric values. If filters out insignificant value changes.
 
@@ -51,7 +53,7 @@ List of :ref:`event filters<Event filters>`.
   If the absolute difference is smaller than *delta*, it filters out the event.
 
 
-.. class:: edzed.DataEdit
+.. class:: DataEdit
 
   This class provides a set of simple data modifiers:
 
@@ -102,7 +104,7 @@ List of :ref:`event filters<Event filters>`.
 
 .. note::
 
-  Pay attention to correct usage. Classes and classmethods instantiate a filter,
+  Pay attention to correct usage. Classes and classmethods *instantiate* a filter,
   so typical usage might look like this::
 
     edzed.Event(..., efilter=edzed.Edge(rise=True))
