@@ -89,11 +89,11 @@ Skip this step if this feature is not required.
   a disk file or similar persistent storage. It can be also
   ``None`` to leave the feature disabled.
 
-  Python standard library offers the `shelve module <https://docs.python.org/3/library/shelve.html>`_
+  The Python standard library offers the `shelve module <https://docs.python.org/3/library/shelve.html>`_
   and the corresponding documentation mentions another helpful
   `recipe <https://code.activestate.com/recipes/576642/>`_.
 
-  Persistent data storage must be set before the simulation starts.
+  The persistent data storage must be set before the simulation starts.
 
   The *persistent_dict* must be ready to use. If it needs to be closed
   after use, the application is responsible for that. The cleanup could
@@ -143,8 +143,7 @@ Starting a simulation
 
 .. method:: Circuit.is_ready() -> bool
 
-  Return ``True`` only if the circuit is operational,
-  i.e. ready to accept external events.
+  Return ``True`` only if the circuit is ready to accept external events.
 
   The ``is_ready()`` value changes from ``False`` to ``True`` immediately
   after the simulation start. At this moment the circuit is finalized,
@@ -265,15 +264,15 @@ Circuit block debug messages
 
 .. important::
 
-  The blocks emit debugging information with :const:`logging.INFO` severity, because
+  Block debugging messages are emitted with :const:`logging.INFO` severity, because
   the :const:`DEBUG` level is reserved to the simulator itself.
 
-To allow logging of those messages, at least the :const:`INFO` level must be enabled. For example::
+To allow logging of those messages, the :const:`INFO` level must be enabled. For example::
 
   import logging
   logging.basicConfig(level=logging.INFO)   # enable level INFO and higher (WARNING, ERROR, ...)
 
-Block debugging messages must be enabled.
+Debugging messages are enabled by setting the corresponding flag:
 
 .. attribute:: Block.debug
 
@@ -360,7 +359,8 @@ Inspecting blocks
 .. attribute:: Block.circuit
 
   The :class:`Circuit` object the block belongs to. Usually there is
-  only one circuit and this value is of little interest.
+  only one circuit; an application code should use :func:`get_circuit`
+  to get a reference to it.
 
 .. attribute:: Block.desc
 
@@ -388,19 +388,18 @@ Inspecting blocks
   Each block has exactly one output value of any type.
 
   A special :const:`UNDEF` value is assigned to newly created blocks.
-  It is an error, if :const:`UNDEF` value appears on block's output after
-  the circuit initialization.
+
+  .. data:: UNDEF
+
+    A constant representing an undefined output. All other output values
+    are valid, including ``None``. It is an error, if ``edzed.UNDEF``
+    value appears on block's output after the circuit initialization.
 
 .. attribute:: Block.x_anyname
 .. attribute:: Block.X_ANYNAME
 
   (with any arbitrary name) Reserved for application data, ignored by ``edzed``.
   See: :class:`Block`.
-
-.. data:: UNDEF
-
-  A constant representing undefined value. All other output values
-  are valid, including ``None``.
 
 
 Inspecting SBlocks

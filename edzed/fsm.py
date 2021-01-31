@@ -228,6 +228,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
         self._active_timer = None
         self._fsm_event_active = False
         self._next_event = None     # scheduled event in chained state transition
+        self.sdata = {}
         kwargs.setdefault('initdef', self._ct_default_state)
         super().__init__(*args, **kwargs)
 
@@ -240,8 +241,8 @@ class FSM(addons.AddonPersistence, block.SBlock):
         """
         Return the block's internal state.
 
-        Internal state is a pair:
-            FSM state, timer state
+        The internal state is a 3-tuple:
+            FSM state, timer state, additional state data
         The timer state is either None or an expiration time given
         as UNIX timestamp.
 
@@ -252,7 +253,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
             exp_timestamp = None
         else:
             exp_timestamp = looptimes.loop_to_unixtime(timer.when())
-        return (self._state, exp_timestamp)
+        return (self._state, exp_timestamp, self.sdata)
 
     def _restore_state(self, istate: Sequence) -> None:
         """
@@ -262,7 +263,10 @@ class FSM(addons.AddonPersistence, block.SBlock):
         because the state was entered already in the past. Now it is
         only restored.
         """
-        state, exp_timestamp = istate
+        if len(istate) == 2:
+            # compatibility with older versions
+            istate = [*istate, {}]
+        state, exp_timestamp, self.sdata = istate
         self._check_state(state)
         if exp_timestamp is not None:
             remaining = exp_timestamp - time.time()

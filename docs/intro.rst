@@ -7,7 +7,7 @@ i.e. systems that control outputs according to system's internal state, time and
 input values.
 
 The automated system in ``edzed`` is called a circuit, because it is built by
-interconnecting the provided basic blocks, almost like an electronic circuit.
+interconnecting provided basic blocks, almost like an electronic circuit.
 ``edzed`` was indeed developed on principles of a circuit simulation for an
 idealized digital circuit.
 
@@ -131,7 +131,7 @@ Below is a sample output. We will send some events, observe the responses:
 
 - :meth:`event` responds with ``True`` to accepted events and ``False`` to rejected events
 - if an event is accepted, the state changes between ``'locked'`` and ``'unlocked'``;
-  ignore the ``None`` in the state for now (it means no timers)
+  ignore the ``None`` and ``{}`` in the state for now.
 - the block's output is always ``False``, you may ignore it too
 
 ::
@@ -161,27 +161,27 @@ Below is a sample output. We will send some events, observe the responses:
   --- edzed 1> e ts push
   event() returned: False
   output: False
-  state: ('locked', None)
+  state: ('locked', None, {})
   --- edzed 2> e ts coin
   event() returned: True
   output: False
-  state: ('unlocked', None)
+  state: ('unlocked', None, {})
   --- edzed 3> e ts push
   event() returned: True
   output: False
-  state: ('locked', None)
+  state: ('locked', None, {})
   --- edzed 4> e ts coin
   event() returned: True
   output: False
-  state: ('unlocked', None)
+  state: ('unlocked', None, {})
   --- edzed 5> e ts coin
   event() returned: False
   output: False
-  state: ('unlocked', None)
+  state: ('unlocked', None, {})
   --- edzed 6> e ts push
   event() returned: True
   output: False
-  state: ('locked', None)
+  state: ('locked', None, {})
   --- edzed 7>
 
 The final example shows the same turnstile enhanced with two counters::

@@ -56,10 +56,10 @@ There are several options (and combinations):
 And, of course, check the results of terminated tasks.
 
 
-Forbidden circuit behavior
-==========================
+Detection of erroneous circuit activity
+=======================================
 
-The simulator aborts the simulation when in detects forbidden activity
+The simulator aborts the simulation when it detects erroneous activity
 described below. Both cases are similar, one is related to outputs
 and one to events.
 

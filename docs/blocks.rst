@@ -22,7 +22,7 @@ Common features
 
 Regardless of type, every block has the following properties:
 
-.. class:: Block(name: Optional[str], *, desc: str = "", on_output=(), **kwargs)
+.. class:: Block(name: Optional[str], *, desc: str = "", on_output=(), debug: bool = False, **kwargs)
 
   :class:`Block` is the base class for all blocks.
   It cannot be instantiated directly.
@@ -40,15 +40,19 @@ Regardless of type, every block has the following properties:
 
   Enter ``None`` to request a generated name.
   Use this feature only for auxiliary blocks that you will not need
-  to reference.
+  to reference by name.
 
   Optional arguments:
 
   *desc* (block's description) is any arbitrary text.
   It is not used internally.
 
-  The *on_output* argument specifies :ref:`events<Events>` to be sent
-  on each output change.
+  The *on_output* argument specifies :ref:`events<Events>` to be sent on each
+  output change. More details in :ref:`generating events<Generating events>` below.
+
+  The *debug* argument initializes the *debug* attribute.
+
+    .. versionadded:: 21.1.30 *debug*
 
   Keyword arguments starting with ``'x_'`` or ``'X_'`` are accepted and stored as
   block's attributes. These names are reserved for storing arbitrary
@@ -75,7 +79,7 @@ Regardless of type, every block has the following properties:
   .. attribute:: debug
     :noindex:
 
-    Boolean, enable :ref:`logging<Circuit block debug messages>` of block's debugging information.
+    Boolean, enable :ref:`logging of block's debugging information<Circuit block debug messages>`.
 
   .. method:: get_conf
     :noindex:
@@ -349,10 +353,12 @@ The event type and the destination are set in the sender block's configuration::
       'block1', desc="example of sending put events to block2",
       on_output=edzed.Event(block2, 'put'))
 
-By convention the parameters instructing a block to send events in
-certain situations have names starting with an ``"on_"`` prefix.
-They accept either an :class:`Event` object or multiple (zero or more)
-Events objects given as a tuple, list or other sequence.
+.. important::
+
+  Parameters instructing a block to send events in
+  certain situations have names starting with an ``"on_"`` prefix.
+  They accept either an :class:`Event` object or multiple (zero or more)
+  Events objects given as a tuple, list or other sequence.
 
 .. class:: Event(dest: Union[str, Block], etype: nion[str, EventType] = 'put', efilter=())
 
@@ -361,7 +367,7 @@ Events objects given as a tuple, list or other sequence.
 
   The *dest* argument is an :class:`SBlock` object or its name.
 
-  :ref:`Event filters` are functions (callables) documented below. The *efilter* argument
+  :ref:`Event filters` are functions (*callables* to be exact) documented below. The *efilter* argument
   can be a single function or a tuple, list or other sequence of functions.
 
   .. method:: send(source: Block, /, **data) -> bool

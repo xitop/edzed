@@ -6,6 +6,13 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+21.1.30
+=======
+
+- :attr:`FSM.sdata` was added
+- :class:`Block` now accepts a *debug* argument
+- Python version 3.9 was added to classifiers
+
 20.9.10
 =======
 

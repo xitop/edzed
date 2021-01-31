@@ -249,7 +249,11 @@ class Block:
     def __init__(
             self,
             name: Optional[str], *,
-            desc: str = "", on_output: EventsArg = (), _reserved=False, **kwargs):
+            desc: str = "",
+            on_output: EventsArg = (),
+            _reserved: bool = False,
+            debug: bool = False,
+            **kwargs):
         """
         Create a block. Add it to the circuit.
         """
@@ -271,7 +275,7 @@ class Block:
                     f"'{key}' is an invalid keyword argument for {type(self).__name__}()")
             setattr(self, key, value)
         self.desc = desc
-        self.debug = False
+        self.debug = bool(debug)
         self._output_events = event_tuple(on_output)
         # oconnections will be populated by Circuit._init_connections:
         self.oconnections = set()   # output is connected to these blocks

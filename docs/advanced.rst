@@ -18,7 +18,7 @@ There cannot be multiple circuit simulations in parallel,
 but it is possible to remove the current circuit and start over with
 building of a new one.
 
-.. function:: reset_circuit()
+.. function:: reset_circuit() -> None
 
   Clear the circuit and create a new one.
 
@@ -41,7 +41,7 @@ Creating combinational blocks
 =============================
 
 As noted elsewhere, the :class:`FuncBlock` is an universal
-combinational block and there is almost no reason to write a new one.
+combinational block and there is very little reason to write a new one.
 
 Instructions for creating a new CBlock:
 
@@ -124,8 +124,8 @@ An input signature is a :class:`dict` with the following structure:
   For a successful result items in the *esig* and
   items from :meth:`CBlock.input_signature` must match.
 
-  If no problems are detected, the input signature data for possible further analysis
-  is returned.
+  If no problems are detected, the input signature data is returned
+  for eventual further analysis.
 
   If any mismatches are found, a :exc:`ValueError` with a description
   of all differences (missing items, etc.) is raised. :meth:`check_signature`

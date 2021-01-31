@@ -328,16 +328,18 @@ def test_persistent_state(circuit):
         on_exit_D=edzed.Event(mem, '-D')
         )
     assert fsm.key == "<Dummy 'test'>"
-    storage = {fsm.key: ['D', None]}    # (state, timestamp)
+    storage = {fsm.key: ['D', None, {'x':'y', 'z':3}]}    # (state, timestamp)
     circuit.set_persistent_data(storage)
     # enter_D and on_enter_D will be suppressed
     init(circuit)
+    assert fsm.sdata == {'x':'y', 'z':3}
 
     assert fsm.state == 'D'
     assert mem.output is None
 
     fsm.event(edzed.Goto('F'))
-    assert storage == {fsm.key: ('F', None)}
+    del fsm.sdata['x']
+    assert storage == {fsm.key: ('F', None, {'z':3})}
     assert mem.output == ('-D', {'source': 'test', 'trigger': 'on_exit_D'})
 
 

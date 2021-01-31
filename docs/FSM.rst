@@ -159,7 +159,7 @@ and ``False`` for rejected FSM events.
 
   ``None`` as *next_state* makes a transition explicitly disallowed.
 
-  Example::
+  Examples::
 
     ["ev1", None, "state2"],    # default rule for "ev1" and all states except
                                 # more specific rules for state2 and state3 below
@@ -335,7 +335,7 @@ Access to event data
 
 
 Chained state transitions
-^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------
 
 ``enter_STATE`` may call ``self.event()`` to schedule an immediate
 transition to the next state. Only one such call is permitted,
@@ -356,6 +356,54 @@ The reason why S2 will refrain from manifesting itself is that
 in an idealized circuit, S2 was valid for zero time. From an
 external view the S1 -> S2 -> S3 transition that took place
 looks like a straightforward S1 -> S3 transition.
+
+For example the code shown in the :ref:`next section<Additional internal state data>`
+makes use of the chained state transition feature.
+Look for the transition ``prepare_afterrun -> afterrun``.
+
+
+Additional internal state data
+------------------------------
+
+.. attribute:: FSM.sdata
+  :type: dict
+
+  In some cases the internal state consists of more values than just the current
+  FSM state and the timer state. This additional data should be stored here
+  as key=value pairs.
+
+  Because the :attr:`FSM.sdata` dict is by definition a part of the internal state,
+  it is automatically saved and restored when the persistent state is turned on.
+
+  .. versionadded:: 21.1.30
+
+In the following example, the output is ``True`` between the ``start`` and ``stop``
+events and also during the following after-run period. The after-run duration is
+calculated as a percentage of the regular run duration. The :attr:`FSM.sdata` is used
+to hold the timestamp necessary for the calculation::
+
+  class AfterRun(edzed.FSM):
+      STATES = ['off', 'on', 'prepare_afterrun', 'afterrun']
+      EVENTS = [
+          ['start', ['off'], 'on'],
+          ['stop', ['on'], 'prepare_afterrun'],
+      ]
+      TIMERS = {
+          'afterrun': (None, edzed.Goto('off'))
+      }
+
+      def enter_on(self):
+          self.sdata['started'] = time.time()
+
+      def enter_prepare_afterrun(self):
+          duration = (time.time() - self.sdata.pop('started')) * (self.x_percentage / 100.0)
+          self.event(edzed.Goto('afterrun'), duration=duration)
+
+      def _eval(self):
+          return self.state != 'off'
+
+
+  AfterRun('afterrun', x_percentage=50)
 
 
 Output
