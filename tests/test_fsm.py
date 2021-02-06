@@ -241,7 +241,10 @@ def test_transition_chaining(circuit):
     abcd.event(edzed.Goto('A'))
     assert abcd.state == 'A'
     assert abcd.output == 'in_A'
-    assert mem.output == ('-D', {'source': 'abcd', 'trigger': 'on_exit_D'})
+    assert mem.output == (
+        '-D',
+        {'source': 'abcd', 'trigger': 'exit', 'state': 'D', 'sdata': {}, 'value': 'in_D'}
+        )
 
 
 def test_no_multiple_next_states(circuit):
@@ -328,19 +331,23 @@ def test_persistent_state(circuit):
         on_exit_D=edzed.Event(mem, '-D')
         )
     assert fsm.key == "<Dummy 'test'>"
-    storage = {fsm.key: ['D', None, {'x':'y', 'z':3}]}    # (state, timestamp)
+    storage = {fsm.key: ['D', None, {'x':'y', '_z':3}]}    # (state, timer, sdata)
     circuit.set_persistent_data(storage)
     # enter_D and on_enter_D will be suppressed
     init(circuit)
-    assert fsm.sdata == {'x':'y', 'z':3}
+    assert fsm.sdata == {'x':'y', '_z':3}
 
     assert fsm.state == 'D'
     assert mem.output is None
 
     fsm.event(edzed.Goto('F'))
+    assert mem.output == (
+        '-D',
+        # '_z' is not present in 'sdata', because it is considered private
+        {'source': 'test', 'trigger': 'exit', 'state': 'D', 'sdata': {'x':'y'}, 'value': False}
+        )
     del fsm.sdata['x']
-    assert storage == {fsm.key: ('F', None, {'z':3})}
-    assert mem.output == ('-D', {'source': 'test', 'trigger': 'on_exit_D'})
+    assert storage == {fsm.key: ('F', None, {'_z':3})}
 
 
 def test_read_only_data(circuit):

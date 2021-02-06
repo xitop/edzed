@@ -372,6 +372,8 @@ Additional internal state data
   FSM state and the timer state. This additional data should be stored here
   as key=value pairs.
 
+  .. important:: All keys must be strings.
+
   Because the :attr:`FSM.sdata` dict is by definition a part of the internal state,
   it is automatically saved and restored when the persistent state is turned on.
 
@@ -481,7 +483,7 @@ state and event names.
 - ``on_enter_STATE=event``
 - ``on_exit_STATE=event``
 - ``on_notrans=event``
-    see: :ref:`Generating SBlock events`
+    see: :ref:`Generating FSM events`
 
 - ``persistent=boolean``
     make the internal state persistent
@@ -490,8 +492,8 @@ state and event names.
     initial state, default is the first state listed in :obj:`FSM.STATES`.
 
 
-Generating SBlock events
-------------------------
+Generating FSM events
+---------------------
 
 FSM instances may :ref:`define events<Generating events>` to be sent
 to other blocks.
@@ -506,7 +508,11 @@ The corresponding keyword arguments are:
     Events are sent with these data items:
 
     - ``'source'`` = sender's block name
-    - ``'trigger'`` = either ``'on_enter_STATE'`` or ``'on_exit_STATE'``
+    - ``'trigger'`` = either ``'enter'`` or ``'exit'``
+    - ``'state'`` = the FSM state just entered or exited
+    - ``'sdata'`` = a shallow copy of :attr:`FSM.sdata` with private data items removed
+      (private data are items with keys starting with an underscore).
+    - ``'value'`` = the output value
 
 - ``on_notrans``
 
@@ -516,8 +522,12 @@ The corresponding keyword arguments are:
     Events are sent with these data items:
 
     - ``'source'`` = sender's block name
+    - ``'trigger'`` = always ``'notrans'``
+    - ``'state'`` = the current FSM state
     - ``'event'`` = the not accepted event
-    - ``'state'`` = current state
+
+.. versionchanged:: 21.2.7
+   changed ``'trigger'`` values; added ``'sdata'`` and ``'value'``.
 
 
 Initialization rules

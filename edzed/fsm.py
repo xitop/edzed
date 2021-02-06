@@ -237,7 +237,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
         """Return the FSM state."""
         return self._state
 
-    def get_state(self) -> Tuple[str, Optional[float]]:
+    def get_state(self) -> Tuple[str, Optional[float], dict]:
         """
         Return the block's internal state.
 
@@ -360,9 +360,14 @@ class FSM(addons.AddonPersistence, block.SBlock):
             events = state_events[state]
         except KeyError:
             return
-        trigger = f'{trigger_type}_{state}'
         for event in events:
-            event.send(self, trigger=trigger)
+            event.send(
+                self,
+                sdata={k: v for k, v in self.sdata.items() if not k.startswith('_')},
+                state=state,
+                value=self._output,
+                trigger=trigger_type[3:],   # strip 'on_' from trigger_type
+                )
 
     def _run_cb(self, cb_type, name):
         """
@@ -427,7 +432,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
             if newstate is None:
                 self.log("No transition defined for event %s in state %s", etype, self._state)
                 for event in self._on_notrans:
-                    event.send(self, event=etype, state=self._state)
+                    event.send(self, event=etype, trigger='notrans', state=self._state)
                 return False
             if self.is_initialized() and not all(self._run_cb('cond', etype)):
                 self.log(

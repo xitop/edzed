@@ -192,3 +192,26 @@ def disabled_test_addons():
         class SBlockWithAddonWrongOrder(edzed.SBlock, edzed.AddonAsync):
             def _eval(self):
                 return None
+
+def test_has_method():
+    class Without(edzed.SBlock):
+        pass
+
+    class With(edzed.SBlock):
+        def init_from_value(self):
+            pass
+        async def init_async(self):
+            pass
+        async def stop_async(self):
+            pass
+
+    mno = Without('without_methods')
+    myes = With('with_methods')
+
+    for name in ('init_from_value', 'init_async', 'stop_async'):
+        # has the dummy method
+        assert getattr(mno, name, None) is not None
+        assert not mno.has_method(name)
+        # has its own method
+        assert getattr(myes, name, None) is not None
+        assert myes.has_method(name)

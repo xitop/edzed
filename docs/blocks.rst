@@ -33,62 +33,62 @@ Regardless of type, every block has the following properties:
 
   Mandatory arguments:
 
-  The *name* is block's unique identifier, a non-empty string.
+    The *name* is block's unique identifier, a non-empty string.
 
-  Names prefixed by an underscore are reserved for automatically created
-  blocks and names.
+    Names prefixed by an underscore are reserved for automatically created
+    blocks and names.
 
-  Enter ``None`` to request a generated name.
-  Use this feature only for auxiliary blocks that you will not need
-  to reference by name.
+    Enter ``None`` to request a generated name.
+    Use this feature only for auxiliary blocks that you will not need
+    to reference by name.
 
   Optional arguments:
 
-  *desc* (block's description) is any arbitrary text.
-  It is not used internally.
+    *desc* (block's description) is any arbitrary text.
+    It is not used internally.
 
-  The *on_output* argument specifies :ref:`events<Events>` to be sent on each
-  output change. More details in :ref:`generating events<Generating events>` below.
+    The *on_output* argument specifies :ref:`events<Events>` to be sent on each
+    output change. More details in :ref:`generating events<Generating events>` below.
 
-  The *debug* argument initializes the *debug* attribute.
+    The *debug* argument initializes the *debug* attribute.
 
-    .. versionadded:: 21.1.30 *debug*
+      .. versionadded:: 21.1.30 *debug*
 
-  Keyword arguments starting with ``'x_'`` or ``'X_'`` are accepted and stored as
-  block's attributes. These names are reserved for storing arbitrary
-  application data.
+    Keyword arguments starting with ``'x_'`` or ``'X_'`` are accepted and stored as
+    block's attributes. These names are reserved for storing arbitrary
+    application data.
 
-  Overview of common attributes and methods,
+  Overview of common attributes and methods;
   more details can be found :ref:`here <Inspecting blocks>`:
 
-  .. attribute:: name
-    :noindex:
+    .. attribute:: name
+      :noindex:
 
-    Block's name.
+      Block's name.
 
-  .. attribute:: desc
-    :noindex:
+    .. attribute:: desc
+      :noindex:
 
-    Block's description.
+      Block's description.
 
-  .. attribute:: output
-    :noindex:
+    .. attribute:: output
+      :noindex:
 
-    Block's output value.
+      Block's output value.
 
-  .. attribute:: debug
-    :noindex:
+    .. attribute:: debug
+      :noindex:
 
-    Boolean, enable :ref:`logging of block's debugging information<Circuit block debug messages>`.
+      Boolean, enable :ref:`logging of block's debugging information<Circuit block debug messages>`.
 
-  .. method:: get_conf
-    :noindex:
+    .. method:: get_conf
+      :noindex:
 
-    Return static block information such as the name and type.
+      Return static block information such as the name and type.
 
-  .. method:: __str__
+    .. method:: __str__
 
-    The string representation of a block is ``"<Type 'name'>"``.
+      The string representation of a block is ``"<Type 'name'>"``.
 
 
 Combinational blocks

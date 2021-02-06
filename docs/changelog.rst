@@ -6,6 +6,14 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+21.2.7
+======
+
+- fixed messages ``"init_timeout (or stop_timeout) not set, default is 10.000s"``
+  being logged even if such timeouts were not applicable
+- the format of :ref:`event data sent by FSM blocks<Generating FSM events>`
+  was changed (incompatible change)
+
 21.1.30
 =======
 

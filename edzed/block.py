@@ -323,13 +323,15 @@ class Block:
     def has_method(self, method: str) -> bool:
         """Check if a method is defined and is not a dummy."""
         try:
-            method = getattr(self, method)
+            attr = getattr(self, method)
         except AttributeError:
             return False
-        cls = type(self)
-        if method is cls.dummy_method or method is cls.dummy_async_method:
+        if any(
+                # must convert the class method to a bound method for comparison
+                attr == dm.__get__(self, type(self))
+                for dm in (SBlock.dummy_method, SBlock.dummy_async_method)):
             return False
-        return callable(method)
+        return callable(attr)
 
     def dummy_method(self, *args, **kwargs):
         """
