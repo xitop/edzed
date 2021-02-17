@@ -182,15 +182,15 @@ def disabled_test_addons():
     # https://bugs.python.org/issue38085
     with pytest.raises(TypeError, match="add-on"):
         class CBlockWithAddon1(edzed.AddonAsync, edzed.CBlock):
-            def _eval(self):    # _eval is abstract
+            def calc_output(self):    # calc_output is abstract
                 return None
     with pytest.raises(TypeError, match="add-on"):
         class CBlockWithAddon2(edzed.CBlock, edzed.AddonAsync):
-            def _eval(self):
+            def calc_output(self):
                 return None
     with pytest.raises(TypeError, match="add-on"):
         class SBlockWithAddonWrongOrder(edzed.SBlock, edzed.AddonAsync):
-            def _eval(self):
+            def calc_output(self):
                 return None
 
 def test_has_method():

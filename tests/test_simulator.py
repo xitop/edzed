@@ -7,6 +7,7 @@ Tests requiring asyncio and event loop.
 # pylint: disable=wildcard-import, unused-wildcard-import
 
 import asyncio
+import time
 
 import pytest
 
@@ -195,7 +196,7 @@ async def test_no_simulator_restart(circuit):
 
 
 async def test_no_multiple_awaits(circuit):
-    """It is not possible to await the simulation ."""
+    """It is not possible to await the simulation."""
     Noop('block')
     asyncio.create_task(circuit.run_forever())
     await asyncio.sleep(0)
@@ -203,3 +204,77 @@ async def test_no_multiple_awaits(circuit):
         # cannot await more than once
         await circuit.run_forever()
     await circuit.shutdown()
+
+
+async def test_persistent_data_timestamp(circuit):
+    """Persistent data are timestamped on shutdown."""
+    Noop('block')
+    pd = {}
+    circuit.set_persistent_data(pd)
+    asyncio.create_task(circuit.run_forever())
+    await asyncio.sleep(0.1)
+    t1 = time.time()
+    await circuit.shutdown()
+    t2 = time.time()
+
+    TS = 'edzed-stop-time'
+    assert pd.keys() == {TS}
+    assert t1 <= pd[TS] <= t2
+
+
+async def test_initialization_order(circuit):
+    """Test the initialization order."""
+    class Test(edzed.AddonPersistence, edzed.AddonAsync, edzed.SBlock):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.inits = []
+
+        async def init_async(self):
+            await asyncio.sleep(0)
+            self.inits.append('A')  # Async
+
+        def _restore_state(self, state):
+            self.inits.append('P')  # Persistent
+            if state == 'ok':
+                self.set_output('out')
+
+        def init_regular(self):
+            self.inits.append('R')  # Regular
+            if hasattr(self, 'x_regular'):
+                self.set_output('out')
+
+        def init_from_value(self, value):
+            self.inits.append('D')  # Default
+            self.set_output('out')
+
+    t1 = Test('block1', persistent=True, initdef='default')
+    t2 = Test('block2', initdef='default')
+    t3 = Test('block3', initdef='default', init_timeout=0.0)
+    t4 = Test('block4', persistent=True, initdef='default', x_regular='xr')
+    t5 = Test('block5', persistent=True, initdef='default')
+    circuit.set_persistent_data({t1.key: 1, t2.key: 2, t5.key: 'ok'})
+    asyncio.create_task(circuit.run_forever())
+    await circuit.wait_init()
+    await circuit.shutdown()
+
+    assert t1.inits == ['P', 'A', 'R', 'D'] # all init functions, D succeeds
+    assert t2.inits == ['A', 'R', 'D']      # P not enabled
+    assert t3.inits == ['R', 'D']           # P not enabled, A disabled by zero timeout
+    assert t4.inits == ['A', 'R']           # no P data saved, R succeeds
+    assert t5.inits == ['P']                # P succeeds
+
+
+async def test_init_event(circuit):
+    """Test the initialization by an event."""
+    class EventOnly(edzed.SBlock):
+        """Can be initialized only by an event."""
+        def _event_start(self, **data):
+            self.set_output(data['value'] + '!')
+
+    ev = EventOnly('ev')
+    edzed.Input('inp', initdef='IV', on_output=edzed.Event(ev, 'start'))
+
+    asyncio.create_task(circuit.run_forever())
+    await circuit.wait_init()
+    await circuit.shutdown()
+    assert ev.output == 'IV!'

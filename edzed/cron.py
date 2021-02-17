@@ -180,5 +180,5 @@ class Cron(addons.AddonMainTask, block.SBlock):
     def _event_get_schedule(self, **_data):
         """Return the internal scheduling data for debugging or monitoring."""
         return {
-            str(hms): set(blk.name for blk in blkset)
+            str(hms): sorted(blk.name for blk in blkset)
             for hms, blkset in self._alarms.items()}

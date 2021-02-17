@@ -6,6 +6,8 @@ Test the persistent state.
 # pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
 # pylint: disable=wildcard-import, unused-wildcard-import
 
+import time
+
 import pytest
 
 import edzed
@@ -60,6 +62,26 @@ def test_load_state(circuit):
     assert inp.output == 'saved'
     inp.event('put', value=3.14)
     assert storage == {inp.key: 3.14}
+
+
+def test_expiration(circuit):
+    """Test the internal state expiration"""
+    inp1 = edzed.Input('inp1', initdef=91, persistent=True)
+    inp2 = edzed.Input('inp2', initdef=92, persistent=True, expiration=None)
+    inp3 = edzed.Input('inp3', initdef=93, persistent=True, expiration=10)
+    inp4 = edzed.Input('inp4', initdef=94, persistent=True, expiration="1m30s")
+
+    storage = {
+        inp1.key: 1, inp2.key: 2, inp3.key: 3, inp4.key: 4,
+        'edzed-stop-time': time.time() - 12.0,  # 12 seconds old
+        }
+    circuit.set_persistent_data(storage)
+    init(circuit)
+
+    assert inp1.output == 1     # no expiration
+    assert inp2.output == 2     # no expiration
+    assert inp3.output == 93    # state expired, init from default
+    assert inp4.output == 4     # not expired
 
 
 def test_no_save_on_error(circuit):

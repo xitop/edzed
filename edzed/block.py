@@ -327,6 +327,7 @@ class Block:
         except AttributeError:
             return False
         if any(
+                # pylint: disable=comparison-with-callable
                 # must convert the class method to a bound method for comparison
                 attr == dm.__get__(self, type(self))
                 for dm in (SBlock.dummy_method, SBlock.dummy_async_method)):
@@ -529,15 +530,15 @@ class CBlock(Block, metaclass=abc.ABCMeta):
         return bsig
 
     @abc.abstractmethod
-    def _eval(self) -> Any:
-        """Compute and return the output value."""
+    def calc_output(self) -> Any:
+        """Calculate and return the output value."""
 
     def eval_block(self) -> bool:
         """
         Compute new output value. Return an output change indicator.
         """
         previous = self._output
-        value = self._eval()
+        value = self.calc_output()
         if value is UNDEF:
             raise ValueError("Output value must not be <UNDEF>")
         if previous == value:

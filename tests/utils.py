@@ -24,7 +24,7 @@ class Noop(edzed.CBlock):
     A block for testing which accepts any inputs.
     """
 
-    def _eval(self):
+    def calc_output(self):
         return None
 
 

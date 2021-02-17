@@ -462,6 +462,17 @@ The arguments are only a default value and as such are copied to the
 :data:`TimeSpan.initdef` variable. An *initdef* argument is not accepted
 though.
 
+Monitoring aid
+--------------
+
+Blocks :class:`TimeDate` and :class:`TimeSpan` are implemented as clients
+of an internal "cron" service. This service has a form of a common :class:`SBlock`.
+
+The name of this automatically created block  is ``_cron_local`` or ``_cron_utc``
+for local or UTC time respectively. It accepts an event named ``get_schedule``
+and responds with a dump of the internal scheduling data in the form of a dict:
+``{"HH:MM:SS": [block_names_to_recalculate]}``.
+
 
 Counter
 =======

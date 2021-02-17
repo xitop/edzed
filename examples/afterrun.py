@@ -20,7 +20,7 @@ class AfterRun(edzed.FSM):
         duration = (time.time() - self.sdata.pop('started')) * (self.x_percentage / 100.0)
         self.event(edzed.Goto('afterrun'), duration=duration)
 
-    def _eval(self):
+    def calc_output(self):
         return self.state != 'off'
 
 

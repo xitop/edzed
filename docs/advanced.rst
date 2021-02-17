@@ -46,10 +46,10 @@ combinational block and there is very little reason to write a new one.
 Instructions for creating a new CBlock:
 
 - subclass from :class:`CBlock`
-- define :meth:`CBlock._eval`
+- define :meth:`CBlock.calc_output`
 - optional: define :meth:`CBlock.start` and :meth:`CBlock.stop`
 
-.. method:: CBlock._eval() -> Any
+.. method:: CBlock.calc_output() -> Any
   :abstractmethod:
 
   Compute and return the output value.
@@ -154,7 +154,7 @@ Example (Invert)
 :class:`Invert` source::
 
   class Invert(edzed.CBlock):
-      def _eval(self):
+      def calc_output(self):
           return not self._in['_'][0]
 
       def start(self):
@@ -176,10 +176,10 @@ Before we dive into details, let's recap the :ref:`initialization order <Initial
 with links to corresponding sections added. Each block defines only those steps that are
 appropriate to its functionality.
 
-1. asynchronous initialization routine
-     see: :class:`AddonAsync` and :meth:`SBlock.init_async`
-2. from persistent data
+1. from persistent data
      see: :class:`AddonPersistence` and :meth:`SBlock._restore_state`
+2. asynchronous initialization routine
+     see: :class:`AddonAsync` and :meth:`SBlock.init_async`
 3. regular initialization routine
      see :meth:`SBlock.init_regular`
 4. from the *initdef* value
@@ -380,15 +380,15 @@ Persistent state add-on
 
 .. class:: AddonPersistence
 
-  Inheriting from this class adds a persistent state.
+  Inheriting from this class adds support for state persistence.
+  The related arguments *persistent*, *sync_state*, and *expiration*
+  are explained in the :class:`SBlock`\'s documentation.
 
-  The internal state (as returned by :meth:`SBlock.get_state` can be
-  saved to persistent storage provided by the circuit. Instances can enable
-  persistent state feature with the *persistent* keyword argument.
+  If enabled, the block's internal state (as returned by :meth:`SBlock.get_state`
+  is saved to the persistent storage provided by the circuit in these
+  situations:
 
-  If enabled, the state is saved:
-
-  - by calling :meth:`save_persistent_state` explicitly
+  - when :meth:`SBlock.save_persistent_state` is called
   - at the end of a simulation
   - by default also after each event; this can be disabled
     with *sync_state* keyword argument.
@@ -396,15 +396,17 @@ Persistent state add-on
   Saving of persistent state is disabled after an error in :meth:`SBlock.event`
   in order to prevent saving of possibly corrupted state.
 
-  .. method:: save_persistent_state()
+  For state restoration :meth:`_restore_state` must be implemented.
 
-    Save the internal state to persistent storage.
+  The simulator retrieves the saved state from the persistent storage,
+  then it checks the expiration time and unless the state has expired,
+  it is passed to :meth:`_restore_state`.
 
-    This method is usually called by the simulator.
+.. method:: SBlock.save_persistent_state()
 
-For state restoration :meth:`_restore_state` must be implemented.
-The simulator retrieves the saved state from the persistent storage
-and passes it as an argument.
+  Save the internal state to persistent storage.
+
+  This method is usually called by the simulator.
 
 .. method:: SBlock._restore_state(state: Any) -> None
   :abstractmethod:
@@ -418,7 +420,7 @@ and passes it as an argument.
 .. attribute:: SBlock.key
 
   The persistent dict key associated with this block. It equals the string representation
-  ``str(self)`` - see :meth:`Block.__str__` - but this may be changed in the future.
+  ``str(self)`` - see :meth:`Block.__str__` - but this may change in the future.
 
 
 Async add-on
@@ -505,11 +507,11 @@ Main task add-on
   Note that the *init_timeout* argument does not apply, because task creation
   is a regular function.
 
-  .. method:: _maintask()
-    :abstractmethod:
-    :async:
+.. method:: SBlock._maintask()
+  :abstractmethod:
+  :async:
 
-    The task coroutine.
+  The task coroutine.
 
 
 Example (Input)

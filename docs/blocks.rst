@@ -54,9 +54,9 @@ Regardless of type, every block has the following properties:
 
       .. versionadded:: 21.1.30 *debug*
 
-    Keyword arguments starting with ``'x_'`` or ``'X_'`` are accepted and stored as
-    block's attributes. These names are reserved for storing arbitrary
-    application data.
+    All keyword arguments starting with ``'x_'`` or ``'X_'`` are accepted
+    and stored as block's attributes. These names are reserved for storing
+    arbitrary application data.
 
   Overview of common attributes and methods;
   more details can be found :ref:`here <Inspecting blocks>`:
@@ -191,22 +191,33 @@ Base class arguments
          mandatory for the given block.
       3. *initdef* is the default value just for the case
          the regular initialization fails. In this case is the argument
-         still optional, but highly recommended for the given block.
+         optional, but highly recommended for the given block.
 
       If accepted, the *initdef* value is saved as an attribute.
 
   - Enabling persistent state:
-      Several blocks support persistent state, i.e.
-      their internal state is saved (most likely to a file) when
-      the application stops and is restored on next start.
+      Persistent state means that the internal state is saved (most likely
+      to a file) when the application stops and is restored on the next start.
 
-      This feature is controlled by two boolean flags:
+      If a block supports this feature, it is controlled by these
+      parameters:
 
-      - *persistent*
-         Enable the persistent state. Default is ``False``.
+      - *persistent*:
+          Enable the persistent state. Default is ``False``.
 
       - *sync_state*:
-         Save the state also after each event. Default is ``True``.
+          Save the state also after each event. Default is ``True``.
+
+      - *expiration*:
+          Expiration time measured since the program stop. An expired
+          state is disregarded. Expiration value can be ``None``,
+          number of seconds, or
+          a :ref:`string with time units<Time intervals with units>`.
+
+          The *expiration* value defaults to ``None`` which means
+          that the saved state never expires.
+
+          .. versionadded:: 21.2.20
 
       The :ref:`persistent data storage<Storage for persistent state>`
       must be provided by the circuit.
@@ -225,8 +236,11 @@ Base class arguments
          Default timeout is 10 seconds.
          Value 0.0 or negative disables the async cleanup.
 
-      The timeout values must be given as a number (:class:`int`, :class:`float`)
-      or ``None`` for the default timeout.
+      The timeout values must be given as a number of seconds,
+      ``None`` for the default timeout, or
+      a :ref:`string with time units<Time intervals with units>`.
+
+      .. versionadded:: 21.2.20 support for strings was added
 
 
 Internal state
@@ -258,13 +272,12 @@ Blocks are initialized at the beginning of circuit simulation.
 
 The initialization process is carried out in consecutive steps
 listed below until one of the steps succeeds to initialize the block.
-
 Each block defines only those steps that are appropriate.
 
-1. by the asynchronous initialization routine defined in the block's class
+1. from saved persistent data
+2. by the asynchronous initialization routine defined in the block's class
    (subject to *init_timeout* parameter);
    this step is skipped if an incoming event is pending
-2. from saved persistent data
 3. by the regular (i.e. not async) initialization routine
    defined in the block's class
 4. from the *initdef* parameter
@@ -275,6 +288,9 @@ Each block defines only those steps that are appropriate.
       It is listed here because some circuits
       rely on the side effect of setting the internal
       state.
+
+.. versionchanged:: 21.2.20
+   Items 1 and 2 were in reversed order in prior versions.
 
 The simulation fails if any block remains uninitialized.
 

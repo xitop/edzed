@@ -11,10 +11,12 @@ Home: https://github.com/xitop/edzed/
 
 import abc
 import asyncio
+import time
 from typing import Any, Awaitable, Mapping, Union
 
 from . import block
 from .exceptions import EdzedError
+from .utils import timeunits
 
 
 __all__ = ['AddonAsync', 'AddonMainTask', 'AddonPersistence']
@@ -25,9 +27,16 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
     Add support for persistent state to a SBlock.
     """
 
-    def __init__(self, *args, persistent: bool = False, sync_state: bool = True, **kwargs):
+    def __init__(
+            self,
+            *args,
+            persistent: bool = False,
+            sync_state: bool = True,
+            expiration: Union[None, int, float, str] = None,
+            **kwargs):
         self.persistent = bool(persistent)
         self.sync_state = bool(sync_state)
+        self.expiration = timeunits.time_period(expiration)
         super().__init__(*args, **kwargs)
         # str(self) (as defined in superclass!) is used as a key instead of
         # just the name, because it contains also the block type name.
@@ -90,6 +99,14 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
         except Exception as err:
             self.warn("Persistent data retrieval error: %s", err)
             return
+        exp = self.expiration
+        if exp is not None:
+            if exp <= 0.0:
+                return
+            ts = self.circuit.persistent_ts
+            if ts is not None and ts + exp < time.time():
+                self.log("The internal state has expired.")
+                return
         try:
             self._restore_state(state)
         except Exception as err:
@@ -126,10 +143,10 @@ class AddonAsync(block.Addon):
         """
         init = self.has_method('init_async')
         if init:
-            self.init_timeout = kwargs.pop('init_timeout', None)
+            self.init_timeout = timeunits.time_period(kwargs.pop('init_timeout', None))
         stop = self.has_method('stop_async')
         if stop:
-            self.stop_timeout = kwargs.pop('stop_timeout', None)
+            self.stop_timeout = timeunits.time_period(kwargs.pop('stop_timeout', None))
         super().__init__(*args, **kwargs)
         # cannot use self.log before Block.__init__()
         if init and self.init_timeout is None:

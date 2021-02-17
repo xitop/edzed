@@ -12,7 +12,6 @@ import pytest
 from edzed.utils import tconst
 from edzed.utils import timeunits
 from edzed.utils import timeinterval
-from edzed import convert_duration
 
 from .utils import *
 
@@ -119,15 +118,18 @@ def test_timestr():
         assert convert(timestr(t)) == t
 
 
-def test_convert_duration():
-    assert convert_duration(None) is None
+def test_time_period():
+    time_period = timeunits.time_period
+    assert time_period(None) is None
     for v in (-128, -2.8, 0, 5, 33.33):
-        c = convert_duration(v)
+        c = time_period(v)
         assert isinstance(c, float)
         assert c == (v if v > 0 else 0.0)
-    assert convert_duration("1h1") == 3601.0
+    assert time_period("1h1") == 3601.0
     with pytest.raises(ValueError, match='Invalid'):
-        convert_duration('short')
+        time_period('short')
+    with pytest.raises(TypeError):
+        time_period([1,2,3])
 
 
 def test_hms():

@@ -45,7 +45,7 @@ async def test_duration(circuit):
         def enter_off_0(self):
             self.event(edzed.Goto('off'), duration=(1.0 - self._dc) * PERIOD)
 
-        def _eval(self):
+        def calc_output(self):
             return self._state == 'on'
 
     logger = TimeLogger('logger', mstop=True)

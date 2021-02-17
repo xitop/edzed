@@ -6,6 +6,17 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+21.2.20
+=======
+- expiration of saved :ref:`persistent state<Persistent state add-on>` was implemented
+- helper function :func:`utils.timeunits.time_period` was added
+- an issue with SBlocks initialized by an event was fixed
+- :class:`SBlock`\'s arguments *init_timeout* and *stop_timeout* may be now written
+  also as strings
+- :class:`SBlock` :ref:`initialization order <Initialization>` was modified
+- :func:`CBlock._eval` was renamed to :func:`CBlock.calc_output` (incompatible change)
+- :func:`FSM._eval` was renamed to :func:`FSM.calc_output` (incompatible change)
+
 21.2.7
 ======
 
@@ -44,46 +55,11 @@ Version numbers are based on the release date (Y.M.D).
 
 - The :func:`DataEdit.modify` event filter was added.
 
-20.3.8
-======
 
-- No new features, only the version numbering scheme was changed.
-  This change makes an upgrade not possible. Please remove and reinstall.
-  Sorry for the inconvenience.
+.. note:: See the git repository for older releases.
 
-----
-
-Releases with old version numbering
-===================================
-
-.. note::
-
-  The early releases below used an incompatible version numbering.
-
-2020.2.25
----------
-
-- :class:`FuncBlock` now checks if the function signature
-  is compatible with the connected inputs. This helps to find
-  an error more quickly.
-
-2020.2.24
----------
-
-- :class:`TimeSpan` was added
-
-2020.2.23
----------
-
-- The :class:`TimeDateUTC` block was removed,
-  use :class:`TimeDate` with ``utc=True`` instead.
-
-- The specification of :class:`TimeDate`\'s arguments
-  *dates*, *times*, or *weekdays* was updated.
-
-- The :class:`TimeDate` now supports dynamic updates.
 
 2020.2.11
----------
+=========
 
 First public release.

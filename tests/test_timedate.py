@@ -5,7 +5,6 @@ Test the TimeDate block as much as possible in short time.
 # pylint: disable=missing-docstring, no-self-use, protected-access
 # pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
 # pylint: disable=wildcard-import, unused-wildcard-import
-# pylint: disable=bad-whitespace
 
 import asyncio
 import time
@@ -217,7 +216,7 @@ async def test_persistent(circuit):
     td.event('reconfig', **conf)
     assert td.get_state() == conf
     await circuit.shutdown()
-    assert storage == {td.key: conf}
+    assert storage[td.key] == conf
 
     edzed.reset_circuit()
     td = edzed.TimeDate("pers", persistent=True)
@@ -227,4 +226,4 @@ async def test_persistent(circuit):
     await circuit.wait_init()
     assert td.get_state() == conf
     await circuit.shutdown()
-    assert storage == {td.key: conf}
+    assert storage[td.key] == conf

@@ -401,7 +401,7 @@ to hold the timestamp necessary for the calculation::
           duration = (time.time() - self.sdata.pop('started')) * (self.x_percentage / 100.0)
           self.event(edzed.Goto('afterrun'), duration=duration)
 
-      def _eval(self):
+      def calc_output(self):
           return self.state != 'off'
 
 
@@ -411,11 +411,11 @@ to hold the timestamp necessary for the calculation::
 Output
 ======
 
-The output value is set in the :meth:`FSM._eval` method which is called during
-a state transition after ``enter_STATE`` action and before ``on_enter_STATE``
+The output value is calculated in the :meth:`FSM.calc_output` method which is called
+during a state transition after ``enter_STATE`` action and before ``on_enter_STATE``
 and ``on_output`` events:
 
-.. method:: FSM._eval
+.. method:: FSM.calc_output
 
   Return the block's output value computed from the internal state data.
 
@@ -455,7 +455,7 @@ Example (Timer)
       def cond_stop(self):
           return self._restartable or self._state != 'off'
 
-      def _eval(self):
+      def calc_output(self):
           return self._state == 'on'
 
 
@@ -525,6 +525,8 @@ The corresponding keyword arguments are:
     - ``'trigger'`` = always ``'notrans'``
     - ``'state'`` = the current FSM state
     - ``'event'`` = the not accepted event
+
+Other event data items may be added in the future.
 
 .. versionchanged:: 21.2.7
    changed ``'trigger'`` values; added ``'sdata'`` and ``'value'``.

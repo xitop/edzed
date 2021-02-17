@@ -10,6 +10,7 @@ import asyncio
 import fnmatch
 import logging
 import operator
+import time
 from typing import Any, Iterator, Mapping, Optional
 
 from . import addons
@@ -55,6 +56,10 @@ def reset_circuit() -> None:
     _current_circuit = Circuit()
 
 
+# Circuit.init_sblock() mode argument (may be OR'ed together)
+INIT_PART1 = 1
+INIT_PART2 = 2
+
 class Circuit:
     """
     A container of all blocks and their interconnections.
@@ -73,6 +78,7 @@ class Circuit:
         self._finalized = False     # no circuit modification after the initialization
         self._error = None          # exception that terminated the simulator or None
         self.persistent_dict = None # persistent state data back-end
+        self.persistent_ts = None   # timestamp of persistent data
         self.sblock_queue = None    # a Queue for notifying about changed SBlocks,
                                     # the queue will be created when simulation starts, because
                                     # it has a side effect of creating an event_loop if one
@@ -136,6 +142,14 @@ class Circuit:
         """Setup the persistent state data storage."""
         self.check_not_finalized()
         self.persistent_dict = persistent_dict
+        self.persistent_ts = ts = persistent_dict.get('edzed-stop-time')
+        if ts is None:
+            _logger.warning(
+                "The timestamp of persistent data is missing, "
+                "state expiration will not be checked")
+        elif ts > time.time():
+            _logger.error(
+                "The timestamp of persistent data is in the future, check the system time")
 
     def addblock(self, blk: block.Block) -> None:
         """
@@ -198,15 +212,14 @@ class Circuit:
             blk for blk in self.getblocks(addons.AddonPersistence) if blk.persistent]
         if self.persistent_dict is None:
             if persistent_blocks:
-                _logger.warning(
-                    "Disabling all persistent state, because the data storage was not set")
+                _logger.warning("No data storage, state persistence unavailable")
                 for blk in persistent_blocks:
                     blk.persistent = False
         else:
             # clear the unused items
             used_keys = {blk.key for blk in persistent_blocks}
             for key in list(self.persistent_dict):
-                if key not in used_keys:
+                if key not in used_keys and not key.startswith('edzed-'):
                     _logger.info("Removing unused persistent state for '%s'", key)
                     del self.persistent_dict[key]
 
@@ -323,23 +336,33 @@ class Circuit:
         start_tasks = [
             (blk, asyncio.create_task(blk.init_async()), blk.init_timeout)
             for blk in self.getblocks(addons.AddonAsync)
-            if blk.has_method('init_async') and blk.init_timeout > 0.0]
+            if not blk.is_initialized()
+                and blk.has_method('init_async')
+                and blk.init_timeout > 0.0]
         if start_tasks:
             _logger.debug("Initializing async sequential blocks")
             await self._run_tasks("async init", start_tasks)
 
     @staticmethod
-    def init_sblock(blk: block.Block) -> None:
+    def init_sblock(blk: block.Block, mode=INIT_PART1|INIT_PART2) -> None:
         """
         Initialize a SBlock skipping any async code.
 
         Initialization order:
-            - call init_from_persistent_data - if applicable
-            - if not initialized, call init_regular
-            - if not initialized, call init_from_value with the initdef
-              value - if applicable
+            1.  call init_from_persistent_data - if applicable
+            2A. if not initialized, call init_regular
+            2B. if still not initialized, call init_from_value
+                with the initdef value - if applicable
 
-        After the init_sblock, a block:
+        Initialization modes (may be OR'ed together):
+            INIT_PART1 = perform step 1
+            INIT_PART2 = perform steps 2A and 2B
+            default = all steps
+        The simulator is supposed to do either two calls
+        (first INIT_PART1, then INIT_PART2) or just one
+        call (INIT_PART1 | INIT_PART2).
+
+        After all initialization steps of init_sblock, a block:
             - MAY NOT be initialized, but
             - MUST be able to process events. An event is block's last
               chance to get its initialization. The simulation will
@@ -348,25 +371,34 @@ class Circuit:
         if blk.is_initialized():
             return
         try:
-            if isinstance(blk, addons.AddonPersistence) and blk.persistent:
+            if mode & INIT_PART1 and isinstance(blk, addons.AddonPersistence) and blk.persistent:
                 blk.init_from_persistent_data()
                 if blk.is_initialized():
                     blk.log("initialized from saved state")
                     return
-            blk.init_regular()
-            if not blk.is_initialized() and  blk.has_method('init_from_value') \
-                    and blk.initdef is not block.UNDEF:
-                blk.init_from_value(blk.initdef)
+            if mode & INIT_PART2:
+                blk.init_regular()
+                if not blk.is_initialized() and  blk.has_method('init_from_value') \
+                        and blk.initdef is not block.UNDEF:
+                    blk.init_from_value(blk.initdef)
         except Exception as err:
             # add the block name
             fmt = f"{blk}: error during initialization: {{}}"
             err.args = (fmt.format(err.args[0]) if err.args else "<NO ARGS>", *err.args[1:])
             raise
 
-    def _init_sblocks_sync(self):
-        """Initialize all sequential blocks, the non async part."""
+    def _init_sblocks_sync_1(self):
+        """Initialize all sequential blocks, the non async part 1."""
         for blk in self.getblocks(block.SBlock):
-            self.init_sblock(blk)
+            self.init_sblock(blk, mode=INIT_PART1)
+
+    def _init_sblocks_sync_2(self):
+        """Initialize all sequential blocks, the non async part 2."""
+        for blk in self.getblocks(block.SBlock):
+            self.init_sblock(blk, mode=INIT_PART2)
+            # do not test yet, because the block might be still uninitialized
+            # and waiting for an event that will be sent during another block's init
+        for blk in self.getblocks(block.SBlock):
             if not blk.is_initialized():
                 raise EdzedError(f"{blk}: not initialized")
         # save the internal states after initialization
@@ -501,9 +533,10 @@ class Circuit:
                     blk.start()
                 # return control to the loop in order to run any tasks created by start()
                 await asyncio.sleep(0)
-                await self._init_sblocks_async()
                 _logger.debug("Initializing sequential blocks")
-                self._init_sblocks_sync()
+                self._init_sblocks_sync_1()
+                await self._init_sblocks_async()
+                self._init_sblocks_sync_2()
 
                 if self._error is None:
                     _logger.debug("Starting simulation")
@@ -537,6 +570,7 @@ class Circuit:
             if self.persistent_dict is not None:
                 for blk in self.getblocks(addons.AddonPersistence):
                     blk.save_persistent_state()
+                self.persistent_dict['edzed-stop-time'] = time.time()
             await self._stop_sblocks()
         raise self._error
 

@@ -17,7 +17,7 @@ class Invert(block.CBlock):
     """
     Boolean negation.
     """
-    def _eval(self):
+    def calc_output(self):
         return not self._in['_'][0]
 
     def start(self):
@@ -35,7 +35,7 @@ class FuncBlock(block.CBlock):
         self._unpack = unpack
         super().__init__(*args, **kwargs)
 
-    def _eval(self):
+    def calc_output(self):
         kwargs = {name: self._in[name] for name in self.inputs}
         args = kwargs.pop('_', ())
         if self._unpack:
@@ -46,7 +46,7 @@ class FuncBlock(block.CBlock):
         try:
             func = self._func
             self._func = inspect.signature(func).bind
-            self._eval()
+            self.calc_output()
         except TypeError as err:
             raise TypeError(
                 f"function {func.__qualname__} does not match the connected inputs: {err}")
@@ -67,7 +67,7 @@ class Compare(block.CBlock):
         self._high = high
         super().__init__(*args, **kwargs)
 
-    def _eval(self):
+    def calc_output(self):
         if self._output is block.UNDEF:
             thr = (self._low + self._high) / 2
         else:
@@ -87,7 +87,7 @@ class Override(block.CBlock):
         self._null = null_value
         super().__init__(*args, **kwargs)
 
-    def _eval(self):
+    def calc_output(self):
         override = self._in.override
         return self._in.input if override == self._null else override
 

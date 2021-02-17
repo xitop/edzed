@@ -5,7 +5,7 @@ Example: "20h15m10" = 20 hours + 15 minutes + 10 seconds = 72910 seconds
 """
 
 import re
-from typing import Union
+from typing import Optional, Union
 
 from .tconst import *   # pylint: disable=wildcard-import, unused-wildcard-import
 
@@ -71,3 +71,16 @@ def convert(tstr: str) -> float:
     if s:
         result += float(s)  # may raise ValueError, the regexp is not strict enough
     return result
+
+
+def time_period(period: Union[None, int, float, str]) -> Optional[float]:
+    """Convenience wrapper for convert()."""
+    if period is None:
+        return None
+    if isinstance(period, int):
+        period = float(period)
+    if isinstance(period, float):
+        return max(0.0, period)
+    if isinstance(period, str):
+        return convert(period)
+    raise TypeError(f"Invalid type for time period specification: {period!r}")

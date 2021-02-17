@@ -22,7 +22,7 @@ def test_basic_state_transition(circuit):
             ['step', None, 'S3'],   # default rule has lower precedence
             ('step', 'S3', 'S1')    # single state does need to be within a sequence
             ]
-        def _eval(self):
+        def calc_output(self):
             return int(self.state[1]) # 1, 2 or 3
 
     b123x = B123('b123fsm_S1')
@@ -216,7 +216,7 @@ def test_transition_chaining(circuit):
             self.event(edzed.Goto('C'))
         def enter_C(self):
             self.event(edzed.Goto('D'))
-        def _eval(self):
+        def calc_output(self):
             assert self.state not in ('B', 'C')    # no output for intermediate states
             return f'in_{self.state}'
 

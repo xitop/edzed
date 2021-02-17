@@ -92,7 +92,7 @@ class InputExp(Input, fsm.FSM):
     def init_from_value(self, value):
         self.put(value)
 
-    def _eval(self):    # pylint: disable=no-self-use
+    def calc_output(self):      # pylint: disable=no-self-use
         """Stop the FSM part from setting the output."""
         return block.UNDEF
 

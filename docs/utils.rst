@@ -5,8 +5,8 @@ Miscellaneous utilities
 Time intervals with units
 =========================
 
-Time is measured in seconds, but several edzed classes accept also
-time spans written as strings with other usual time units, e.g.:
+Time is measured in seconds, but edzed classes accept also
+time periods written as strings with other usual time units, e.g.:
 
   | ``'2m'`` = 2 minutes = 120.0 seconds
   | ``'20h15m10'`` = 20 hours + 15 minutes + 10 seconds = 72910.0
@@ -30,13 +30,9 @@ Notes:
 
 ----
 
-A complementary pair of conversion routines is provided:
+Conversions routines:
 
 .. module:: edzed.utils.timeunits
-
-.. function:: convert(timestring: str) -> float
-
-  Convert a string to number of seconds. See the description above.
 
 .. function:: timestr(seconds: Union[int, float]) -> str
 
@@ -46,6 +42,21 @@ A complementary pair of conversion routines is provided:
   Days (``d``) and hours (``h``) are prepended only when needed.
 
   Partial seconds are formatted to 3 decimal places.
+
+.. function:: convert(timestring: str) -> float
+
+  Convert a string to number of seconds. See also the next function.
+
+.. function:: time_period(period: Union[None, int, float, str]) -> Optional[float]
+
+  This is a convenience function accepting all time period formats used in ``edzed``.
+
+  ``time_period(None)`` returns ``None``.
+
+  ``time_period(number)`` returns the number as :class:`float`. Negative values are converted to ``0.0``.
+
+  ``time_period(string)`` converts the string with :func:`convert`.
+
 
 
 Clock and calendar related constants

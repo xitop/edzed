@@ -127,7 +127,7 @@ def test_no_cross_circuit_inputs(circuit):
 def test_input_access(circuit):
     """Test various methods to access input values."""
     class MyBlock(edzed.CBlock):
-        def _eval(self):
+        def calc_output(self):
             return [
                 self._in['_'],       # tuple of all unnanmed inputs
                 self._in['ctrl'],    # input name as a key
@@ -294,7 +294,6 @@ def test_compare(circuit):
     assert not cmp2.output
     assert cmp3.output
 
-    # pylint: disable=bad-whitespace
     TEST1 = (8.1,  7.5,  6.0,   7.5,   100,  7.5,  7.0,  6.999, 7.0,   7.5,   9.0,  777)
     CMP1 =  (True, True, False, False, True, True, True, False, False, False, True, True)
 
@@ -304,7 +303,6 @@ def test_compare(circuit):
         assert cmp1.output == c
     assert inp.output == 777    # tested with all values?
 
-    # pylint: disable=bad-whitespace
     TEST3 = (8.1,  7.9,   8.0,  100,  8.0,  7.0,   777)
     CMP3 =  (True, False, True, True, True, False, True)
 

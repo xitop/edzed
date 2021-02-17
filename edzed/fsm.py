@@ -22,23 +22,10 @@ from .utils import looptimes
 from .utils import timeunits
 
 
-__all__ = ['convert_duration', 'fsm_event_data', 'FSM', 'Goto', 'INF_TIME']
+__all__ = ['fsm_event_data', 'FSM', 'Goto', 'INF_TIME']
 
 INF_TIME = float('+inf')
 fsm_event_data = contextvars.ContextVar('fsm_event_data')
-
-
-def convert_duration(duration: Union[None, int, float, str]) -> Optional[float]:
-    """Convenience wrapper for timeunits.convert()."""
-    if duration is None:
-        return None
-    if isinstance(duration, int):
-        duration = float(duration)
-    if isinstance(duration, float):
-        return max(0.0, duration)
-    if isinstance(duration, str):
-        return timeunits.convert(duration)
-    raise ValueError(f"Invalid duration value: {duration!r}")
 
 
 @dataclass(frozen=True)
@@ -140,7 +127,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
 
         for state, (duration, event) in cls.TIMERS.items():
             try:
-                cls._ct_default_duration[state] = convert_duration(duration)
+                cls._ct_default_duration[state] = timeunits.time_period(duration)
             except ValueError as err:
                 raise ValueError(f"TIMERS['{state}']: {err}") from None
             if isinstance(event, Goto):
@@ -281,7 +268,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
             self._set_timer(remaining, timed_event)
         self._state = state
         self.log("state: <UNDEF> -> %s", state)
-        output = self._eval()
+        output = self.calc_output()
         if output is not block.UNDEF:
             self.set_output(output)
 
@@ -309,7 +296,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
         if self._duration is ct_duration:
             self._duration = ct_duration.copy()   # copy in write
         self._duration[timed_state] = \
-            ct_duration[timed_state] if value is None else convert_duration(value)
+            ct_duration[timed_state] if value is None else timeunits.time_period(value)
 
     def get_duration(self, timed_state: str) -> Optional[float]:
         """
@@ -329,7 +316,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
     def _start_timer(self, duration, timed_event):
         """Start the timer."""
         if duration is not None:
-            duration = convert_duration(duration)
+            duration = timeunits.time_period(duration)
         else:
             duration = self.get_duration(self._state)
             if duration is None:
@@ -483,7 +470,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
                 break
             else:
                 raise EdzedError('Chained state transition limit reached (infinite loop?)')
-            output = self._eval()
+            output = self.calc_output()
             if output is not block.UNDEF:
                 self.set_output(output)
             self._send_events('on_enter', self._state)
@@ -497,13 +484,13 @@ class FSM(addons.AddonPersistence, block.SBlock):
         return contextvars.copy_context().run(self._event_ctx, etype, data)
 
 
-    def _eval(self):    # pylint: disable=no-self-use
+    def calc_output(self):    # pylint: disable=no-self-use
         """
         Compute and return the output value.
 
         Return UNDEF to leave the output unchanged.
 
         The output of a FSM is often unused. For these cases
-        the default _eval just returns False.
+        the default calc_output just returns False.
         """
         return False
