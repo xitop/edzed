@@ -86,10 +86,6 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
         Initialize by restoring the saved state (high-level).
 
         Load the state from persistent storage and apply it.
-
-        IMPORTANT: output change events are temporarily disabled
-        when loading the saved state.
-
         Errors are suppressed.
         """
         try:

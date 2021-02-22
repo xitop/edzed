@@ -182,7 +182,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
         Keyword argument on_notrans defines events to be sent when
         a transition is not defined.
 
-        FSM initialization takes place in init_regular().
+        FSM initialization takes place in init_from_value().
         """
         if type(self) is FSM:   # pylint: disable=unidiomatic-typecheck
             raise TypeError("Can't instantiate abstract FSM class")
@@ -251,7 +251,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
         only restored.
         """
         if len(istate) == 2:
-            # compatibility with older versions
+            # compatibility with versions < 21.1.31
             istate = [*istate, {}]
         state, exp_timestamp, self.sdata = istate
         self._check_state(state)
@@ -491,6 +491,6 @@ class FSM(addons.AddonPersistence, block.SBlock):
         Return UNDEF to leave the output unchanged.
 
         The output of a FSM is often unused. For these cases
-        the default calc_output just returns False.
+        the default calc_output just returns the state.
         """
-        return False
+        return self._state

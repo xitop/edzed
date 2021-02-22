@@ -344,7 +344,7 @@ def test_persistent_state(circuit):
     assert mem.output == (
         '-D',
         # '_z' is not present in 'sdata', because it is considered private
-        {'source': 'test', 'trigger': 'exit', 'state': 'D', 'sdata': {'x':'y'}, 'value': False}
+        {'source': 'test', 'trigger': 'exit', 'state': 'D', 'sdata': {'x':'y'}, 'value': 'D'}
         )
     del fsm.sdata['x']
     assert storage == {fsm.key: ('F', None, {'_z':3})}

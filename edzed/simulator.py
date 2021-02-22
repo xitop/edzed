@@ -56,10 +56,6 @@ def reset_circuit() -> None:
     _current_circuit = Circuit()
 
 
-# Circuit.init_sblock() mode argument (may be OR'ed together)
-INIT_PART1 = 1
-INIT_PART2 = 2
-
 class Circuit:
     """
     A container of all blocks and their interconnections.
@@ -275,7 +271,7 @@ class Circuit:
                 return self._validate_blk(oblk)
             except Exception as err:
                 fmt = f"Cannot connect {oblk} --> {iblk}: {{}}"
-                err.args = (fmt.format(err.args[0]) if err.args else "<NO ARGS>", *err.args[1:])
+                err.args = (fmt.format(err.args[0] if err.args else "<NO ARGS>"), *err.args[1:])
                 raise
 
         for btype in (block.CBlock, cblocks.Invert):
@@ -344,23 +340,21 @@ class Circuit:
             await self._run_tasks("async init", start_tasks)
 
     @staticmethod
-    def init_sblock(blk: block.Block, mode=INIT_PART1|INIT_PART2) -> None:
+    def init_sblock(blk: block.Block, full: bool) -> None:
         """
         Initialize a SBlock skipping any async code.
 
-        Initialization order:
-            1.  call init_from_persistent_data - if applicable
-            2A. if not initialized, call init_regular
-            2B. if still not initialized, call init_from_value
-                with the initdef value - if applicable
+        The simulator is supposed to do either two calls with full=False
+        or one call with full=True for each SBlock. The progress is
+        registered in blk.init_steps_completed.
 
-        Initialization modes (may be OR'ed together):
-            INIT_PART1 = perform step 1
-            INIT_PART2 = perform steps 2A and 2B
-            default = all steps
-        The simulator is supposed to do either two calls
-        (first INIT_PART1, then INIT_PART2) or just one
-        call (INIT_PART1 | INIT_PART2).
+        On the first call:
+            1.  call init_from_persistent_data - if applicable
+
+        On the second call or if full=True
+            2A. call init_regular
+            2B. if not initialized, call init_from_value
+                with the initdef value - if applicable
 
         After all initialization steps of init_sblock, a block:
             - MAY NOT be initialized, but
@@ -368,34 +362,35 @@ class Circuit:
               chance to get its initialization. The simulation will
               fail unless all blocks are initialized properly.
         """
-        if blk.is_initialized():
-            return
+        steps = blk.init_steps_completed
         try:
-            if mode & INIT_PART1 and isinstance(blk, addons.AddonPersistence) and blk.persistent:
-                blk.init_from_persistent_data()
-                if blk.is_initialized():
-                    blk.log("initialized from saved state")
-                    return
-            if mode & INIT_PART2:
+            if steps == 0:
+                if isinstance(blk, addons.AddonPersistence) and blk.persistent:
+                    blk.init_from_persistent_data()
+                    if blk.is_initialized():
+                        blk.log("initialized from saved state")
+                blk.init_steps_completed = 1
+            if steps == 1 or steps == 0 and full:
                 blk.init_regular()
-                if not blk.is_initialized() and  blk.has_method('init_from_value') \
+                if not blk.is_initialized() and blk.has_method('init_from_value') \
                         and blk.initdef is not block.UNDEF:
                     blk.init_from_value(blk.initdef)
+                blk.init_steps_completed = 2
         except Exception as err:
             # add the block name
             fmt = f"{blk}: error during initialization: {{}}"
-            err.args = (fmt.format(err.args[0]) if err.args else "<NO ARGS>", *err.args[1:])
+            err.args = (fmt.format(err.args[0] if err.args else "<NO ARGS>"), *err.args[1:])
             raise
 
     def _init_sblocks_sync_1(self):
         """Initialize all sequential blocks, the non async part 1."""
         for blk in self.getblocks(block.SBlock):
-            self.init_sblock(blk, mode=INIT_PART1)
+            self.init_sblock(blk, full=False)
 
     def _init_sblocks_sync_2(self):
         """Initialize all sequential blocks, the non async part 2."""
         for blk in self.getblocks(block.SBlock):
-            self.init_sblock(blk, mode=INIT_PART2)
+            self.init_sblock(blk, full=False)
             # do not test yet, because the block might be still uninitialized
             # and waiting for an event that will be sent during another block's init
         for blk in self.getblocks(block.SBlock):
@@ -486,7 +481,7 @@ class Circuit:
             except Exception as err:
                 # add the block name
                 fmt = f"{blk}: Error while evaluating block: {{}}"
-                err.args = (fmt.format(err.args[0]) if err.args else "<NO ARGS>", *err.args[1:])
+                err.args = (fmt.format(err.args[0] if err.args else "<NO ARGS>"), *err.args[1:])
                 raise
             if changed:
                 eval_set |= blk.oconnections

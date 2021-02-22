@@ -421,10 +421,12 @@ and ``on_output`` events:
 
   Return :const:`UNDEF` to leave the output unchanged.
 
-  The default implementation outputs a fixed ``False`` value.
+  The default implementation returns the current FSM state (string).
 
   Many FSMs communicate with events only. If you need an output,
   redefine this method.
+
+  .. versionchanged:: 21.2.24 the default output was changed
 
 
 Example (Timer)

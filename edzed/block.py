@@ -163,11 +163,11 @@ class Event:
                 source.log(f"Not sending event {self} (rejected by a filter)")
                 return False
         dest = self.dest
-        if not dest.is_initialized():
+        if dest.init_steps_completed < 2:
             # a destination block may be uninitialized, because events
-            # may be generated during initialization process
+            # may be generated during the initialization process
             dest.log("pending event, initializing early")
-            source.circuit.init_sblock(dest)
+            source.circuit.init_sblock(dest, full=True)
         source.log("sending event %s", self)
         dest.event(self.etype, **data)
         return True
@@ -367,12 +367,6 @@ class Block:
             return super().__str__()
 
 
-class Addon:
-    """
-    Base class for all SBlock add-ons.
-    """
-
-
 class CBlock(Block, metaclass=abc.ABCMeta):
     """
     Base class for combinational blocks.
@@ -558,6 +552,12 @@ class CBlock(Block, metaclass=abc.ABCMeta):
         return conf
 
 
+class Addon:
+    """
+    Base class for all SBlock add-ons.
+    """
+
+
 @dataclass(frozen=True)
 class EventCond(EventType):
     """
@@ -612,6 +612,8 @@ class SBlock(Block):
         if self.has_method('init_from_value'):
             self.initdef = kwargs.pop('initdef', UNDEF)
         self._event_active = False      # guard against event recursion
+        # completed Circuit.init_sblock initialization steps (2 in total)
+        self.init_steps_completed = 0
         super().__init__(*args, **kwargs)
 
     def set_output(self, value: Any) -> None:

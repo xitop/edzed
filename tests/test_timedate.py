@@ -176,20 +176,20 @@ async def test_cron(circuit):
     assert td.get_state() == td.initdef == tinit
 
     assert cron.event('get_schedule') == {
-        '00:00:00': {'local', 'local2'}, '01:02:03': {'local'}, '02:03:04': {'local'}}
+        '00:00:00': ['local', 'local2'], '01:02:03': ['local'], '02:03:04': ['local']}
     assert cronu.event('get_schedule') == {
-        '00:00:00': {'utc'}, '10:11:12': {'utc'}, '13:14:15': {'utc'},
-        '14:15:00': {'utc'}, '16:17:00': {'utc'}}
+        '00:00:00': ['utc'], '10:11:12': ['utc'], '13:14:15': ['utc'],
+        '14:15:00': ['utc'], '16:17:00': ['utc']}
 
     td.event('reconfig')
-    assert cron.event('get_schedule') == {'00:00:00': {'local', 'local2'}}
+    assert cron.event('get_schedule') == {'00:00:00': ['local', 'local2']}
     assert td.get_state() == {'times': None, 'dates': None, 'weekdays': None}
     assert td.initdef == tinit
 
     conf = {'times': [[[20,20,0], [8,30,0]]], 'dates': None, 'weekdays': [4]}
     tdu.event('reconfig', **conf)
     assert cronu.event('get_schedule') == {
-        '00:00:00': {'utc'}, '08:30:00': {'utc'}, '20:20:00': {'utc'}}
+        '00:00:00': ['utc'], '08:30:00': ['utc'], '20:20:00': ['utc']}
     assert tdu.get_state() == conf
 
     await circuit.shutdown()

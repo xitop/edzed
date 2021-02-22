@@ -166,7 +166,7 @@ def init(circ):
     # code from Circuit._init_sblocks_sync()
     for blk in circ.getblocks(edzed.SBlock):
         if not blk.is_initialized():
-            circ.init_sblock(blk)
+            circ.init_sblock(blk, full=True)
             if not blk.is_initialized():
                 raise edzed.EdzedError(f"{blk}: not initialized")
 

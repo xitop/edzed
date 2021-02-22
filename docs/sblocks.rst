@@ -518,11 +518,14 @@ Repeat
   be easily overcome with multiple Repeat blocks operating in parallel,
   if need be.
 
-  A Repeat block saves the event data item ``'source'`` to ``'orig-source'``,
-  because the block itself will become the source. It also adds a ``'repeat'`` value.
-  The original event is sent with ``repeat=False``,
-  subsequent repetitions are sent with ``repeat=True``. This repeat value
-  is also copied to the output, the initial output is ``False``.
+  A Repeat block saves the event data item ``'source'`` to ``'orig_source'``,
+  because the block itself will become the source. It also adds a ``'repeat'``
+  count value. The original event is sent with ``repeat=0``,
+  subsequent repetitions are sent with ``repeat=N`` where N is 1, 2, 3, ...
+  This repeat value is also copied to the output, the initial output is 0.
+
+  .. versionchanged:: 21.2.24
+     repetitions are now counted; ``'orig-source'`` changed to ``'orig_source'``
 
   Arguments:
 

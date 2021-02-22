@@ -251,17 +251,15 @@ async def test_initialization_order(circuit):
     t2 = Test('block2', initdef='default')
     t3 = Test('block3', initdef='default', init_timeout=0.0)
     t4 = Test('block4', persistent=True, initdef='default', x_regular='xr')
-    t5 = Test('block5', persistent=True, initdef='default')
-    circuit.set_persistent_data({t1.key: 1, t2.key: 2, t5.key: 'ok'})
+    circuit.set_persistent_data({t1.key: 1, t2.key: 2})
     asyncio.create_task(circuit.run_forever())
     await circuit.wait_init()
     await circuit.shutdown()
 
-    assert t1.inits == ['P', 'A', 'R', 'D'] # all init functions, D succeeds
+    assert t1.inits == ['P', 'A', 'R', 'D'] # all init functions
     assert t2.inits == ['A', 'R', 'D']      # P not enabled
     assert t3.inits == ['R', 'D']           # P not enabled, A disabled by zero timeout
-    assert t4.inits == ['A', 'R']           # no P data saved, R succeeds
-    assert t5.inits == ['P']                # P succeeds
+    assert t4.inits == ['A', 'R']           # no P data saved, R succeeds -> no D
 
 
 async def test_init_event(circuit):

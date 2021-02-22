@@ -6,6 +6,12 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+21.2.24
+=======
+- :class:`SBlock` :ref:`initialization rules <Initialization>` were modified
+- auxiliary event data in :class:`Repeat` were slightly changed
+- the default :ref:`output<Output>` value of an FSM was changed
+
 21.2.20
 =======
 - expiration of saved :ref:`persistent state<Persistent state add-on>` was implemented
@@ -42,18 +48,18 @@ Version numbers are based on the release date (Y.M.D).
 ======
 
 - :ref:`Event filters`: (incompatible change) the meaning of the returned value
-  was altered.
+  was altered
 
 20.8.23
 =======
 
-- tests: asyncio warnings were fixed.
-- tests: timing tests were modified in order to reduce false negative results.
+- tests: asyncio warnings were fixed
+- tests: timing tests were modified in order to reduce false negative results
 
 20.8.4
 ======
 
-- The :func:`DataEdit.modify` event filter was added.
+- the :func:`DataEdit.modify` event filter was added
 
 
 .. note:: See the git repository for older releases.

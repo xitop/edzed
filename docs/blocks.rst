@@ -269,28 +269,27 @@ state, so block initialization basically means internal state
 initialization.
 
 Blocks are initialized at the beginning of circuit simulation.
-
-The initialization process is carried out in consecutive steps
-listed below until one of the steps succeeds to initialize the block.
-Each block defines only those steps that are appropriate.
+During the process available block's sources of the initial state
+are utilized in the order listed below. Which sources are defined
+depends on the particular block.
 
 1. from saved persistent data
-2. by the asynchronous initialization routine defined in the block's class
-   (subject to *init_timeout* parameter);
-   this step is skipped if an incoming event is pending
+2. by the asynchronous initialization routine;
+   this step is skipped if an incoming event (see item 5) is pending
 3. by the regular (i.e. not async) initialization routine
-   defined in the block's class
-4. from the *initdef* parameter
+4. only if still not initialized: from the *initdef* parameter;
 5. as a result of an incoming event triggered by
    other circuit block's initialization
 
-   .. note:: An incoming event is always processed.
-      It is listed here because some circuits
-      rely on the side effect of setting the internal
-      state.
+When the routines from list items 2 and 3 are called, the block
+may have been initialized already. In such case the routine may
+keep the state or it may overwrite it.
 
 .. versionchanged:: 21.2.20
    Items 1 and 2 were in reversed order in prior versions.
+
+.. versionchanged:: 21.2.24
+   Items 2 and 3 are now performed unconditionally.
 
 The simulation fails if any block remains uninitialized.
 

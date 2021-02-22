@@ -81,20 +81,20 @@ class Repeat(addons.AddonMainTask, block.SBlock):
         super().__init__(*args, **kwargs)
 
     async def _maintask(self):
-        repeat = False
-        self.set_output(False)
+        self.set_output(0)
         data = await self._queue.get()
-        data['orig-source'] = data.get('source')
+        data['orig_source'] = data.get('source')
+        repeat = 0
         while True:
             self.set_output(repeat)
             self._repeated_event.send(self, **data, repeat=repeat)
-            repeat = True
             try:
                 data = await asyncio.wait_for(self._queue.get(), self._interval)
             except asyncio.TimeoutError:
-                pass
+                repeat += 1
             else:
-                repeat = False
+                data['orig_source'] = data.get('source')
+                repeat = 0
 
     def _event(self, etype, data):
         if etype == self._repeated_event.etype:
