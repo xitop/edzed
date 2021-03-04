@@ -119,6 +119,7 @@ and ``False`` for rejected FSM events.
   :class:`list`, :class:`tuple` and similar.
 
 .. attribute:: FSM.STATES
+  :type: sequence (list, tuple) of strings
 
   Class attribute.
 
@@ -128,6 +129,7 @@ and ``False`` for rejected FSM events.
   default initial state.
 
 .. attribute:: FSM.EVENTS
+  :type: sequence (list, tuple) of triples
 
   Class attribute.
 
@@ -170,6 +172,7 @@ and ``False`` for rejected FSM events.
   defined for any combination of event and state.
 
 .. attribute:: FSM.TIMERS
+  :type: dict
 
   Class attribute.
 
@@ -377,8 +380,6 @@ Additional internal state data
   Because the :attr:`FSM.sdata` dict is by definition a part of the internal state,
   it is automatically saved and restored when the persistent state is turned on.
 
-  .. versionadded:: 21.1.30
-
 In the following example, the output is ``True`` between the ``start`` and ``stop``
 events and also during the following after-run period. The after-run duration is
 calculated as a percentage of the regular run duration. The :attr:`FSM.sdata` is used
@@ -425,8 +426,6 @@ and ``on_output`` events:
 
   Many FSMs communicate with events only. If you need an output,
   redefine this method.
-
-  .. versionchanged:: 21.2.24 the default output was changed
 
 
 Example (Timer)
@@ -482,9 +481,9 @@ state and event names.
 - ``exit_STATE=function``
     see: :ref:`State entry and exit actions`
 
-- ``on_enter_STATE=event``
-- ``on_exit_STATE=event``
-- ``on_notrans=event``
+- ``on_enter_STATE=events``
+- ``on_exit_STATE=events``
+- ``on_notrans=events``
     see: :ref:`Generating FSM events`
 
 - ``persistent=boolean``
@@ -529,9 +528,6 @@ The corresponding keyword arguments are:
     - ``'event'`` = the not accepted event
 
 Other event data items may be added in the future.
-
-.. versionchanged:: 21.2.7
-   changed ``'trigger'`` values; added ``'sdata'`` and ``'value'``.
 
 
 Initialization rules

@@ -17,7 +17,8 @@ edzed.Compare(
     ).connect('thermometer')
 edzed.OutputFunc(
     'heater',
-    func=lambda hot: print(f"Heater {'off' if hot else 'on'}")
+    func=lambda hot: print(f"Heater {'off' if hot else 'on'}"),
+    on_error=None
     )
 
 if __name__ == '__main__':

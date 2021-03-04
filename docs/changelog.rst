@@ -6,6 +6,17 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+21.3.6
+======
+- *on_error* must be explicitly set when creating :class:`OutputFunc` or :class:`OutputAsync`
+  blocks (incompatible change); the changes are summarized :ref:`here<Error handling>`
+- parameters specifying events to be sent (``on_xxx=...``) accept ``None``
+- :class:`Event`\'s *efilter* parameter accepts ``None``
+- :class:`ControlBlock`\'s event ``error`` was renamed to ``abort``
+- simulator debug messages are controlled with :attr:`Circuit.debug`
+- block debug messages are logged at the ``DEBUG`` level
+- old block logging methods were replaced by :meth:`Block.log_msg` and its wrappers
+
 21.2.24
 =======
 - :class:`SBlock` :ref:`initialization rules <Initialization>` were modified
@@ -49,17 +60,6 @@ Version numbers are based on the release date (Y.M.D).
 
 - :ref:`Event filters`: (incompatible change) the meaning of the returned value
   was altered
-
-20.8.23
-=======
-
-- tests: asyncio warnings were fixed
-- tests: timing tests were modified in order to reduce false negative results
-
-20.8.4
-======
-
-- the :func:`DataEdit.modify` event filter was added
 
 
 .. note:: See the git repository for older releases.

@@ -26,7 +26,7 @@ class ControlBlock(block.SBlock):
         exc = asyncio.CancelledError(f"{self}: shutdown requested by '{source}'")
         self.circuit.abort(exc)
 
-    def _event_error(self, *, source='<no-source-data>', error='<no-error-data>', **_data):
+    def _event_abort(self, *, source='<no-source-data>', error='<no-error-data>', **_data):
         exc = EdzedError(f"{self}: error reported by '{source}': {error!r}")
         if isinstance(error, Exception):
             exc.__cause__ = error

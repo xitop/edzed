@@ -59,7 +59,7 @@ def test_control_block_1(circuit):
 
 def test_control_block_2(circuit):
     """A control block named _ctrl will be created on demand."""
-    Noop('dummy', on_output=edzed.Event('_ctrl', 'stop'))
+    Noop('dummy', on_output=edzed.Event('_ctrl', 'abort'))
     init(circuit)
     ctrl = circuit.findblock('_ctrl')
     assert type(ctrl) is edzed.ControlBlock

@@ -81,6 +81,12 @@ class Circuit:
                                     # was not created yet. That may lead to errors in rare
                                     # scenarios with asyncio.new_event_loop().
         self._init_done = None      # an Event for wait_init() synchronization
+        self.debug = False          # enable debug messages
+
+    def log_debug(self, *args, **kwargs) -> None:
+        """Log a debug message if enabled."""
+        if self.debug:
+            _logger.debug(*args, **kwargs)
 
     def is_current_task(self) -> bool:
         """Return True if the simulator task is the current asyncio task."""
@@ -318,12 +324,12 @@ class Circuit:
                     await asyncio.wait_for(task, timeout - get_time() + start_time)
                 except asyncio.TimeoutError:
                     errcnt += 1
-                    blk.warn("%s timeout, check timeout value (%.1fs)", jobname, timeout)
+                    blk.log_warning("%s timeout, check timeout value (%.1fs)", jobname, timeout)
             if task.done() and not task.cancelled():
                 err = task.exception()
                 if err is not None:
                     errcnt += 1
-                    blk.warn("%s error: %s", jobname, err, exc_info=err)
+                    blk.log_error("%s error: %s", jobname, err, exc_info=err)
         if errcnt:
             _logger.error("%d block %s error(s) suppressed", errcnt, jobname)
 
@@ -336,7 +342,7 @@ class Circuit:
                 and blk.has_method('init_async')
                 and blk.init_timeout > 0.0]
         if start_tasks:
-            _logger.debug("Initializing async sequential blocks")
+            self.log_debug("Initializing async sequential blocks")
             await self._run_tasks("async init", start_tasks)
 
     @staticmethod
@@ -368,7 +374,7 @@ class Circuit:
                 if isinstance(blk, addons.AddonPersistence) and blk.persistent:
                     blk.init_from_persistent_data()
                     if blk.is_initialized():
-                        blk.log("initialized from saved state")
+                        blk.log_debug("initialized from saved state")
                 blk.init_steps_completed = 1
             if steps == 1 or steps == 0 and full:
                 blk.init_regular()
@@ -422,7 +428,7 @@ class Circuit:
             for blk in self.getblocks(addons.AddonAsync)
             if blk.has_method('stop_async') and blk.stop_timeout > 0.0]
         if wait_tasks:
-            _logger.debug("Waiting for async cleanup")
+            self.log_debug("Waiting for async cleanup")
             await self._run_tasks("stop", wait_tasks)
 
     async def _simulate(self):
@@ -457,9 +463,9 @@ class Circuit:
         queue = self.sblock_queue
         while True:
             if not eval_set and queue.empty():
-                _logger.debug("%d block(s) evaluated, pausing", eval_cnt)
+                self.log_debug("%d block(s) evaluated, pausing", eval_cnt)
                 blk = await queue.get()
-                _logger.debug("output change in %s, resuming", blk)
+                self.log_debug("output change in %s, resuming", blk)
                 eval_cnt = 0
                 eval_set |= blk.oconnections
             while not queue.empty():
@@ -515,26 +521,26 @@ class Circuit:
                 if not self._blocks:
                     raise EdzedError("The circuit is empty")
 
-                _logger.debug("Initializing the circuit")
+                self.log_debug("Initializing the circuit")
                 self.sblock_queue = asyncio.Queue()
                 self._init_done = asyncio.Event()
                 self._check_persistent_data()
                 self._resolve_events()
                 self.finalize()
 
-                _logger.debug("Setting up circuit blocks")
+                self.log_debug("Setting up circuit blocks")
                 blocks_started = True
                 for blk in self.getblocks():
                     blk.start()
                 # return control to the loop in order to run any tasks created by start()
                 await asyncio.sleep(0)
-                _logger.debug("Initializing sequential blocks")
+                self.log_debug("Initializing sequential blocks")
                 self._init_sblocks_sync_1()
                 await self._init_sblocks_async()
                 self._init_sblocks_sync_2()
 
                 if self._error is None:
-                    _logger.debug("Starting simulation")
+                    self.log_debug("Starting simulation")
                     self._init_done.set()
                     await self._simulate()
                     # not reached

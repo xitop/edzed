@@ -154,7 +154,11 @@ def test_is_multiple_and_to_tuple():
     is_multiple = edzed.block._is_multiple
     to_tuple = edzed.block._to_tuple
 
-    SINGLE_VALUES = ('name', 10, {'a', 'b', 'c'}, set(), None, True, edzed.Const(-1))
+    # None is special case
+    assert not is_multiple(None)
+    assert to_tuple(None, lambda x: None) == ()
+
+    SINGLE_VALUES = ('name', 10, {'a', 'b', 'c'}, set(), True, edzed.Const(-1))
     for arg in SINGLE_VALUES:
         assert not is_multiple(arg)
         assert to_tuple(arg, lambda x: None) == (arg,)

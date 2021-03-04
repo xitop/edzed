@@ -235,54 +235,59 @@ A running simulation can be stopped only by cancellation of the simulation task:
 Logging
 =======
 
-All logging is done to a logger named after the package,
-i.e. ``'edzed'``.
-
-If you don't do anything, Python will setup a handler printing
-messages with level (severity) :const:`logging.WARNING` or higher on the
-screen.
-
 .. Note::
 
   `Python logging <https://docs.python.org/3/library/logging.html>`_
   is a complex topic. You may need a more
-  sophisticated setup than the basic examples shown here.
+  sophisticated setup than the basic example shown here.
 
+All logging is done to a logger named after the package,
+i.e. ``'edzed'``.
 
-Simulator debug messages
-------------------------
-
-The circuit simulator's debug output is logged with the :const:`logging.DEBUG`
-level. To allow logging of those messages, enable this level. For example::
+If you don't do anything, Python will setup a handler printing messages with
+level (severity) :const:`logging.WARNING` or higher to the standard output.
+Messages with :const:`logging.DEBUG` and :const:`logging.INFO` levels won't
+be printed be default. To enable them::
 
   import logging
   logging.basicConfig(level=logging.DEBUG)   # enable level DEBUG and higher (INFO, WARNING, ERROR, ...)
 
 
+Simulator debug messages
+------------------------
+
+.. attribute:: Circuit.debug
+  :type: bool
+  :value: False
+
+  Boolean flag, allow the simulator to log debugging messages::
+
+    edzed.get_circuit().debug = True # or False
+
+The circuit simulator's debug output is logged with the :const:`logging.DEBUG`
+level. Don't forget to enable this level.
+
+
 Circuit block debug messages
 ----------------------------
 
-.. important::
-
-  Block debugging messages are emitted with :const:`logging.INFO` severity, because
-  the :const:`DEBUG` level is reserved to the simulator itself.
-
-To allow logging of those messages, the :const:`INFO` level must be enabled. For example::
-
-  import logging
-  logging.basicConfig(level=logging.INFO)   # enable level INFO and higher (WARNING, ERROR, ...)
-
-Debugging messages are enabled by setting the corresponding flag:
+Debugging messages for individual blocks are enabled by setting the
+corresponding flag:
 
 .. attribute:: Block.debug
+  :type: bool
+  :value: False
 
-  Boolean flag, allow debugging messages.
+  Boolean flag, allow this block to log debugging messages.
+
+  Block debugging messages are emitted with :const:`logging.DEBUG` level.
+  Don't forget to enable this level.
 
 For a single block just do::
 
   blk.debug = True # or False
 
-For multiple blocks we have this tool:
+For multiple blocks there is a tool:
 
 .. method:: Circuit.set_debug(value: bool, *args) -> int
 
@@ -298,7 +303,7 @@ For multiple blocks we have this tool:
   - block class (e.g. ``FSM``) to select all blocks of given type
     (the given class and its subclasses)
 
-  Number of blocks processed is returned.
+  Number of distinct blocks processed is returned.
 
 Example: debug all blocks except Inputs::
 
@@ -357,12 +362,14 @@ Inspecting blocks
   Do not modify any block attributes unless explicitly permitted.
 
 .. attribute:: Block.circuit
+  :type: Circuit
 
   The :class:`Circuit` object the block belongs to. Usually there is
   only one circuit; an application code should use :func:`get_circuit`
   to get a reference to it.
 
 .. attribute:: Block.desc
+  :type: str
 
   String, block's description. May be modified.
 
@@ -372,10 +379,12 @@ Inspecting blocks
   Boolean, see :ref:`Circuit block debug messages`. May be modified.
 
 .. attribute:: Block.name
+  :type: str
 
   String, the assigned block's name.
 
 .. attribute:: Block.oconnections
+  :type: set
 
   Set of all blocks where the output is connected to.
   Undefined before the circuit finalization.
@@ -427,12 +436,14 @@ Inspecting CBlocks
 ^^^^^^^^^^^^^^^^^^
 
 .. attribute:: CBlock.iconnections
+  :type: set
 
   A set of all blocks connected to inputs.
   Undefined before the circuit finalization.
   (see :meth:`Circuit.finalize`)
 
 .. attribute:: CBlock.inputs
+  :type: dict
 
   Block's input connections as a :class:`dict`, where keys
   are input names and values are either single blocks or tuples

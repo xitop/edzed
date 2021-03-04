@@ -131,7 +131,7 @@ async def test_output(circuit):
         assert value == timer.output
         assert timer.state == ('on' if value else 'off')
 
-    testfunc = edzed.OutputFunc('testfunc', func=test_timer)
+    testfunc = edzed.OutputFunc('testfunc', func=test_timer, on_error=None)
     timer = edzed.Timer('timer', on_output=edzed.Event(testfunc))
 
     asyncio.create_task(circuit.run_forever())

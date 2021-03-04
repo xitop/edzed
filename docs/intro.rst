@@ -79,7 +79,8 @@ A thermostat example::
       ).connect('thermometer')
   edzed.OutputFunc(
       'heater',
-      func=lambda hot: print(f"Heater {'off' if hot else 'on'}")
+      func=lambda hot: print(f"Heater {'off' if hot else 'on'}"),
+      on_error=None
       )
 
   if __name__ == '__main__':
@@ -205,8 +206,8 @@ The final example shows the same turnstile enhanced with two counters::
   def p_locked(cnt):
       print(f"[ attempts to push a locked turnstile: {cnt} ]")
 
-  Counter('cnt1', on_output=Event(OutputFunc(None, func=p_locked)))
-  Counter('cnt2', on_output=Event(OutputFunc(None, func=p_coins)))
+  Counter('cnt1', on_output=Event(OutputFunc(None, func=p_locked, on_error=None)))
+  Counter('cnt2', on_output=Event(OutputFunc(None, func=p_coins, on_error=None)))
 
   Turnstile(
       'ts', desc="example turnstile",

@@ -17,8 +17,6 @@ from ..utils import shield_cancel
 
 __all__ = ['Input', 'InputExp', 'OutputAsync', 'OutputFunc']
 
-_logger = logging.getLogger(__package__)
-
 
 class Input(addons.AddonPersistence, block.SBlock):
     """
@@ -53,7 +51,7 @@ class Input(addons.AddonPersistence, block.SBlock):
         try:
             value = self._validate(value)
         except ValueError as err:
-            self.warn("%s", err)
+            self.log_warning("%s", err)
             return False
         self.set_output(value)
         return True
@@ -109,21 +107,19 @@ class InputExp(Input, fsm.FSM):
             Input._event_put(self, value=state['input'])
 
 
-_STOP_CMD = object()
 
 class OutputAsync(addons.AddonAsync, block.SBlock):
     """
     Run a coroutine as an output task when a value arrives.
     """
+    _STOP_CMD = object()
 
     def __init__(
             self, *args,
             coro, guard_time=0.0,
-            qmode=False, on_success=(), on_error=None, stop_value=block.UNDEF,
+            qmode=False, on_success=None, on_error, stop_value=block.UNDEF,
             **kwargs):
         self._on_success = block.event_tuple(on_success)
-        if on_error is None:
-            on_error = block.Event('_ctrl', 'error')
         self._on_error = block.event_tuple(on_error)
         self._coro = coro
         self._guard_time = guard_time
@@ -142,22 +138,22 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
         self.set_output(True)
 
     async def _output_task_wrapper(self, value):
-        self.log("output task started for value %s", value)
+        self.log_debug("output task started for value %s", value)
         if self._qmode:
             qsize = self._queue.qsize()
             if qsize > 0:
-                self.warn("%d value(s) waiting in output queue", qsize)
+                self.log_info("%d value(s) waiting in output queue", qsize)
         try:
             retval = await self._coro(value)
         except asyncio.CancelledError:
             # it is assumed that the coroutine was cancelled by the control task
-            self.log("output task cancelled")
+            self.log_debug("output task cancelled")
         except Exception as err:
-            self.warn("output task failed for input value %r: %r", value, err)
+            self.log_error("output task failed for input value %r: %r", value, err)
             for ev in self._on_error:
                 ev.send(self, error=err)
         else:
-            self.log("output task returned value %r", retval)
+            self.log_debug("output task returned value %r", retval)
             for ev in self._on_success:
                 ev.send(self, value=retval)
         if self._queue.empty():
@@ -184,7 +180,7 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
         while True:
             if not stop:
                 value = await queue.get()
-                if value is _STOP_CMD:
+                if value is self._STOP_CMD:
                     stop = True
             if task and not task.done():
                 if not stop:
@@ -194,10 +190,10 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
                 break
             while not queue.empty():
                 new_value = queue.get_nowait()
-                if new_value is _STOP_CMD:
+                self.log_info("Dropping %r from queue", value)
+                if new_value is self._STOP_CMD:
                     stop = True
                     break
-                self.warn("Dropping %r from output queue", value)
                 value = new_value
             task = asyncio.create_task(self._task_wrapper(self._output_task_wrapper(value)))
 
@@ -212,7 +208,7 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
         """
         while True:
             value = await self._queue.get()
-            if value is _STOP_CMD:
+            if value is self._STOP_CMD:
                 break
             await self._output_task_wrapper(value)
 
@@ -230,7 +226,7 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
             return  # start wasn't called
         if self._stop_value is not block.UNDEF:
             self.put(self._stop_value)
-        self._queue.put_nowait(_STOP_CMD)   # this will not cancel a running output task
+        self._queue.put_nowait(self._STOP_CMD)   # this will not cancel a running output task
         super().stop()
 
     async def stop_async(self):
@@ -251,10 +247,8 @@ class OutputFunc(block.SBlock):
     """
 
     def __init__(
-            self, *args, func, on_success=(), on_error=None, stop_value=block.UNDEF, **kwargs):
+            self, *args, func, on_success=None, on_error, stop_value=block.UNDEF, **kwargs):
         self._on_success = block.event_tuple(on_success)
-        if on_error is None:
-            on_error = block.Event('_ctrl', 'error')
         self._on_error = block.event_tuple(on_error)
         self._func = func
         self._stop_value = stop_value
@@ -264,11 +258,11 @@ class OutputFunc(block.SBlock):
         try:
             retval = self._func(value)
         except Exception as err:
-            self.warn("output function failed for input value %r: %r", value, err)
+            self.log_error("output function failed for input value %r: %r", value, err)
             for ev in self._on_error:
                 ev.send(self, error=err)
         else:
-            self.log("output function returned value %r", retval)
+            self.log_debug("output function returned value %r", retval)
             for ev in self._on_success:
                 ev.send(self, value=retval)
 

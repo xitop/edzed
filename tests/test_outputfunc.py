@@ -19,7 +19,7 @@ pytest_plugins = ('pytest_asyncio',)
 pytestmark = pytest.mark.asyncio
 
 
-async def output_func(circuit, *, log, v2=2, **kwargs):
+async def output_func(circuit, *, log, v2=2, on_error=None, **kwargs):
     def worker(arg):
         v = 12//arg
         logger.put(v)
@@ -28,7 +28,7 @@ async def output_func(circuit, *, log, v2=2, **kwargs):
     try:
         inp = edzed.Input('inp', initdef=6, on_output=edzed.Event('echo'))
         logger = TimeLogger('logger', mstop=True)
-        edzed.OutputFunc('echo', func=worker, **kwargs)
+        edzed.OutputFunc('echo', func=worker, on_error=on_error, **kwargs)
         asyncio.create_task(circuit.run_forever())
         await asyncio.sleep(0.05)
         inp.put(v2)
@@ -66,18 +66,27 @@ async def test_on_success(circuit):
     await output_func(circuit, on_success=edzed.Event('logger'), log=LOG)
 
 
-async def Xtest_on_error_default(circuit):
-    """An error (exception in the function) stops the simulation by default."""
+async def test_on_error_ignore(circuit):
+    LOG = [
+        (0, 2),
+        # (50, ??), <--- ignored exception
+        (100, 4),
+        (100, '--stop--'),
+        (100, 'END')
+        ]
+    await output_func(circuit, v2=0, log=LOG)
+
+
+async def test_on_error_abort(circuit):
     LOG = [
         (0, 2),
         (50, '--stop--'),
         ]
     with pytest.raises(edzed.EdzedError, match="error reported by 'echo': ZeroDivisionError"):
-        await output_func(circuit, v2=0, log=LOG)
+        await output_func(circuit, v2=0, on_error=edzed.Event.abort(), log=LOG)
 
 
-async def test_on_error(circuit):
-    """on_error=... overrides the default error handling."""
+async def test_on_error_custom(circuit):
     LOG = [
         (0, 2),
         (50, 'integer division or modulo by zero'),

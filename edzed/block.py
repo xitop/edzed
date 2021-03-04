@@ -108,8 +108,8 @@ class EventType:
 
 
 EFilter = Callable[[Mapping], Any]
-EventsArg = Union['Event', Iterable['Event'], Sequence['Event']]
-EFiltersArg = Union[EFilter, Iterable[EFilter], Sequence[EFilter]]
+EventsArg = Union[None, 'Event', Iterable['Event'], Sequence['Event']]
+EFiltersArg = Union[None, EFilter, Iterable[EFilter], Sequence[EFilter]]
 
 
 class Event:
@@ -124,12 +124,16 @@ class Event:
             self,
             dest: Union[str, 'SBlock'],
             etype: Union[str, EventType] = 'put',
-            *, efilter: EFiltersArg = ()):
+            *, efilter: EFiltersArg = None):
         self.typecheck(etype)
         self.dest = dest
         self.etype = etype
         self._filters = efilter_tuple(efilter)
         type(self).instances.add(self)
+
+    @classmethod
+    def abort(cls):
+        return cls('_ctrl', 'abort')
 
     @staticmethod
     def typecheck(etype):
@@ -160,15 +164,15 @@ class Event:
             if isinstance(retval, dict):
                 data = retval
             elif not retval:
-                source.log(f"Not sending event {self} (rejected by a filter)")
+                source.log_debug(f"Not sending event {self} (rejected by a filter)")
                 return False
         dest = self.dest
         if dest.init_steps_completed < 2:
             # a destination block may be uninitialized, because events
             # may be generated during the initialization process
-            dest.log("pending event, initializing early")
+            dest.log_debug("pending event, initializing early")
             source.circuit.init_sblock(dest, full=True)
-        source.log("sending event %s", self)
+        source.log_debug("sending event %s", self)
         dest.event(self.etype, **data)
         return True
 
@@ -205,6 +209,8 @@ def _to_tuple(args, validator):
 
     The validation is deemed successful unless the validator raises.
     """
+    if args is None:
+        return ()
     if isinstance(args, tuple):
         pass
     elif _is_multiple(args):
@@ -250,7 +256,7 @@ class Block:
             self,
             name: Optional[str], *,
             desc: str = "",
-            on_output: EventsArg = (),
+            on_output: EventsArg = None,
             _reserved: bool = False,
             debug: bool = False,
             **kwargs):
@@ -292,33 +298,36 @@ class Block:
         """Read-only access to the output value."""
         return self._output
 
-    def log(self, msg: str, *args, **kwargs) -> None:
-        """
-        Log a message if debugging is enabled.
+    def log_msg(self, msg: str, *args, level: int, **kwargs) -> None:
+        """Add own name and log the message with given priority level."""
+        _logger.log(level, f"{self}: {msg}", *args, **kwargs)
 
-        Block debug messages are logged with INFO severity, because
-        the debug severity is used mainly for the simulator itself.
-        """
+    def log_debug(self, *args, **kwargs) -> None:
+        """Log a message only if debugging is enabled."""
         if self.debug:
-            _logger.info(f"{self}: {msg}", *args, **kwargs)
+            self.log_msg(*args, level=logging.DEBUG, **kwargs)
 
-    def warn(self, msg: str, *args, **kwargs) -> None:
-        """Log a warning message."""
-        _logger.warning(f"{self}: {msg}", *args, **kwargs)
+    def log_info(self, *args, **kwargs) -> None:
+        """Log a message with INFO priority."""
+        self.log_msg(*args, level=logging.INFO, **kwargs)
+
+    def log_warning(self, *args, **kwargs) -> None:
+        """Log a message with WARNING priority."""
+        self.log_msg(*args, level=logging.WARNING, **kwargs)
+
+    def log_error(self, *args, **kwargs) -> None:
+        """Log a message with ERROR priority."""
+        self.log_msg(*args, level=logging.ERROR, **kwargs)
 
     def _send_output_events(self, previous, value):
         for event in self._output_events:
             event.send(self, previous=previous, value=value)
 
     def start(self) -> None:
-        """
-        Pre-simulation hook.
-        """
+        """Pre-simulation hook."""
 
     def stop(self) -> None:
-        """
-        Post-simulation hook.
-        """
+        """Post-simulation hook."""
 
     def has_method(self, method: str) -> bool:
         """Check if a method is defined and is not a dummy."""
@@ -537,7 +546,7 @@ class CBlock(Block, metaclass=abc.ABCMeta):
             raise ValueError("Output value must not be <UNDEF>")
         if previous == value:
             return False
-        self.log("output: %s -> %s", previous, value)
+        self.log_debug("output: %s -> %s", previous, value)
         self._output = value
         self._send_output_events(previous, value)
         return True
@@ -623,7 +632,7 @@ class SBlock(Block):
         previous = self._output
         if previous == value:
             return
-        self.log("output: %s -> %s", previous, value)
+        self.log_debug("output: %s -> %s", previous, value)
         self._output = value
         self.circuit.sblock_queue.put_nowait(self)
         self._send_output_events(previous, value)
@@ -669,16 +678,16 @@ class SBlock(Block):
         self, etype = args
         Event.typecheck(etype)
         if data:
-            self.log("got event %r, data: %s", etype, data)
+            self.log_debug("got event %r, data: %s", etype, data)
         else:
-            self.log("got event %r", etype)
+            self.log_debug("got event %r", etype)
         if self._event_active:
             raise EdzedError(f"{self}: Forbidden recursive event() call")
         self._event_active = True
         try:
             while isinstance(etype, EventCond):
                 etype = etype.etrue if data.get('value') else etype.efalse
-                self.log("conditional event -> %r", etype)
+                self.log_debug("conditional event -> %r", etype)
                 if etype is None:
                     return None
             handler = type(self)._ct_handlers.get(etype)    # pylint: disable=protected-access

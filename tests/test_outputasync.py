@@ -19,7 +19,7 @@ pytest_plugins = ('pytest_asyncio',)
 pytestmark = pytest.mark.asyncio
 
 
-async def output_async(circuit, *, test_error=False, log, **kwargs):
+async def output_async(circuit, *, test_error=False, log, on_error=None, **kwargs):
     async def worker(arg):
         logger.put(f'start {arg}')
         if test_error:
@@ -32,7 +32,7 @@ async def output_async(circuit, *, test_error=False, log, **kwargs):
     try:
         inp = edzed.Input('inp', initdef='i1', on_output=edzed.Event('echo'))
         logger = TimeLogger('logger', mstop=True)
-        edzed.OutputAsync('echo', coro=worker, **kwargs)
+        edzed.OutputAsync('echo', coro=worker, on_error=on_error, **kwargs)
         asyncio.create_task(circuit.run_forever())
         await asyncio.sleep(0.1)
         if circuit.is_ready():      # skip after an error,
@@ -125,7 +125,8 @@ async def test_guard_time_after_error(circuit):
 
 async def test_guard_time_too_long(circuit):
     with pytest.raises(ValueError, match="not exceed"):
-        edzed.OutputAsync('not_OK', coro=asyncio.sleep, guard_time=1.5, stop_timeout=1.0)
+        edzed.OutputAsync(
+            'not_OK', coro=asyncio.sleep, guard_time=1.5, stop_timeout=1.0, on_error=None)
 
 
 async def test_on_success(circuit):
@@ -145,17 +146,29 @@ async def test_on_success(circuit):
     await output_async(circuit, qmode=True, on_success=edzed.Event('logger'), log=LOG)
 
 
-async def test_on_error_default(circuit):
-    """An error (exception in the coroutine) stops the simulation by default."""
+async def test_on_error_ignore(circuit):
+    LOG = [
+        (0, 'start i1'),
+        # (0, ??), <== error ignored
+        (100, 'start i2'),
+        # (100, ??), <== error ignored
+        (150, '--stop--'),
+        (150, 'END')
+        ]
+    await output_async(circuit, test_error=True, log=LOG)
+
+
+async def test_on_error_abort(circuit):
     LOG = [
         (0, 'start i1'),
         (0, '--stop--'),
         ]
     with pytest.raises(edzed.EdzedError, match="error reported by 'echo': ZeroDivisionError"):
-        await output_async(circuit, test_error=True, log=LOG)
+        await output_async(
+            circuit, test_error=True, on_error=edzed.Event.abort(), log=LOG)
 
 
-async def test_on_error(circuit):
+async def test_on_error_custom(circuit):
     """on_error=... overrides the default error handling."""
     LOG = [
         (0, 'start i1'),

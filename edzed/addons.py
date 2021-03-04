@@ -56,7 +56,7 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
                 # The internal state data may be corrupted, because it looks like
                 # event() decided to stop the simulation in reaction to this exception.
                 # (Never mind if it wasn't this exception but some previous one.)
-                self.warn("Disabling persistent state due to an error")
+                self.log_warning("Disabling persistent state due to an error")
                 self.persistent = False
             raise
         if self.persistent and self.sync_state:
@@ -72,7 +72,7 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
         try:
             self.circuit.persistent_dict[self.key] = self.get_state()
         except Exception as err:
-            self.warn("Persistent data save error: %s", err)
+            self.log_warning("Persistent data save error: %s", err)
             self.circuit.persistent_dict.pop(self.key, None)  # remove stale data
 
     @abc.abstractmethod
@@ -93,7 +93,7 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
         except KeyError:
             return
         except Exception as err:
-            self.warn("Persistent data retrieval error: %s", err)
+            self.log_warning("Persistent data retrieval error: %s", err)
             return
         exp = self.expiration
         if exp is not None:
@@ -101,12 +101,12 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
                 return
             ts = self.circuit.persistent_ts
             if ts is not None and ts + exp < time.time():
-                self.log("The internal state has expired.")
+                self.log_debug("The internal state has expired.")
                 return
         try:
             self._restore_state(state)
         except Exception as err:
-            self.warn("Error restoring saved state: %s; state: %s", err, state)
+            self.log_warning("Error restoring saved state: %s; state: %s", err, state)
 
     def get_conf(self) -> Mapping[str, Any]:
         return {
@@ -146,10 +146,10 @@ class AddonAsync(block.Addon):
         super().__init__(*args, **kwargs)
         # cannot use self.log before Block.__init__()
         if init and self.init_timeout is None:
-            self.log("init_timeout not set, default is %.3fs", DEFAULT_INIT_TIMEOUT)
+            self.log_debug("init_timeout not set, default is %.3fs", DEFAULT_INIT_TIMEOUT)
             self.init_timeout = DEFAULT_INIT_TIMEOUT
         if stop and self.stop_timeout is None:
-            self.log("stop_timeout not set, default is %.3fs", DEFAULT_STOP_TIMEOUT)
+            self.log_debug("stop_timeout not set, default is %.3fs", DEFAULT_STOP_TIMEOUT)
             self.stop_timeout = DEFAULT_STOP_TIMEOUT
 
     async def _task_wrapper(self, coro: Awaitable, is_service: bool = False) -> Any:

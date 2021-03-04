@@ -163,7 +163,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
             err.args = (fmt.format(err.args[0] if err.args else "<NO ARGS>"), *err.args[1:])
             raise
 
-    def __init__(self, *args, on_notrans=(), **kwargs):
+    def __init__(self, *args, on_notrans=None, **kwargs):
         """
         Create FSM.
 
@@ -191,8 +191,17 @@ class FSM(addons.AddonPersistence, block.SBlock):
             for prefix, length, valid_names in self._ct_prefixes:
                 if arg.startswith(prefix):
                     name = arg[length:]  # strip prefix
-                    if name in valid_names:
-                        prefixed[prefix].append((name, arg))
+                    if name not in valid_names:
+                        raise TypeError(
+                            # an f-string did not look well ...
+                            "{!r} is an invalid keyword argument for {}(); accepted are: {}"
+                            .format(
+                                arg,
+                                type(self).__name__,
+                                ', '.join(f"'{prefix}{suffix}'" for suffix in valid_names)
+                               )
+                            )
+                    prefixed[prefix].append((name, arg))
         self._duration = self._ct_default_duration
         for name, arg in prefixed['t_']:
             self._set_duration(name, kwargs.pop(arg))
@@ -258,7 +267,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
         if exp_timestamp is not None:
             remaining = exp_timestamp - time.time()
             if remaining <= 0.0:
-                self.log("restore state: ignoring expired state")
+                self.log_debug("restore state: ignoring expired state")
                 return
             try:
                 timed_event = self._ct_timed_event[state]
@@ -267,7 +276,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
                     f"cannot set a timer for a not timed state '{state}'") from None
             self._set_timer(remaining, timed_event)
         self._state = state
-        self.log("state: <UNDEF> -> %s", state)
+        self.log_debug("state: <UNDEF> -> %s", state)
         output = self.calc_output()
         if output is not block.UNDEF:
             self.set_output(output)
@@ -309,7 +318,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
 
     def _set_timer(self, duration, timed_event):
         """Start the timer (low-level)."""
-        self.log("timer: %.3fs before %s", duration, timed_event)
+        self.log_debug("timer: %.3fs before %s", duration, timed_event)
         self._active_timer = asyncio.get_running_loop().call_later(
             duration, self.event, timed_event)
 
@@ -324,7 +333,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
         if duration == INF_TIME:
             return
         if duration <= 0.0:
-            self.log("timer: zero delay before %s", timed_event)
+            self.log_debug("timer: zero delay before %s", timed_event)
             self.event(timed_event)
             return
         self._set_timer(duration, timed_event)
@@ -337,7 +346,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
                 timer.cancel()
                 # do not rely on the private attribute '_scheduled'
                 if getattr(timer, '_scheduled', True):
-                    self.log("timer: cancelled")
+                    self.log_debug("timer: cancelled")
             self._active_timer = None
 
     def _send_events(self, trigger_type, state):
@@ -417,12 +426,12 @@ class FSM(addons.AddonPersistence, block.SBlock):
             except KeyError:
                 newstate = self._ct_transition.get((etype, None), None)
             if newstate is None:
-                self.log("No transition defined for event %s in state %s", etype, self._state)
+                self.log_debug("No transition defined for event %s in state %s", etype, self._state)
                 for event in self._on_notrans:
                     event.send(self, event=etype, trigger='notrans', state=self._state)
                 return False
             if self.is_initialized() and not all(self._run_cb('cond', etype)):
-                self.log(
+                self.log_debug(
                     "not executing event %s (%s -> %s), condition not satisfied",
                     etype, self.state, newstate)
                 return False
@@ -452,7 +461,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
                     self._run_cb('exit', self._state)
                     etype, data, newstate = self._next_event
                     self._next_event = None
-                self.log("state: %s -> %s (event: %s)", self._state, newstate, etype)
+                self.log_debug("state: %s -> %s (event: %s)", self._state, newstate, etype)
                 self._state = newstate
                 with self._enable_event:
                     self._run_cb('enter', self._state)

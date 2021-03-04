@@ -418,6 +418,7 @@ Persistent state add-on
   :meth:`SBlock.init_from_value`.
 
 .. attribute:: SBlock.key
+  :type: str
 
   The persistent dict key associated with this block. It equals the string representation
   ``str(self)`` - see :meth:`Block.__str__` - but this may change in the future.
@@ -541,17 +542,22 @@ When creating new blocks, you may find these methods useful:
 
   This method simply checks if the output is not :const:`UNDEF`.
 
-.. method:: Block.log(msg: str, *args, **kwargs) -> None
+.. method:: Block.log_msg(msg: str, *args, level: int, **kwargs) -> None
 
-  Log a debug message.
-
-  If :ref:`debug messages <Circuit block debug messages>`
-  are enabled for this block, the block name is prepended to the *msg*
-  and then the arguments are passed to :meth:`logging.info`
-
-.. method:: Block.warn(msg: str, *args, **kwargs) -> None
-
-  Log a warning message.
+  Log a message.
 
   The block name is prepended to the *msg* and then
-  the arguments are passed to :meth:`logging.warning`
+  the arguments are passed to :meth:`logging.log`
+  with the given *level*.
+
+.. method:: Block.log_debug(*args, **kwargs) -> None
+.. method:: Block.log_info(*args, **kwargs) -> None
+.. method:: Block.log_warning(*args, **kwargs) -> None
+.. method:: Block.log_error(*args, **kwargs) -> None
+
+  Log a debug/info/warning/error message respectively.
+
+  A debug message is logged only if :ref:`debug messages <Circuit block debug messages>`
+  are enabled for the block.
+
+  These are simple :meth:`Block.log_msg` wrappers.

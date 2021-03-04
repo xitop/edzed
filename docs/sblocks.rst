@@ -145,40 +145,53 @@ The output blocks invoke a function in response to a ``'put'`` event.
 .. tip::
 
   See also the :class:`Repeat` block. Repeated output actions
-  may increase the robustness of applications where it is appropriate.
-  Note: actions that may be repeated without changing the result are called *idempotent*.
+  may increase the robustness of applications. The key requirement
+  is that repeating must not change the outcome, i.e. multiple invocations
+  produce the same effect as a single invocation. Such actions are called
+  *idempotent*.
 
+Error handling
+--------------
 
-.. class:: OutputFunc(*args, func, on_success=(), on_error=None, stop_value=UNDEF, **kwargs)
+Both output blocks described in this section require the error handling to be set explicitly.
+The options are:
+
+- ``on_error=None`` to ignore errors
+- ``on_error=edzed.Event.abort()`` to make every error fatal;
+  see the :meth:`Event.abort`
+- customized error handling: specify events which will notify 
+  circuit blocks created for this purpose
+
+In each case the error will be logged.
+
+Output blocks
+-------------
+
+.. class:: OutputFunc(*args, func, on_success=None, on_error, stop_value=edzed.UNDEF, **kwargs)
 
   Call a function when a value arrives.
 
   The function *func* is called with a single argument, the ``'value'``
-  item from the event data.
+  item from the ``'put'`` event data.
 
-  The block can be instructed to trigger
-  *on_success* and *on_error* :ref:`events<Generating events>`
-  depending on the result of the function call. Any returned value is
-  considered a success, and the value is added to the *on_success* event data
-  as ``'value'``. An exception means an error, the exception is added to
-  the *on_error* event data as: ``'error'``.
-
-  By default *on_error* is set to ``edzed.Event('_ctrl', 'error')`` which
-  terminates the simulation (see the :class:`ControlBlock`). To handle the
-  error differently or to ignore it, set the *on_error* explicitly.
+  The block triggers *on_success* and *on_error* :ref:`events<Generating events>`
+  depending on the result of the function call.
+  Any returned value is considered a success, and the value is added to the
+  *on_success* event data as ``'value'``. An exception means an error,
+  the exception is added to the *on_error* event data as: ``'error'``.
 
   If the *stop_value* is defined, it is fed into the block
-  during cleanup and processed as the last item before stopping.
+  during the cleanup and processed as the last item before stopping.
   This allows to leave the controlled process in a well-defined state.
 
   The output of an OutputFunc block is always ``False``.
 
-.. class:: OutputAsync(*args, coro, guard_time=0.0, qmode=False, on_success=(), on_error=None, stop_value=block.UNDEF, **kwargs)
+.. class:: OutputAsync(*args, coro, guard_time=0.0, qmode=False, on_success=None, on_error, stop_value=edzed.UNDEF, **kwargs)
 
   Run a coroutine *coro* as an asycio task when a value arrives.
 
   The coroutine is invoked with a single argument, the ``'value'``
-  item from the event data.
+  item from the ``'put'`` event data.
 
   There are two operation modes: the noqueue mode (*qmode* is ``False``,
   this is the default) and the queue mode (*qmode* is ``True``). The
@@ -196,16 +209,12 @@ The output blocks invoke a function in response to a ``'put'`` event.
   The output of an OutputAsync block is a boolean busy flag:
   ``True``, when the block is running a task; ``False`` when idle.
 
-  The block can trigger *on_success* and *on_error* :ref:`events<Generating events>`
+  The block triggers *on_success* and *on_error* :ref:`events<Generating events>`
   depending on the result of the task. A normal termination is
   considered a success (the returned value is added to the *on_success* event data as ``'value'``).
   An exception other than :exc:`asyncio.CancelledError` means an error
   (the exception is added to the *on_error* event data as ``'error'``).
   A cancelled task does not trigger any events.
-
-  By default *on_error* is set to ``edzed.Event('_ctrl', 'error')`` which
-  terminates the simulation (see the :class:`ControlBlock`). To handle the
-  error differently or to ignore it, set the *on_error* explicitly.
 
   If the *stop_value* is defined, it is inserted into the queue
   and processed as the last item before stopping. This allows to leave
@@ -248,7 +257,6 @@ Date and time strings
     An integer >= 1970.
 
 In all cases extra whitespace around values is allowed.
-
 
 Periodic events
 ---------------
@@ -384,7 +392,6 @@ If a saved state exists, it has higher precedence than the arguments.
 The arguments are only a default value and as such are copied to the
 :data:`TimeDate.initdef` variable. An *initdef* argument is not accepted
 though.
-
 
 Non-periodic events
 -------------------
@@ -524,9 +531,6 @@ Repeat
   subsequent repetitions are sent with ``repeat=N`` where N is 1, 2, 3, ...
   This repeat value is also copied to the output, the initial output is 0.
 
-  .. versionchanged:: 21.2.24
-     repetitions are now counted; ``'orig-source'`` changed to ``'orig_source'``
-
   Arguments:
 
   - *dest*
@@ -549,21 +553,19 @@ Simulator control block
 
 .. class:: ControlBlock
 
- .. note::
+  The simulator control block accepts two event types:
 
-  A ControlBlock named ``'_ctrl'`` will be automatically created if
-  there is a reference to this name in the circuit.
-
- The simulator control block accepts two event types:
-
- - ``'shutdown'``
+  - ``'shutdown'``
     Shut down the circuit.
 
- - ``'error'``
-    Stop the simulation due to an error. An ``'error'`` item
-    must be present in the event data, its value can be an :exc:`Exception`
-    object or just an error message.
+  - ``'abort'``
+    Abort the simulation due to an error. An ``'error'`` item
+    is expected to be included in the event data. Its value can be
+    an :exc:`Exception` object or just an error message.
 
- There is no reason to have more than one control block in an circuit.
-
- The output value is fixed to ``None``.
+  A ControlBlock named ``'_ctrl'`` will be automatically created if
+  there exists a reference to this name in the circuit. The :class:`Event`
+  class provides constructors :meth:`Event.abort` and :meth:`Event.shutdown`
+  creating the corresponding events in a convenient way.
+  
+  The output value is fixed to ``None``.

@@ -40,7 +40,7 @@ class EventMemory(edzed.SBlock):
 
 _FILL = object()
 
-def compare_logs(tlog, slog, delta_abs=10, delta_rel=0.1):
+def compare_logs(tlog, slog, delta_abs=10, delta_rel=0.15):
     """
     Compare the tlog with an expected standard slog.
 
@@ -49,7 +49,7 @@ def compare_logs(tlog, slog, delta_abs=10, delta_rel=0.1):
     expected to lag behind the slog, and not to outrun it.
 
     delta_abs is in milliseconds (10 = +10/-2 ms difference allowed),
-    delta_rel is a ratio (0.1 = +10/-2 % difference allowed),
+    delta_rel is a ratio (0.15 = +15/-3 % difference allowed),
     the timestamp values must pass the combined delta.
 
     Timestamp 0.0 (expected value) is not checked at all,
@@ -119,7 +119,7 @@ def timelimit(limit, error):
         t_off=limit,
         on_output=edzed.Event(
             '_ctrl',    # automatic edzed.ControlBlock('_ctrl')
-            'error' if error else 'shutdown',
+            'abort' if error else 'shutdown',
             efilter=(
                 edzed.Edge(rise=True),
                 lambda data: {**data, 'error': 'time limit exceeded'}

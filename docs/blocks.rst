@@ -22,7 +22,7 @@ Common features
 
 Regardless of type, every block has the following properties:
 
-.. class:: Block(name: Optional[str], *, desc: str = "", on_output=(), debug: bool = False, **kwargs)
+.. class:: Block(name: Optional[str], *, desc: str = "", on_output=None, debug: bool = False, **kwargs)
 
   :class:`Block` is the base class for all blocks.
   It cannot be instantiated directly.
@@ -51,8 +51,6 @@ Regardless of type, every block has the following properties:
     output change. More details in :ref:`generating events<Generating events>` below.
 
     The *debug* argument initializes the *debug* attribute.
-
-      .. versionadded:: 21.1.30 *debug*
 
     All keyword arguments starting with ``'x_'`` or ``'X_'`` are accepted
     and stored as block's attributes. These names are reserved for storing
@@ -217,8 +215,6 @@ Base class arguments
           The *expiration* value defaults to ``None`` which means
           that the saved state never expires.
 
-          .. versionadded:: 21.2.20
-
       The :ref:`persistent data storage<Storage for persistent state>`
       must be provided by the circuit.
 
@@ -239,8 +235,6 @@ Base class arguments
       The timeout values must be given as a number of seconds,
       ``None`` for the default timeout, or
       a :ref:`string with time units<Time intervals with units>`.
-
-      .. versionadded:: 21.2.20 support for strings was added
 
 
 Internal state
@@ -284,12 +278,6 @@ depends on the particular block.
 When the routines from list items 2 and 3 are called, the block
 may have been initialized already. In such case the routine may
 keep the state or it may overwrite it.
-
-.. versionchanged:: 21.2.20
-   Items 1 and 2 were in reversed order in prior versions.
-
-.. versionchanged:: 21.2.24
-   Items 2 and 3 are now performed unconditionally.
 
 The simulation fails if any block remains uninitialized.
 
@@ -372,18 +360,25 @@ The event type and the destination are set in the sender block's configuration::
 
   Parameters instructing a block to send events in
   certain situations have names starting with an ``"on_"`` prefix.
-  They accept either an :class:`Event` object or multiple (zero or more)
-  Events objects given as a tuple, list or other sequence.
+  They accept:
 
-.. class:: Event(dest: Union[str, Block], etype: nion[str, EventType] = 'put', efilter=())
+  - ``None`` meaning no events (an empty list or tuple has the same effect), or
+  -  a single :class:`Event` object, or
+  -  multiple (zero or more) :class:`Event` objects given as a tuple, list or other sequence.
+
+.. class:: Event(dest: Union[str, Block], etype: Union[str, EventType] = 'put', efilter=None)
 
   Specify an event of type *etype* addressed to the *dest* block
   together with optional event filters to be applied.
 
   The *dest* argument is an :class:`SBlock` object or its name.
 
-  :ref:`Event filters` are functions (*callables* to be exact) documented below. The *efilter* argument
-  can be a single function or a tuple, list or other sequence of functions.
+  :ref:`Event filters` are functions (*callables* to be exact) documented below.
+  The *efilter* argument can be:
+
+  - ``None`` meaning no filters (an empty list or tuple has the same effect), or
+  - a single function, or
+  - a tuple, list or other sequence of functions.
 
   .. method:: send(source: Block, /, **data) -> bool
 
@@ -405,7 +400,21 @@ The event type and the destination are set in the sender block's configuration::
       This is a new feature in Python 3.8, but
       the current code emulates it also in Python 3.7.
 
+  .. method:: abort() -> Event
+    :classmethod:
 
+    A shortcut for ``Event('_ctrl', 'abort')``.
+
+    Create an event addressed to circuit's :class:`ControlBlock`
+    with an instruction to abort the simulation due to an error.
+
+  .. method:: shutdown() -> Event
+    :classmethod:
+
+    A shortcut for ``Event('_ctrl', 'shutdown')``
+
+    Create an event addressed to circuit's :class:`ControlBlock`
+    with an instruction to shut down the simulation.
 
 Data describing the event is added each time a new event is triggered.
 ``on_output`` events are sent with three data items:
@@ -457,9 +466,6 @@ as its sole argument (i.e. as a :class:`dict`).
 - If the function returns anything else than a :class:`dict` instance,
   the event will be accepted or rejected depending on the boolean value
   of the returned value (true = accept, false (e.g. ``False`` or ``None``) = reject).
-
-  .. versionchanged:: 20.9.5
-     every non-dict return value did mean a reject in previous releases.
 
 Event filters may modify the event data in-place.
 

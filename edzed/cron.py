@@ -137,7 +137,7 @@ class Cron(addons.AddonMainTask, block.SBlock):
                 if next_idx == tlen:
                     next_idx = 0
                 next_hms = timetable[next_idx]
-                self.log("next wakeup at %s", next_hms)
+                self.log_debug("next wakeup at %s", next_hms)
                 now = self.get_current_time()
                 sleeptime = next_hms.seconds_from(now.hms) - now.subsec
                 try:
@@ -155,11 +155,11 @@ class Cron(addons.AddonMainTask, block.SBlock):
                         diff -= tconst.SEC_PER_DAY
                     # diff > 0 = too late, diff < 0 = too early
                     reset = abs(diff) > _MAX_TRACKING_ERROR
-                    self.warn(
+                    self.log_warning(
                         "expected time: %s.000, current time: %s.%s, difference: %.3fs ",
                         next_hms, now.hms, format(now.subsec, '.3f')[2:], diff)
                     if reset:
-                        self.warn("Resetting due to a time tracking error.")
+                        self.log_warning("Resetting due to a time tracking error.")
                         break
                     if diff < 0.0:
                         # too early, everything should be fine after another sleep
