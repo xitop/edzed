@@ -6,6 +6,14 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+21.3.16
+=======
+- :attr:`Block.comment` replaces the ``Block.desc``;
+  the old name will be supported for next 3 months at least
+- added :class:`AddonAsyncInit`
+- repetition count limit was added to :class:`Repeat`
+- automatic event repeat was added to :class:`Event`
+
 21.3.6
 ======
 - *on_error* must be explicitly set when creating :class:`OutputFunc` or :class:`OutputAsync`

@@ -145,3 +145,43 @@ async def test_init_failure(circuit):
     with pytest.raises(Exception, match="not initialized"):
         await circuit.run_forever()
     logger.compare([(40, '--stop--')])
+
+
+async def test_async_init_timeout(circuit):
+    """Test the async initialization time_out."""
+    async def w3():
+        await asyncio.sleep(0.1)
+        return 3
+    logger = TimeLogger('logger')
+    out = edzed.ValuePoll(
+        'out',
+        func=w3,
+        interval=10,                # don't care
+        init_timeout=0.2,
+        on_output=edzed.Event(logger),
+        initdef='DEFAULT')
+    asyncio.create_task(circuit.run_forever())
+    await circuit.wait_init()
+    await circuit.shutdown()
+
+    logger.compare([(100, 3)])
+
+
+async def test_async_init_timeout_failure(circuit):
+    """Test the async initialization time_out."""
+    async def w3():
+        await asyncio.sleep(0.1)
+        return 3
+    logger = TimeLogger('logger')
+    out = edzed.ValuePoll(
+        'out',
+        func=w3,
+        interval=10,                # don't care
+        init_timeout=0.05,
+        on_output=edzed.Event(logger),
+        initdef='DEFAULT')
+    asyncio.create_task(circuit.run_forever())
+    await circuit.wait_init()
+    await circuit.shutdown()
+
+    logger.compare([(50, 'DEFAULT')])

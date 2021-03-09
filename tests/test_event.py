@@ -47,7 +47,7 @@ def test_send(circuit):
     """Test event sending."""
     dest = EventMemory('dest')
     event = edzed.Event(dest, 'msg')
-    src = Noop('mysrc', desc="fake event source")
+    src = Noop('mysrc', comment="fake event source")
     init(circuit)
 
     event.send(src)      # 'source' is added automatically
@@ -62,7 +62,7 @@ def test_any_name(circuit):
     """No reserved names (workaround for a limitation of Python < 3.8 was required)."""
     dest = EventMemory('dest')
     event = edzed.Event(dest, 'msg')
-    src = Noop('mysrc', desc="fake event source")
+    src = Noop('mysrc', comment="fake event source")
     init(circuit)
 
     event.send(src, self='SELF', etype='ETYPE', source='anything')
@@ -70,14 +70,14 @@ def test_any_name(circuit):
 
 
 def test_no_cross_circuit_events(circuit):
-    inp1 = edzed.Input('inp', desc="circuit 1", initdef=None)
+    inp1 = edzed.Input('inp', comment="circuit 1", initdef=None)
     event = edzed.Event(inp1)
     init(circuit)
     event.send(inp1, value=1)
     assert inp1.output == 1
 
     edzed.reset_circuit()
-    inp2 = edzed.Input('inp', desc="circuit 2", initdef=None)
+    inp2 = edzed.Input('inp', comment="circuit 2", initdef=None)
     init(circuit)
     with pytest.raises(edzed.EdzedError, match="not in the current circuit"):
         event.send(inp2, value=2)

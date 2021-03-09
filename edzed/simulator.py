@@ -240,10 +240,10 @@ class Circuit:
                 # automatic blocks:
                 if blk == '_ctrl':
                     return sblocks1.ControlBlock(
-                        blk, desc="Simulation Control Block", _reserved=True)
+                        blk, comment="Simulation Control Block", _reserved=True)
                 if blk.startswith('_not_') and blk[5:6] != '_':
                     return cblocks.Invert(
-                        blk, desc=f"Inverted output of {blk}", _reserved=True
+                        blk, comment=f"Inverted output of {blk}", _reserved=True
                         ).connect(blk[5:])
             return self.findblock(blk)
         if not isinstance(blk, block.Block):

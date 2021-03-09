@@ -45,8 +45,7 @@ async def test_repeat(circuit):
     await asyncio.sleep(0.18)
     assert rpt.output == 3
     rpt.put('B')
-    # assert rpt.output == 0    # would fail, the event is in the Repeat block's queue
-                                # and it will take some time to process it
+    assert rpt.output == 0
     await asyncio.sleep(0.12)
     assert rpt.output == 2
     await circuit.shutdown()
@@ -59,6 +58,59 @@ async def test_repeat(circuit):
         (280, (0, 'B')),
         (330, (1, 'B')),
         (380, (2, 'B')),
+        ]
+    logger.compare(LOG)
+
+
+async def test_count(circuit):
+    """Test the event count limit."""
+    logger = TimeLogger('logger', select=lambda data: (data['repeat'], data['value']))
+    rpt = edzed.Repeat('repeat', dest=logger, interval=0.02, count=3)
+
+    asyncio.create_task(circuit.run_forever())
+    await circuit.wait_init()
+    await asyncio.sleep(0.1)
+    assert rpt.output == 0
+    rpt.put('A')
+    await asyncio.sleep(0.16)
+    assert rpt.output == 3
+    rpt.put('B')
+    await asyncio.sleep(0.16)
+    assert rpt.output == 3
+    await circuit.shutdown()
+
+    LOG = [
+        (100, (0, 'A')),
+        (120, (1, 'A')),
+        (140, (2, 'A')),
+        (160, (3, 'A')),
+        (260, (0, 'B')),
+        (280, (1, 'B')),
+        (300, (2, 'B')),
+        (320, (3, 'B')),
+        ]
+    logger.compare(LOG)
+
+
+async def test_auto_repeat(circuit):
+    """Test the automatic repeat"""
+    edzed.Input('src', initdef=7, on_output=edzed.Event('logger', repeat=0.05))
+    logger = TimeLogger('logger', select=lambda data: (data['repeat'], data['value']))
+    rpt = next(circuit.getblocks(edzed.Repeat)) # there's only one
+
+    asyncio.create_task(circuit.run_forever())
+    await circuit.wait_init()
+    assert rpt.output == 0
+    await asyncio.sleep(0.23)
+    assert rpt.output == 4
+    await circuit.shutdown()
+
+    LOG = [
+        (  0, (0, 7)),
+        ( 50, (1, 7)),
+        (100, (2, 7)),
+        (150, (3, 7)),
+        (200, (4, 7)),
         ]
     logger.compare(LOG)
 

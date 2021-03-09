@@ -66,16 +66,16 @@ def test_missing_funcblock_inputs(circuit):
     """Incorrect number of inputs are an error."""
     errblks = [
         edzed.FuncBlock(
-            'test1', desc='2 expected, 3 given', func=lambda a1, a2: None
+            'test1', comment='2 expected, 3 given', func=lambda a1, a2: None
             ).connect(1, 2, 3),
         edzed.FuncBlock(
-            'test2', desc='2 expected, 1 given', func=lambda a1, a2: None
+            'test2', comment='2 expected, 1 given', func=lambda a1, a2: None
             ).connect(1),
         edzed.FuncBlock(
-            'test3', desc='a1 name missing', func=lambda a1, a2: None
+            'test3', comment='a1 name missing', func=lambda a1, a2: None
             ).connect(a2=2),
         edzed.FuncBlock(
-            'test4', desc='a3 name unexpected', func=lambda a1, a2: None
+            'test4', comment='a3 name unexpected', func=lambda a1, a2: None
             ).connect(a1=1, a2=2, a3=3),
         ]
 
@@ -147,11 +147,11 @@ def test_input_access(circuit):
 
 def test_connection_attrs(circuit):
     """Check the iconnections and oconnections."""
-    inp0 = Noop('inp0', desc="not connected to main").connect(-1)
+    inp0 = Noop('inp0', comment="not connected to main").connect(-1)
     inp1 = Noop('inp1').connect('inp0', loopback='inp1')
     inp2 = Noop('inp2')
     inp3 = Noop('inp3').connect(x=(inp1, 'inp0'))
-    inp4 = Noop('inp4', desc="not connected to anything").connect(x=inp3)
+    inp4 = Noop('inp4', comment="not connected to anything").connect(x=inp3)
     main = Noop('main').connect(True, inp1, a=False, b=inp2, c=(10, 20, 'inp3'))
     init(circuit)
 
@@ -181,10 +181,10 @@ def test_signature_exc(circuit):
 
 def test_signature_and_get_conf(circuit):
     """Test input signature related functions."""
-    blk1 = Noop('test1', desc=' without unnamed inputs').connect(
+    blk1 = Noop('test1', comment=' without unnamed inputs').connect(
         inp2=20, inp3=30, inp1=10)
 
-    blk2 = Noop('test2', desc='with unnamed inputs', ).connect(
+    blk2 = Noop('test2', comment='with unnamed inputs', ).connect(
         100, 101, 102, 103,         # unnamed (group '_')
         inpA=edzed.Const('A2'),     # named single input
         inpB=[edzed.Const('B2')],   # named sequence
@@ -199,7 +199,7 @@ def test_signature_and_get_conf(circuit):
         # future versions may add additional keys to get_conf()
         'class': 'Noop',
         'debug': False,
-        'desc': ' without unnamed inputs',
+        'comment': ' without unnamed inputs',
         'inputs': {
             'inp1': "<Const 10>",
             'inp2': "<Const 20>",

@@ -50,7 +50,7 @@ Simply print "tick .. tock"::
   import asyncio
   import edzed
 
-  edzed.Timer('clk', desc="clock generator", t_on=0.5, t_off=0.5, on_output=edzed.Event('out'))
+  edzed.Timer('clk', comment="clock generator", t_on=0.5, t_off=0.5, on_output=edzed.Event('out'))
   edzed.OutputFunc('out', func=lambda value: print('..tock' if value else 'tick..'))
 
   if __name__ == '__main__':
@@ -123,7 +123,7 @@ It does not allow to pass twice nor to pay twice::
           ['push', ['unlocked'], 'locked'],
       ]
 
-  Turnstile('ts', desc="example turnstile")
+  Turnstile('ts', comment="example turnstile")
 
   if __name__ == '__main__':
       asyncio.run(demo.run_demo())
@@ -210,7 +210,7 @@ The final example shows the same turnstile enhanced with two counters::
   Counter('cnt2', on_output=Event(OutputFunc(None, func=p_coins, on_error=None)))
 
   Turnstile(
-      'ts', desc="example turnstile",
+      'ts', comment="example turnstile",
       on_notrans=Event('cnt1', 'inc', efilter=push_locked_filter),
       on_enter_unlocked=Event('cnt2', 'inc'),
   )

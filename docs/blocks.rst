@@ -12,7 +12,7 @@ The main differences are:
   :header: "combinational", "sequential"
 
   "has **inputs**", "does not have inputs"
-  "does not have internal state", "has **internal state** (memory, time) and thus requires initialization"
+  "does not have an internal state", "has an **internal state** (memory, time) and thus requires initialization"
   "does not accept events", "accepts **events**"
   "can generate events only on output change", "can generate events also on internal state changes"
 
@@ -20,73 +20,132 @@ The main differences are:
 Common features
 ===============
 
-Regardless of type, every block has the following properties:
+.. class:: Block(name: Optional[str], *, comment: str = "", on_output=None, debug: bool = False, **kwargs)
 
-.. class:: Block(name: Optional[str], *, desc: str = "", on_output=None, debug: bool = False, **kwargs)
+  Create a block and add it to the current circuit.
 
-  :class:`Block` is the base class for all blocks.
-  It cannot be instantiated directly.
+  The ``Block`` implements common features of all circuit blocks, combinational and sequential.
+  It cannot be instantiated directly. Concrete blocks must be derived either from the combinational
+  base class :class:`CBlock` or from the sequential base class :class:`SBlock`.
 
-  .. important::
+  The mandatory argument *name* is block's unique identifier, a non-empty string.
+  Names prefixed by an underscore are reserved for automatically created
+  blocks and names. Enter ``None`` to request a generated name.
+  Use this feature only for auxiliary blocks that you will not need
+  to reference by name.
 
-    Each created block is automatically added to the current circuit.
+  The optional *comment* can be any arbitrary text and is not used internally.
 
-  Mandatory arguments:
+    .. versionchanged:: 21.3.16
+      the *comment* parameter and the corresponding ``comment`` attribute were formerly
+      called ``desc``. The old name will be recognized at least until 15-JUN-2021.
 
-    The *name* is block's unique identifier, a non-empty string.
+  The *on_output* argument specifies :ref:`events<Events>` to be sent on each
+  output change. More details in :ref:`generating events<Generating events>` below.
 
-    Names prefixed by an underscore are reserved for automatically created
-    blocks and names.
+  The *debug* argument initializes the *debug* attribute.
 
-    Enter ``None`` to request a generated name.
-    Use this feature only for auxiliary blocks that you will not need
-    to reference by name.
+  All keyword arguments starting with ``'x_'`` or ``'X_'`` are accepted
+  and stored as block's attributes. These names are reserved for storing
+  arbitrary application data.
 
-  Optional arguments:
+  ---
 
-    *desc* (block's description) is any arbitrary text.
-    It is not used internally.
+  Following attributes and methods are defined.
+  Do not modify any block attributes unless explicitly permitted.
 
-    The *on_output* argument specifies :ref:`events<Events>` to be sent on each
-    output change. More details in :ref:`generating events<Generating events>` below.
+  .. attribute:: circuit
+    :type: Circuit
 
-    The *debug* argument initializes the *debug* attribute.
+    The :class:`Circuit` object the block belongs to. Usually there is
+    only one circuit; an application code should use :func:`get_circuit`
+    to get a reference to it.
 
-    All keyword arguments starting with ``'x_'`` or ``'X_'`` are accepted
-    and stored as block's attributes. These names are reserved for storing
-    arbitrary application data.
+  .. attribute:: comment
+    :type: str
+    :value: ""
 
-  Overview of common attributes and methods;
-  more details can be found :ref:`here <Inspecting blocks>`:
+    Block's text description or comment. May be modified.
 
-    .. attribute:: name
-      :noindex:
+  .. attribute:: debug
+    :type: bool
+    :value: False
 
-      Block's name.
+    Allow this block to :ref:`log debugging messages<Circuit block debug messages>`.
+    May be modified.
 
-    .. attribute:: desc
-      :noindex:
+  .. attribute:: name
+    :type: str
 
-      Block's description.
+    The assigned block's name.
 
-    .. attribute:: output
-      :noindex:
+  .. attribute:: oconnections
+    :type: set
 
-      Block's output value.
+    Set of all blocks where the output is connected to.
+    Undefined before the circuit finalization.
+    (see :meth:`Circuit.finalize`)
 
-    .. attribute:: debug
-      :noindex:
+  .. attribute:: output
 
-      Boolean, enable :ref:`logging of block's debugging information<Circuit block debug messages>`.
+    Block's output value, a read-only property.
 
-    .. method:: get_conf
-      :noindex:
+    Each block has exactly one output value of any type.
 
-      Return static block information such as the name and type.
+    A special :const:`UNDEF` value is assigned to newly created blocks.
 
-    .. method:: __str__
+  .. attribute:: x_anyname
+  .. attribute:: X_ANYNAME
 
-      The string representation of a block is ``"<Type 'name'>"``.
+    (with any arbitrary name) Reserved for application data, ignored by ``edzed``.
+    May be added/removed/modified.
+
+  .. method:: get_conf() -> dict
+
+    Return a summary of static block information.
+
+    Example output::
+
+      {
+        'class': 'Counter',
+        'debug': False,
+        'comment': '',
+        'name': 'cnt1',
+        'persistent': False,
+        'type': 'sequential'
+      }
+
+    All items are self-explaining. Not applicable items are excluded,
+    e.g. 'inputs' is shown for combinational blocks in a finalized circuit only.
+    New items may be added in future releases.
+    Note that items like *name* or *comment* can be accessed also as block attributes.
+
+  .. method:: is_initialized() -> bool
+
+    Return ``True`` only if the block has been initialized.
+
+    This method simply checks if the output is not :const:`UNDEF`.
+
+  .. method:: __str__
+
+    The string representation of a block is ``"<Type 'name'>"``.
+
+
+.. data:: UNDEF
+
+  A constant representing an undefined output. All other output values
+  are valid, including ``None``. It is an error, if ``edzed.UNDEF``
+  value appears on block's output after the circuit initialization.
+
+
+Constants
+=========
+
+.. class:: Const(value: Any)
+
+  A pseudo-block with a constant value on its output. ``Const`` objects
+  are not registered as members of the circuit and are not derived from
+  the :class:`Block` base class.
 
 
 Combinational blocks
@@ -157,11 +216,6 @@ The output of a combinational block depends only on its present input values.
 
     All block's inputs must be connected. A group may have no inputs, but
     it must be explicitly connected as such: ``group=()`` or ``group=[]``.
-
-.. class:: Const(value: Any)
-
-  A pseudo-block with a constant value on its output. ``Const`` objects
-  are not registered as members of the circuit.
 
 
 Sequential blocks
@@ -353,7 +407,7 @@ event data sent with the event.
 The event type and the destination are set in the sender block's configuration::
 
    ExampleBlock(
-      'block1', desc="example of sending put events to block2",
+      'block1', comment="example of sending put events to block2",
       on_output=edzed.Event(block2, 'put'))
 
 .. important::
@@ -366,12 +420,12 @@ The event type and the destination are set in the sender block's configuration::
   -  a single :class:`Event` object, or
   -  multiple (zero or more) :class:`Event` objects given as a tuple, list or other sequence.
 
-.. class:: Event(dest: Union[str, Block], etype: Union[str, EventType] = 'put', efilter=None)
+.. class:: Event(dest: Union[str, Block], etype: Union[str, EventType] = 'put', efilter=None, repeat=None, count=None)
 
   Specify an event of type *etype* addressed to the *dest* block
   together with optional event filters to be applied.
 
-  The *dest* argument is an :class:`SBlock` object or its name.
+  The *dest* argument may be an :class:`SBlock` object or its name.
 
   :ref:`Event filters` are functions (*callables* to be exact) documented below.
   The *efilter* argument can be:
@@ -379,6 +433,22 @@ The event type and the destination are set in the sender block's configuration::
   - ``None`` meaning no filters (an empty list or tuple has the same effect), or
   - a single function, or
   - a tuple, list or other sequence of functions.
+
+  If a repeat interval is given with the *repeat* parameter, a :class:`Repeat` block
+  is automatically created to repeat the event. This::
+
+      edzed.Event(dest, etype, repeat=INTERVAL, count=COUNT)  # count is optional
+
+  is equivalent to::
+
+      edzed.Event(
+        edzed.Repeat(
+          None,
+          comment="<generated comment>",
+          dest, etype, interval=INTERVAL, count=COUNT),
+        etype)
+
+  The *count* argument is valid only with the *repeat* argument.
 
   .. method:: send(source: Block, /, **data) -> bool
 
@@ -403,7 +473,7 @@ The event type and the destination are set in the sender block's configuration::
   .. method:: abort() -> Event
     :classmethod:
 
-    A shortcut for ``Event('_ctrl', 'abort')``.
+    A shortcut for ``edzed.Event('_ctrl', 'abort')``.
 
     Create an event addressed to circuit's :class:`ControlBlock`
     with an instruction to abort the simulation due to an error.
@@ -411,7 +481,7 @@ The event type and the destination are set in the sender block's configuration::
   .. method:: shutdown() -> Event
     :classmethod:
 
-    A shortcut for ``Event('_ctrl', 'shutdown')``
+    A shortcut for ``edzed.Event('_ctrl', 'shutdown')``
 
     Create an event addressed to circuit's :class:`ControlBlock`
     with an instruction to shut down the simulation.

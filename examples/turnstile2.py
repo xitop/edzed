@@ -21,7 +21,7 @@ Counter('cnt1', on_output=Event(OutputFunc(None, func=p_locked, on_error=None)))
 Counter('cnt2', on_output=Event(OutputFunc(None, func=p_coins, on_error=None)))
 
 Turnstile(
-    'ts', desc="example turnstile",
+    'ts', comment="example turnstile",
     on_notrans=Event('cnt1', 'inc', efilter=push_locked_filter),
     on_enter_unlocked=Event('cnt2', 'inc'),
 )

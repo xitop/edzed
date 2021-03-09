@@ -30,7 +30,8 @@ Contents
   FSMs
   simulation
   errors
-  advanced
+  new_cblocks
+  new_sblocks
   license
 
 Appendices

@@ -19,16 +19,11 @@ List of :ref:`event filters<Event filters>`.
   allowed combinations. These changes are often called the rising
   or falling edge in logical circuits, hence the name.
 
-  Parameters:
-
-  - *rise*
-     allow: ``False`` -> ``True``
-  - *fall*
-     allow: ``True`` -> ``False``
-  - *u_rise*
-     allow: :const:`UNDEF` -> ``True`` (default: same as *rise*)
-  - *u_fall* (just for completeness)
-     allow: :const:`UNDEF` -> ``False``
+  :param bool rise: allow ``False`` -> ``True``
+  :param bool fall: allow ``True`` -> ``False``
+  :param bool,None u_rise: allow :const:`UNDEF` -> ``True``,
+    the default argument ``None`` means that *u_rise* is same as *rise*
+  :param bool u_fall: allow :const:`UNDEF` -> ``False``
 
   Note: :const:`UNDEF` has ``False`` boolean value. That's why *rise* includes
   :const:`UNDEF` -> ``True``. If this is not desired, use ``rise=True, u_rise=False``

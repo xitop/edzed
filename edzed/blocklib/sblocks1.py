@@ -71,33 +71,48 @@ class Repeat(addons.AddonMainTask, block.SBlock):
     Periodically repeat the last received event.
     """
 
-    def __init__(self, *args, dest, etype='put', interval, **kwargs):
+    def __init__(self, *args, dest, etype='put', interval, count=None, **kwargs):
         self._repeated_event = block.Event(dest, etype)
         interval = timeunits.time_period(interval)
         if interval is None or interval <= 0.0:
             raise ValueError("interval must be positive")
         self._interval = interval
         self._queue = None
+        self._count = count
+        if count is not None and count < 0:
+            # count = 0 does not make much sense, but is accepted
+            raise ValueError("argument 'count' must not be negative")
         super().__init__(*args, **kwargs)
 
-    async def _maintask(self):
+    def init_regular(self):
         self.set_output(0)
-        data = await self._queue.get()
-        data['orig_source'] = data.get('source')
-        repeat = 0
+
+    async def _maintask(self):
+        repeating = False
         while True:
-            self.set_output(repeat)
-            self._repeated_event.send(self, **data, repeat=repeat)
-            try:
-                data = await asyncio.wait_for(self._queue.get(), self._interval)
-            except asyncio.TimeoutError:
-                repeat += 1
+            if repeating:
+                try:
+                    data = await asyncio.wait_for(self._queue.get(), self._interval)
+                    repeat = 0
+                except asyncio.TimeoutError:
+                    repeat += 1
             else:
-                data['orig_source'] = data.get('source')
+                # avoid wait_for() overhead when not repeating an event
+                data = await self._queue.get()
                 repeat = 0
+
+            if repeat > 0:  # skip the original event
+                self.set_output(repeat)
+                self._repeated_event.send(self, **data, repeat=repeat)
+            repeating = self._count is None or repeat < self._count
 
     def _event(self, etype, data):
         if etype == self._repeated_event.etype:
+            # send the original event synchronously in order
+            # not to conceal a possible forbidden loop
+            data['orig_source'] = data.get('source')
+            self.set_output(0)
+            self._repeated_event.send(self, **data, repeat=0)
             self._queue.put_nowait(data)
 
     def start(self):
@@ -105,7 +120,7 @@ class Repeat(addons.AddonMainTask, block.SBlock):
         self._queue = asyncio.Queue()
 
 
-class ValuePoll(addons.AddonMainTask, block.SBlock):
+class ValuePoll(addons.AddonMainTask, addons.AddonAsyncInit, block.SBlock):
     """
     A source of measured or computed values.
     """
@@ -113,25 +128,17 @@ class ValuePoll(addons.AddonMainTask, block.SBlock):
     def __init__(self, *args, func, interval, **kwargs):
         self._func = func
         self._interval = timeunits.time_period(interval)
-        self._init_done = asyncio.Event()
         super().__init__(*args, **kwargs)
 
     async def _maintask(self):
         """Data acquisition task: repeatedly obtain a value."""
-        initialized = False
         while True:
             value = self._func()
             if asyncio.iscoroutine(value):
                 value = await value
             if value is not block.UNDEF:
                 self.set_output(value)
-                if not initialized:
-                    self._init_done.set()
-                    initialized = True
             await asyncio.sleep(self._interval)
-
-    async def init_async(self):
-        await self._init_done.wait()
 
     def init_from_value(self, value):
         self.set_output(value)

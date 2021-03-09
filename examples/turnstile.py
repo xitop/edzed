@@ -8,7 +8,7 @@ class Turnstile(FSM):
         ['push', ['unlocked'], 'locked'],
     ]
 
-Turnstile('ts', desc="example turnstile")
+Turnstile('ts', comment="example turnstile")
 
 if __name__ == '__main__':
     asyncio.run(demo.run_demo())

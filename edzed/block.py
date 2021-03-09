@@ -124,7 +124,16 @@ class Event:
             self,
             dest: Union[str, 'SBlock'],
             etype: Union[str, EventType] = 'put',
-            *, efilter: EFiltersArg = None):
+            *, efilter: EFiltersArg = None,
+            repeat=None, count=None):
+        if repeat is not None:
+            destname = dest if isinstance(dest, str) else dest.name
+            dest = sblocks1.Repeat(
+                None,
+                comment=f"automatic repeat: event={etype!r}, destination={destname!r}",
+                dest=dest, etype=etype, interval=repeat, count=count)
+        elif count is not None:
+            raise ValueError("Argument 'count' is valid only with 'repeat'")
         self.typecheck(etype)
         self.dest = dest
         self.etype = etype
@@ -255,7 +264,8 @@ class Block:
     def __init__(
             self,
             name: Optional[str], *,
-            desc: str = "",
+            comment: str = "",
+            desc: str = "",     # DEPRECATED
             on_output: EventsArg = None,
             _reserved: bool = False,
             debug: bool = False,
@@ -280,7 +290,7 @@ class Block:
                 raise TypeError(
                     f"'{key}' is an invalid keyword argument for {type(self).__name__}()")
             setattr(self, key, value)
-        self.desc = desc
+        self.comment = comment or desc
         self.debug = bool(debug)
         self._output_events = event_tuple(on_output)
         # oconnections will be populated by Circuit._init_connections:
@@ -288,6 +298,11 @@ class Block:
         self._output = UNDEF
         self.circuit = simulator.get_circuit()
         self.circuit.addblock(self)
+
+    @property
+    def desc(self):
+        """Transition from .desc to .comment - at least untill 15-JUN-2021."""
+        return self.comment
 
     def is_initialized(self) -> bool:
         """Return True if the output has been initialized."""
@@ -361,7 +376,8 @@ class Block:
         return {
             'class': type(self).__name__,
             'debug': self.debug,
-            'desc': self.desc,
+            'desc': self.comment,
+            'comment': self.comment,
             'name': self.name,
             }
 
@@ -771,3 +787,4 @@ class SBlock(Block):
 # importing at the end when all names are defined resolves a circular import issue
 # pylint: disable=wrong-import-position
 from . import simulator
+from .blocklib import sblocks1

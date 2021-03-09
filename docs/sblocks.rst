@@ -516,14 +516,24 @@ Counter
 Repeat
 ======
 
-.. class:: Repeat(*args, dest, etype='put', interval, **kwargs)
+.. class:: Repeat(*args, dest, etype='put', interval, count=None, **kwargs)
 
   Periodically repeat the last received event.
 
   For a predictable operation only one selected event type *etype*
   is repeated. All other events are ignored. This limitation can
-  be easily overcome with multiple Repeat blocks operating in parallel,
-  if need be.
+  be easily overcome with multiple ``Repeat`` blocks operating in parallel,
+  if need be. Only events identified by a string can be repeated.
+
+  The event is sent to the destination block specified by *dest*, which can
+  be an instance or its name. The received event is re-sent immediately
+  and then duplicates are sent in time intervals specified by *interval*
+  which may be given as a number of seconds or as a
+  :ref:`string with time units<Time intervals with units>`.
+
+  The number of repetitions may be limited with *count*. If not ``None``,
+  at most *count* duplicates are sent. The original event is always re-sent
+  and not counted.
 
   A Repeat block saves the event data item ``'source'`` to ``'orig_source'``,
   because the block itself will become the source. It also adds a ``'repeat'``
@@ -531,21 +541,11 @@ Repeat
   subsequent repetitions are sent with ``repeat=N`` where N is 1, 2, 3, ...
   This repeat value is also copied to the output, the initial output is 0.
 
-  Arguments:
+  .. note::
 
-  - *dest*
-      Destination block, an instance or a name.
-
-  - *etype*
-      Type of events to process, default is ``'put'``.
-
-      .. important::
-
-        Only events identified by a string can be repeated.
-
-  - *interval*
-      Time interval between repetitions in seconds
-      or as a :ref:`string with time units<Time intervals with units>`
+    The Event block is intended to repeat output events and thus minimize
+    the chance that some connected system will fail to act due to external
+    reasons. For a source of periodic events use a :class:`Timer` instead.
 
 
 Simulator control block

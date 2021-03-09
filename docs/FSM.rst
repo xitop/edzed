@@ -50,8 +50,8 @@ Let's start with a simple example::
           ['push', ['unlocked'], 'locked'],
       ]
 
-  t1 = Turnstile('t1', desc="example turnstile #1")
-  t2 = Turnstile('t2', desc="example turnstile #2")
+  t1 = Turnstile('t1', comment="example turnstile #1")
+  t2 = Turnstile('t2', comment="example turnstile #2")
 
 We have defined a new FSM and created two circuit blocks.
 
@@ -295,7 +295,7 @@ Example::
 
     # using the Turnstile class from prior example
 
-    enable = edzed.Input('inp_enable', desc="enable the turnstile", schema=bool, initdef=True)
+    enable = edzed.Input('inp_enable', comment="enable the turnstile", schema=bool, initdef=True)
     Turnstile('t', cond_coin=lambda: enable.output)
 
 
@@ -466,7 +466,7 @@ Creating FSMs blocks
 FSM arguments
 -------------
 
-Summary of keyword arguments accepted by a class derived from :class:`FSM`.
+Summary of keyword arguments accepted by classes derived from :class:`FSM`.
 
 ``'STATE'`` and ``'EVENT'`` are placeholders to be substituted by real
 state and event names.

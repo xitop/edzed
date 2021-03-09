@@ -232,6 +232,34 @@ A running simulation can be stopped only by cancellation of the simulation task:
   wasn't stopped. This is a read-only attribute.
 
 
+Multiple circuits
+=================
+
+``edzed`` was deliberately designed to support only one active circuit at a time.
+
+There cannot be multiple circuit simulations in parallel,
+but it is possible to remove the current circuit and start over with
+building of a new one.
+
+.. function:: reset_circuit() -> None
+
+  Clear the circuit and create a new one.
+
+  The simulation will be aborted if it is running. The simulation
+  tasks should be awaited to ensure a proper cleanup as explained
+  :ref:`here <Stopping the simulation>`.
+
+  .. warning::
+
+    A process restart is preferred over the circuit reset.
+    A new process guarantees a clear state.
+
+    A reset relies on the quality of cleanup routines. It cannot
+    fully guarantee that the previous circuit has closed all files,
+    cancelled all tasks, etc. Remember that the I/O routines
+    are supplied mainly by the application.
+
+
 Logging
 =======
 
@@ -272,16 +300,10 @@ Circuit block debug messages
 ----------------------------
 
 Debugging messages for individual blocks are enabled by setting the
-corresponding flag:
-
-.. attribute:: Block.debug
-  :type: bool
-  :value: False
-
-  Boolean flag, allow this block to log debugging messages.
-
-  Block debugging messages are emitted with :const:`logging.DEBUG` level.
-  Don't forget to enable this level.
+corresponding flag :attr:`Block.debug`.
+  
+Block debugging messages are emitted with :const:`logging.DEBUG` level.
+Don't forget to enable this level.
 
 For a single block just do::
 
@@ -337,78 +359,7 @@ Finding blocks
 Inspecting blocks
 -----------------
 
-.. method:: Block.get_conf() -> dict
-
-  Return a summary of static block information.
-
-  Example output::
-
-    {
-      'class': 'Counter',
-      'debug': False,
-      'desc': '',
-      'name': 'cnt1',
-      'persistent': False,
-      'type': 'sequential'
-    }
-
-  All items are self-explaining. Not applicable items are excluded,
-  e.g. 'inputs' is shown for combinational blocks in a finalized circuit only.
-  New items may be added in future releases.
-  Note that *name* and *desc* can be accessed also as block attributes:
-
-.. important::
-
-  Do not modify any block attributes unless explicitly permitted.
-
-.. attribute:: Block.circuit
-  :type: Circuit
-
-  The :class:`Circuit` object the block belongs to. Usually there is
-  only one circuit; an application code should use :func:`get_circuit`
-  to get a reference to it.
-
-.. attribute:: Block.desc
-  :type: str
-
-  String, block's description. May be modified.
-
-.. attribute:: Block.debug
-  :noindex:
-
-  Boolean, see :ref:`Circuit block debug messages`. May be modified.
-
-.. attribute:: Block.name
-  :type: str
-
-  String, the assigned block's name.
-
-.. attribute:: Block.oconnections
-  :type: set
-
-  Set of all blocks where the output is connected to.
-  Undefined before the circuit finalization.
-  (see :meth:`Circuit.finalize`)
-
-.. attribute:: Block.output
-
-  Block's output value, a read-only property.
-
-  Each block has exactly one output value of any type.
-
-  A special :const:`UNDEF` value is assigned to newly created blocks.
-
-  .. data:: UNDEF
-
-    A constant representing an undefined output. All other output values
-    are valid, including ``None``. It is an error, if ``edzed.UNDEF``
-    value appears on block's output after the circuit initialization.
-
-.. attribute:: Block.x_anyname
-.. attribute:: Block.X_ANYNAME
-
-  (with any arbitrary name) Reserved for application data, ignored by ``edzed``.
-  See: :class:`Block`.
+For features common to all blocks refer to the base class :class:`Block`.
 
 
 Inspecting SBlocks
@@ -421,9 +372,6 @@ Inspecting SBlocks
   (see :meth:`Circuit.wait_init`)
 
   The format and semantics of returned data depends on the block type.
-
-  Only sequential blocks have state.
-  Combinational blocks do not implement this method.
 
 .. attribute:: SBlock.initdef
 

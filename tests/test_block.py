@@ -67,13 +67,13 @@ def test_invalid_names(circuit):
 
 
 def test_name(circuit):
-    """Default description is added if it is not set."""
-    blk1 = Noop('test1', desc='with description')
+    """An empty comment is added if it is not set."""
+    blk1 = Noop('test1', comment='with comment')
     blk2 = Noop('test2')
     assert blk1.name == 'test1'
-    assert blk1.desc == "with description"
+    assert blk1.desc == blk1.comment == "with comment"
     assert blk2.name == 'test2'
-    assert blk2.desc == ""
+    assert blk2.desc == blk2.comment == ""
 
 
 def test_reserved_names(circuit):

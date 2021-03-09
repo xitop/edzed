@@ -19,7 +19,7 @@ from .exceptions import EdzedError
 from .utils import timeunits
 
 
-__all__ = ['AddonAsync', 'AddonMainTask', 'AddonPersistence']
+__all__ = ['AddonAsync', 'AddonAsyncInit', 'AddonMainTask', 'AddonPersistence']
 
 
 class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
@@ -164,7 +164,7 @@ class AddonAsync(block.Addon):
         try:
             retval = await coro
             if is_service:
-                raise EdzedError("coroutine providing a service has exited")
+                raise EdzedError("Coroutine providing a service has exited")
         # not needed in Python 3.8+
         except asyncio.CancelledError:  # pylint: disable=try-except-raise
             raise
@@ -206,3 +206,25 @@ class AddonMainTask(AddonAsync, metaclass=abc.ABCMeta):
         finally:
             self._mtask = None
         await super().stop_async()
+
+
+class AddonAsyncInit(AddonAsync, metaclass=abc.ABCMeta):
+    """
+    Add init_async() waiting for the first output value.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self._init_event = None
+        super().__init__(*args, **kwargs)
+
+    def start(self):
+        super().start()
+        self._init_event = asyncio.Event()
+
+    def set_output(self, value):
+        super().set_output(value)
+        if not self._init_event.is_set():
+            self._init_event.set()
+
+    async def init_async(self):
+        await self._init_event.wait()

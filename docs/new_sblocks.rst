@@ -1,176 +1,23 @@
 .. currentmodule:: edzed
 
-===============
-Advanced topics
-===============
+Creating sequential blocks
+==========================
+
 
 Feel free to skip this chapter or some of its sections.
 Perfect ``edzed`` based applications can be written without
 the information contained here.
 
 
-Multiple circuits
-=================
-
-``edzed`` was deliberately designed to support only one active circuit at a time.
-
-There cannot be multiple circuit simulations in parallel,
-but it is possible to remove the current circuit and start over with
-building of a new one.
-
-.. function:: reset_circuit() -> None
-
-  Clear the circuit and create a new one.
-
-  The simulation will be aborted if it is running. The simulation
-  tasks should be awaited to ensure a proper cleanup as explained
-  :ref:`here <Stopping the simulation>`.
-
-  .. warning::
-
-    A process restart is preferred over the circuit reset.
-    A new process guarantees a clear state.
-
-    A reset relies on the quality of cleanup routines. It cannot
-    fully guarantee that the previous circuit has closed all files,
-    cancelled all tasks, etc. Remember that the I/O routines
-    are supplied mainly by the application.
-
-
-Creating combinational blocks
-=============================
-
-As noted elsewhere, the :class:`FuncBlock` is an universal
-combinational block and there is very little reason to write a new one.
-
-Instructions for creating a new CBlock:
-
-- subclass from :class:`CBlock`
-- define :meth:`CBlock.calc_output`
-- optional: define :meth:`CBlock.start` and :meth:`CBlock.stop`
-
-.. method:: CBlock.calc_output() -> Any
-  :abstractmethod:
-
-  Compute and return the output value.
-
-.. attribute:: CBlock._in
-
-  An object providing access to input values.
-
-  An input value can be retrieved using the input name as a key ``self._in['myinput']``
-  or as an attribute ``self._in.myinput``.
-
-  The result is a single value or a tuple of values, if the input is a group.
-
-.. method:: CBlock.start() -> None
-
-  Pre-simulation hook.
-
-  :meth:`start` is called when the circuit simulation is about to start.
-
-  By definition CBlocks do not require any preparations.
-  :meth:`start` typically just checks the :ref:`input signature <Input signatures>`.
-
-  .. important::
-
-    When using :meth:`start`, always call the ``super().start()``.
-
-.. method:: CBlock.stop() -> None
-
-  Post-simulation hook.
-
-  :meth:`stop` is called when the circuit simulation has finished.
-
-  By definition CBlocks do not require cleanup, so :meth:`stop`
-  is usually not used. A possible use-case might be processing
-  of some gathered statistics data.
-
-  Note that if an error occurs during circuit initialization,
-  :meth:`stop` may be called even when :meth:`start` hasn't been called.
-
-  An exception in :meth:`stop` will be logged, but otherwise ignored.
-
-  .. important::
-
-    When using :meth:`stop`, always call the ``super().stop()``
-
-
-Input signatures
-----------------
-
-An input signature is a :class:`dict` with the following structure:
-
-- key: the input name (string)
-    The reserved group name ``'_'`` represents the group of unnamed inputs, if any.
-
-- value: ``None`` or integer:
-
-  - ``None``, if the input is a single input
-  - the number of inputs in a group, if the input is a group
-
-.. method:: CBlock.input_signature() -> dict
-
-  Return the input signature. The data is available after
-  connecting the inputs with :meth:`CBlock.connect`.
-
-  An :exc:`EdzedInvalidState` is raised when called before
-  connecting the inputs.
-
-.. method:: CBlock.check_signature(esig: Mapping) -> dict
-
-  Compare the expected signature *esig* with the actual one.
-
-  For a successful result items in the *esig* and
-  items from :meth:`CBlock.input_signature` must match.
-
-  If no problems are detected, the input signature data is returned
-  for eventual further analysis.
-
-  If any mismatches are found, a :exc:`ValueError` with a description
-  of all differences (missing items, etc.) is raised. :meth:`check_signature`
-  tries to be really helpful in this respect, e.g. it provides suggestions
-  for probably mistyped names.
-
-  In order to support variable input group sizes, the expected
-  size can be given also as a range of valid values using
-  a sequence of two values ``[min, max]`` where ``max`` may be ``None``
-  for no maximum. ``min`` can be also ``None`` for no minimum, but
-  zero - the lowest possible input count - has the same effect.
-
-  Examples of *esig* items::
-
-    'name': None    # a single input (not a group)
-    'name': 1       # a group with one input (not a single input)
-    'ingroup': 4            # exactly 4 inputs
-    'ingroup': [2, None]    # 2 or more inputs
-    'ingroup': [0, 4]       # 4 or less
-    'ingroup': [None, None] # input count doesn't matter
-
-
-Example (Invert)
-----------------
-
-:class:`Invert` source::
-
-  class Invert(edzed.CBlock):
-      def calc_output(self):
-          return not self._in['_'][0]
-
-      def start(self):
-          super().start()
-          self.check_signature({'_': 1})
-
-
-Creating sequential blocks
-==========================
+Overview
+--------
 
 Instructions for creating a new SBlock:
 
-- subclass from :class:`SBlock` and appropriate :ref:`add-ons <Add-ons>`
-- define :ref:`event handlers <Event handlers>`
-- define :ref:`state related methods <State related methods>`
-- define :ref:`start and stop methods <Start and stop>`
+#. subclass from :class:`SBlock` and appropriate :ref:`add-ons <Add-ons>`
+#. define :ref:`event handlers <Event handlers>`
+#. define :ref:`state related methods <State related methods>`
+#. define :ref:`start and stop methods <Start and stop>`
 
 Before we dive into details, let's recap the :ref:`initialization order <Initialization>`
 with links to corresponding sections added. Each block defines only those steps that are
@@ -515,32 +362,25 @@ Main task add-on
   The task coroutine.
 
 
-Example (Input)
----------------
+Async initialization add-on
++++++++++++++++++++++++++++
 
-An input block like :class:`Input`, but without data validation::
+.. class:: AddonAsyncInit
 
-  class Input(edzed.AddonPersistence, edzed.SBlock):
-      def init_from_value(self, value):
-          self.put(value)
+  This add-on adds a :meth:`SBlock.init_async` implementation that ensures
+  proper interfacing with the simulator in the case the initial block output
+  is set from a spawned asyncio task. For this reason it is often used
+  together with the :class:`AddonMainTask`.
 
-      def _event_put(self, *, value, **_data):
-          self.set_output(value)
-          return True
+  Note that blocks with this add-on accept the *init_timeout* argument.
 
-      _restore_state = init_from_value
+  :class:`AddonAsyncInit` is a subclass of :class:`AddonAsync`.
 
 
 Helper methods
-==============
+--------------
 
 When creating new blocks, you may find these methods useful:
-
-.. method:: Block.is_initialized() -> bool
-
-  Return ``True`` only if the block has been initialized.
-
-  This method simply checks if the output is not :const:`UNDEF`.
 
 .. method:: Block.log_msg(msg: str, *args, level: int, **kwargs) -> None
 
@@ -561,3 +401,19 @@ When creating new blocks, you may find these methods useful:
   are enabled for the block.
 
   These are simple :meth:`Block.log_msg` wrappers.
+
+
+Example (Input)
+---------------
+
+An input block like :class:`Input`, but without data validation::
+
+  class Input(edzed.AddonPersistence, edzed.SBlock):
+      def init_from_value(self, value):
+          self.put(value)
+
+      def _event_put(self, *, value, **_data):
+          self.set_output(value)
+          return True
+
+      _restore_state = init_from_value
