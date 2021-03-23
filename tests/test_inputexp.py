@@ -49,21 +49,6 @@ async def test_expiration(circuit):
     logger.compare(LOG)
 
 
-async def test_reset(circuit):
-    """Assigning the 'expired' value cancels the timer."""
-    logger = TimeLogger('logger')
-    inpexp = edzed.InputExp(
-        'ie', duration="1h", expired=0, initdef="VALUE",
-        on_output=edzed.Event(logger))
-
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    assert inpexp.state == 'valid'
-    inpexp.put(0)
-    assert inpexp.state == 'expired'
-    await circuit.shutdown()
-
-
 async def ptest(circuit, delay, slog):
 
     ie1 = edzed.InputExp(

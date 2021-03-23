@@ -9,8 +9,7 @@ import time
 
 import pytest
 
-from edzed.utils import tconst
-from edzed.utils import timeunits
+from edzed import utils
 from edzed.utils import timeinterval
 
 from .utils import *
@@ -83,27 +82,27 @@ def test_timelogger_marks(circuit):
 
 
 def test_tconst():
-    assert tconst.SEC_PER_MIN == 60
-    assert tconst.SEC_PER_HOUR == 60*60
-    assert tconst.SEC_PER_DAY == 24*60*60
+    assert utils.SEC_PER_MIN == 60
+    assert utils.SEC_PER_HOUR == 60*60
+    assert utils.SEC_PER_DAY == 24*60*60
 
 
 def test_timeunits():
-    convert = timeunits.convert
+    convert = utils.convert
     assert isinstance(convert('1m'), float)
     assert convert('') == 0.0
     assert convert('10.5') == convert('10.5s') == convert('0m10.5') == 10.5
     for arg in ('20h15m10', ' 20 h 15 m 10 ', '19H75M10.000', '20h910'):
         assert convert(arg) == 72910.0
-    assert convert('1d') == convert('24h') == tconst.SEC_PER_DAY
+    assert convert('1d') == convert('24h') == utils.SEC_PER_DAY
     for arg in ('1 0 0s', 'hello', '15m1h', '1.5d', '.', '0..1s', '5e-2'):
         with pytest.raises(ValueError):
             convert(arg)
 
 
 def test_timestr():
-    convert = timeunits.convert
-    timestr = timeunits.timestr
+    convert = utils.convert
+    timestr = utils.timestr
     assert timestr(72910) == '20h15m10s'        # from int
     assert timestr(72910.0) == '20h15m10.000s'  # from float
     assert timestr(5) == '0m5s'                 # minutes always present
@@ -119,7 +118,7 @@ def test_timestr():
 
 
 def test_time_period():
-    time_period = timeunits.time_period
+    time_period = utils.time_period
     assert time_period(None) is None
     for v in (-128, -2.8, 0, 5, 33.33):
         c = time_period(v)
@@ -141,11 +140,11 @@ def test_hms():
     assert HMS([13, 17, 19]).seconds() == 13*3600 + 17*60 + 19
     assert HMS(-1) == HMS("23:59:59")
     for s in (-9_000_000, -52_999, -970, -5, 0, 50, 2345, 71_300, 444_222):
-        assert (HMS(s).seconds() - s) % tconst.SEC_PER_DAY == 0
+        assert (HMS(s).seconds() - s) % utils.SEC_PER_DAY == 0
     assert HMS([0, 0, 1]) == HMS(1)
-    assert HMS([0, 1, 0]) == HMS(tconst.SEC_PER_MIN)
-    assert HMS([1, 0, 0]) == HMS(tconst.SEC_PER_HOUR)
-    assert HMS([0, 0, 0]) == HMS(tconst.SEC_PER_DAY) == HMS(0)
+    assert HMS([0, 1, 0]) == HMS(utils.SEC_PER_MIN)
+    assert HMS([1, 0, 0]) == HMS(utils.SEC_PER_HOUR)
+    assert HMS([0, 0, 0]) == HMS(utils.SEC_PER_DAY) == HMS(0)
 
     t1 = HMS("23:30")
     t2 = HMS("2:0:10")
@@ -156,7 +155,7 @@ def test_hms():
     diff1to2 = HMS("2:30:10").seconds()
     assert t1.seconds_from(t2) == diff2to1
     assert t2.seconds_from(t1) == diff1to2
-    assert diff1to2 + diff2to1 == tconst.SEC_PER_DAY
+    assert diff1to2 + diff2to1 == utils.SEC_PER_DAY
 
     # HMS is a tuple subclass
     assert HMS("11:59") == (11, 59, 0)

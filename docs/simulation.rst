@@ -56,7 +56,7 @@ The completed circuit may be explicitly finalized.
   Process and validate interconnection data (see :meth:`CBlock.connect`):
 
   - resolve temporary references by name
-  - create :class:`Invert` blocks for ``"_not_name"`` shortcuts 
+  - create :class:`Invert` blocks for ``"_not_name"`` shortcuts
 
   and initialize related attributes:
 
@@ -105,10 +105,6 @@ Starting a simulation
 
 .. method:: Circuit.run_forever()
   :async:
-
-  .. important::
-
-    This is the main entry point.
 
   Run the circuit simulation in an infinite loop, i.e. until cancelled or until
   an exception is raised. Note that technically cancellation equals to a raised
@@ -180,51 +176,47 @@ Stopping the simulation
 
 A running simulation can be stopped only by cancellation of the simulation task:
 
-- from application code:
+1. based on the circuit activity:
 
-  - Cancel the simulation task, but do not exit the application immediately.
-    Wait until the task terminates after finishing the cleanup.
-    This could take time up to the largest of all *stop_timeout*
-    values (plus some small overhead)::
+  Program the circuit to send a ``'shutdown'`` event to the
+  :ref:`simulator control block<Simulator control block>` when a condition is met.
 
-      # This is a simplified example and has a drawback.
-      # See the section: "Error checking in asyncio" in "Errors"
+2. from the application code:
 
-      # start
-      circuit = edzed.get_circuit()
-      simtask = asyncio.create_task(circuit.run_forever())
+  To stop the simulation await :meth:`Circuit.shutdown`.
 
-      ... some application code runs here ...
+  .. method:: Circuit.shutdown() -> None
+    :async:
 
-      # stop
-      simtask.cancel()
-      try:
-          await simtask
-      except asyncio.CancelledError:
-          pass # OK
-      except Exception as err:
-          print(f"simulation error {err}")
+    If the simulation task is still running, cancel the task and wait until
+    it finishes. The wait could take time up to the largest of all *stop_timeout*
+    values (plus some small overhead).
 
-  - A simpler alternative is to use :meth:`Circuit.shutdown`.
-    It cancels the simulation task and waits
-    until it terminates just like the code above.
+    Return normally when the task was cancelled.
+    Otherwise the exception that stopped the simulation is raised.
 
-- based on the circuit activity:
-    Program the circuit to send a ``'shutdown'`` event to a
-    :ref:`control block<Simulator control block>`
-    when a condition is met.
+    It is an error to await :meth:`shutdown`:
 
-.. method:: Circuit.shutdown() -> None
-  :async:
+    - if the simulator task was not started
+    - from within the simulator task itself
 
-  If the simulation task is still running, stop the simulation by canceling
-  the task and wait until it finishes. Return normally when the task was cancelled.
-  Otherwise the exception that stopped the simulation is raised.
+  Of course, you could cancel the simulation task directly like in
+  this simplified example::
 
-  It is an error to await :meth:`shutdown`:
+    # start
+    circuit = edzed.get_circuit()
+    simtask = asyncio.create_task(circuit.run_forever())
 
-  - if the simulator task was not started
-  - from within the simulator task itself
+    ... some application code runs here ...
+
+    # shutdown
+    simtask.cancel()
+    try:
+        await simtask   # cleanup
+    except asyncio.CancelledError:
+        pass            # normal exit
+    except Exception as err:
+        print(f"simulation error {err}")
 
 .. attribute:: Circuit.error
 
@@ -245,9 +237,10 @@ building of a new one.
 
   Clear the circuit and create a new one.
 
-  The simulation will be aborted if it is running. The simulation
-  tasks should be awaited to ensure a proper cleanup as explained
-  :ref:`here <Stopping the simulation>`.
+  It is recommended to shut down the simulation first, because
+  ``reset_circuit`` aborts a running simulation and in such case
+  the simulation tasks should be awaited to ensure a proper cleanup
+  as explained :ref:`in the previous section <Stopping the simulation>`.
 
   .. warning::
 
@@ -256,9 +249,7 @@ building of a new one.
 
     A reset relies on the quality of cleanup routines. It cannot
     fully guarantee that the previous circuit has closed all files,
-    cancelled all tasks, etc. Remember that the I/O routines
-    are supplied mainly by the application.
-
+    cancelled all tasks, etc.
 
 Logging
 =======
@@ -301,7 +292,7 @@ Circuit block debug messages
 
 Debugging messages for individual blocks are enabled by setting the
 corresponding flag :attr:`Block.debug`.
-  
+
 Block debugging messages are emitted with :const:`logging.DEBUG` level.
 Don't forget to enable this level.
 
@@ -345,7 +336,7 @@ Finding blocks
   Return an iterator of all blocks or *btype* blocks only.
 
   Block type checking is implemented with ``isinstance``, so the result
-  includes also derived types. For instance ``circuit.getblocks(edzed.SBlock)``
+  includes also derived types. For example ``circuit.getblocks(edzed.SBlock)``
   returns all sequential circuit blocks.
 
   If the result has to be stored, you may want to convert the returned
@@ -372,6 +363,17 @@ Inspecting SBlocks
   (see :meth:`Circuit.wait_init`)
 
   The format and semantics of returned data depends on the block type.
+
+.. method:: Block.is_initialized() -> bool
+
+  Return ``True`` only if the block has been initialized.
+
+  This method simply checks if the output is not :const:`UNDEF`.
+
+  .. note::
+
+    this method is defined for all blocks, but the test
+    is helpful for sequential blocks only
 
 .. attribute:: SBlock.initdef
 

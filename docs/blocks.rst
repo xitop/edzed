@@ -120,12 +120,6 @@ Common features
     New items may be added in future releases.
     Note that items like *name* or *comment* can be accessed also as block attributes.
 
-  .. method:: is_initialized() -> bool
-
-    Return ``True`` only if the block has been initialized.
-
-    This method simply checks if the output is not :const:`UNDEF`.
-
   .. method:: __str__
 
     The string representation of a block is ``"<Type 'name'>"``.

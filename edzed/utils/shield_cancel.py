@@ -5,6 +5,7 @@ asyncio.shield improved.
 import asyncio
 from typing import Any, Awaitable
 
+__all__ = ['shield_cancel']
 
 async def shield_cancel(aw: Awaitable) -> Any:
     """

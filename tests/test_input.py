@@ -79,7 +79,7 @@ def test_check(circuit):
 
 def test_check_initdef(circuit):
     """initdef value is checked immediately."""
-    with pytest.raises(ValueError, match="check"):
+    with pytest.raises(ValueError, match="rejected"):
         # default of 23 does not pass the modulo 5 check
         edzed.Input('input', check=lambda x: x % 5 == 0, initdef=23)
 

@@ -9,6 +9,8 @@ from typing import Optional, Union
 
 from .tconst import *   # pylint: disable=wildcard-import, unused-wildcard-import
 
+__all__ = ['timestr', 'convert', 'time_period']
+
 # pylint: disable=invalid-name
 def timestr(seconds: Union[int, float]) -> str:
     """

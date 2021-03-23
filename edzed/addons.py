@@ -16,7 +16,7 @@ from typing import Any, Awaitable, Mapping, Union
 
 from . import block
 from .exceptions import EdzedError
-from .utils import timeunits
+from . import utils
 
 
 __all__ = ['AddonAsync', 'AddonAsyncInit', 'AddonMainTask', 'AddonPersistence']
@@ -36,7 +36,7 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
             **kwargs):
         self.persistent = bool(persistent)
         self.sync_state = bool(sync_state)
-        self.expiration = timeunits.time_period(expiration)
+        self.expiration = utils.time_period(expiration)
         super().__init__(*args, **kwargs)
         # str(self) (as defined in superclass!) is used as a key instead of
         # just the name, because it contains also the block type name.
@@ -139,10 +139,10 @@ class AddonAsync(block.Addon):
         """
         init = self.has_method('init_async')
         if init:
-            self.init_timeout = timeunits.time_period(kwargs.pop('init_timeout', None))
+            self.init_timeout = utils.time_period(kwargs.pop('init_timeout', None))
         stop = self.has_method('stop_async')
         if stop:
-            self.stop_timeout = timeunits.time_period(kwargs.pop('stop_timeout', None))
+            self.stop_timeout = utils.time_period(kwargs.pop('stop_timeout', None))
         super().__init__(*args, **kwargs)
         # cannot use self.log before Block.__init__()
         if init and self.init_timeout is None:

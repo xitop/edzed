@@ -21,8 +21,9 @@ List of :ref:`event filters<Event filters>`.
 
   :param bool rise: allow ``False`` -> ``True``
   :param bool fall: allow ``True`` -> ``False``
-  :param bool,None u_rise: allow :const:`UNDEF` -> ``True``,
+  :param u_rise: allow :const:`UNDEF` -> ``True``,
     the default argument ``None`` means that *u_rise* is same as *rise*
+  :type u_rise: bool or None
   :param bool u_fall: allow :const:`UNDEF` -> ``False``
 
   Note: :const:`UNDEF` has ``False`` boolean value. That's why *rise* includes

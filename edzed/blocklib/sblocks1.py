@@ -10,8 +10,8 @@ import asyncio
 
 from .. import addons
 from .. import block
+from .. import utils
 from ..exceptions import EdzedError
-from ..utils import timeunits
 
 
 __all__ = ['ControlBlock', 'Counter', 'Repeat', 'ValuePoll']
@@ -73,7 +73,7 @@ class Repeat(addons.AddonMainTask, block.SBlock):
 
     def __init__(self, *args, dest, etype='put', interval, count=None, **kwargs):
         self._repeated_event = block.Event(dest, etype)
-        interval = timeunits.time_period(interval)
+        interval = utils.time_period(interval)
         if interval is None or interval <= 0.0:
             raise ValueError("interval must be positive")
         self._interval = interval
@@ -127,7 +127,7 @@ class ValuePoll(addons.AddonMainTask, addons.AddonAsyncInit, block.SBlock):
 
     def __init__(self, *args, func, interval, **kwargs):
         self._func = func
-        self._interval = timeunits.time_period(interval)
+        self._interval = utils.time_period(interval)
         super().__init__(*args, **kwargs)
 
     async def _maintask(self):

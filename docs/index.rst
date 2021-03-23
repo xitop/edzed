@@ -27,7 +27,6 @@ Contents
   filters
   utils
   FSM
-  FSMs
   simulation
   errors
   new_cblocks

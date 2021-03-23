@@ -8,7 +8,7 @@ The project:
 - ``edzed`` was written by Vlado Potisk, a software developer from Slovakia.
 - Any help with the documentation is appreciated, especially with the English language
   and grammar.
-- Release numbering scheme is date based: ``year-2000.month.day`` (PEP-440 compliant)
+- Release numbering scheme is date based: ``year-2000.month.day`` (PEP-440 compliant).
 
 The development:
 
@@ -27,4 +27,5 @@ The code:
 Known problems:
 
 - There are probably bugs.
-- The unit test checking timers are unreliable. Please repeat failed tests.
+- The unit tests that checks proper timing may fail on heavily loaded systems.
+  Please repeat failed tests.

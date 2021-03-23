@@ -12,8 +12,8 @@ import time
 import pytest
 
 import edzed
+from edzed.utils import MONTH_NAMES
 from edzed.utils.timeinterval import HMS, MD
-from edzed.utils.tconst import MONTH_NAMES
 
 from .utils import *
 

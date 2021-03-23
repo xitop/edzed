@@ -17,9 +17,9 @@ from typing import Optional, Sequence, Tuple, Union
 
 from . import addons
 from . import block
+from . import utils
 from .exceptions import EdzedError
 from .utils import looptimes
-from .utils import timeunits
 
 
 __all__ = ['fsm_event_data', 'FSM', 'Goto', 'INF_TIME']
@@ -127,7 +127,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
 
         for state, (duration, event) in cls.TIMERS.items():
             try:
-                cls._ct_default_duration[state] = timeunits.time_period(duration)
+                cls._ct_default_duration[state] = utils.time_period(duration)
             except ValueError as err:
                 raise ValueError(f"TIMERS['{state}']: {err}") from None
             if isinstance(event, Goto):
@@ -262,7 +262,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
         if len(istate) == 2:
             # compatibility with versions < 21.1.31
             istate = [*istate, {}]
-        state, exp_timestamp, self.sdata = istate
+        state, exp_timestamp, sdata = istate
         self._check_state(state)
         if exp_timestamp is not None:
             remaining = exp_timestamp - time.time()
@@ -276,6 +276,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
                     f"cannot set a timer for a not timed state '{state}'") from None
             self._set_timer(remaining, timed_event)
         self._state = state
+        self.sdata = sdata
         self.log_debug("state: <UNDEF> -> %s", state)
         output = self.calc_output()
         if output is not block.UNDEF:
@@ -305,7 +306,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
         if self._duration is ct_duration:
             self._duration = ct_duration.copy()   # copy in write
         self._duration[timed_state] = \
-            ct_duration[timed_state] if value is None else timeunits.time_period(value)
+            ct_duration[timed_state] if value is None else utils.time_period(value)
 
     def get_duration(self, timed_state: str) -> Optional[float]:
         """
@@ -325,7 +326,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
     def _start_timer(self, duration, timed_event):
         """Start the timer."""
         if duration is not None:
-            duration = timeunits.time_period(duration)
+            duration = utils.time_period(duration)
         else:
             duration = self.get_duration(self._state)
             if duration is None:
@@ -426,7 +427,8 @@ class FSM(addons.AddonPersistence, block.SBlock):
             except KeyError:
                 newstate = self._ct_transition.get((etype, None), None)
             if newstate is None:
-                self.log_debug("No transition defined for event %s in state %s", etype, self._state)
+                self.log_debug(
+                    "No transition defined for event %s in state %s", etype, self._state)
                 for event in self._on_notrans:
                     event.send(self, event=etype, trigger='notrans', state=self._state)
                 return False

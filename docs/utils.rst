@@ -1,3 +1,5 @@
+.. module:: edzed.utils
+
 =======================
 Miscellaneous utilities
 =======================
@@ -32,8 +34,6 @@ Notes:
 
 Conversions routines:
 
-.. module:: edzed.utils.timeunits
-
 .. function:: timestr(seconds: Union[int, float]) -> str
 
   Convert seconds, return a string with time units.
@@ -49,21 +49,18 @@ Conversions routines:
 
 .. function:: time_period(period: Union[None, int, float, str]) -> Optional[float]
 
-  This is a convenience function accepting all time period formats used in ``edzed``.
+  This is a convenience function accepting all time period formats used in ``edzed``:
 
-  ``time_period(None)`` returns ``None``.
+  - ``time_period(None)`` returns ``None``.
 
-  ``time_period(number)`` returns the number as :class:`float`. Negative values are converted to ``0.0``.
+  - ``time_period(number)`` returns the number as :class:`float`. Negative values are converted to ``0.0``.
 
-  ``time_period(string)`` converts the string with :func:`convert`.
+  - ``time_period(string)`` converts the string with :func:`convert`.
 
 
 
 Clock and calendar related constants
 ====================================
-
-
-.. module:: edzed.utils.tconst
 
 .. data:: SEC_PER_DAY
           SEC_PER_HOUR
@@ -81,8 +78,6 @@ Improved asyncio.shield
 
 Use :func:`shield_cancel` to protect small critical
 task sections from immediate cancellation.
-
-.. module:: edzed.utils.shield_cancel
 
 .. function:: shield_cancel(aw: Awaitable) -> Any
   :async:

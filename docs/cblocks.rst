@@ -5,6 +5,7 @@ List of combinational blocks
 ============================
 
 This section lists combinational blocks offered by the ``edzed`` library.
+
 Only block specific properties are documented here. For common features
 refer to the :ref:`previous chapter <Common features>`.
 

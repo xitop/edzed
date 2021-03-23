@@ -4,6 +4,8 @@
 List of sequential blocks
 =========================
 
+This section lists sequential blocks offered by the ``edzed`` library.
+
 Only block specific properties are documented here. For
 a description of common arguments like *initdef* or *persistent*
 please refer to the :ref:`base class<Base class arguments>`.
@@ -32,7 +34,7 @@ may serve as a part of the circuit's input interface.
 
 The most common data entry block is the :class:`Input`:
 
-.. class:: Input(*args, schema=None, check=None, allowed=None, **kwargs)
+.. class:: Input(*args, check=None, allowed=None, schema=None, **kwargs)
 
   An input block with optional value validation.
 
@@ -40,33 +42,37 @@ The most common data entry block is the :class:`Input`:
 
     Of course, you *should* validate input data.
 
-  The :class:`Input` accepts only ``'put'`` events.
+  The ``Input`` accepts only ``'put'`` events.
   It stores and outputs the ``'value'`` data item sent with the event
-  provided that it validates successfully. It returns ``True``
+  provided that it validates successfully. The event returns ``True``
   if the new value is accepted, ``False`` otherwise.
 
-  Arguments - initialization:
+  Initialization parameters:
 
-  - *persistent*
-      If true, initialize from the last known value.
-  - *initdef*
-      Default value; must pass the validators.
+  :param bool persistent:
+    If true, initialize from the last known value
 
-  Arguments - optional validators of input values:
+  :param initdef:
+    Default value; must pass the validators.
 
-  - *check*
-      A value test function.
-      If the function's return value evaluates to true,
-      new value is accepted, otherwise it is rejected.
-  - *allowed*
-      A sequence or set of allowed values.
-      This is roughly equivalent to::
+  Optional validators of input values, ``None`` if unused:
 
-        check=lambda value: value in ALLOWED
-  - *schema*
-      A function possibly modifying (preprocessing) the value.
-      If the function raises, value is rejected,
-      otherwise the input is set to the returned value.
+  :param callable check:
+    A value test function.
+    If the function's return value evaluates to true,
+    new value is accepted, otherwise it is rejected.
+
+  :param allowed:
+    Allowed values, roughly equivalent to::
+
+      check=lambda value: value in ALLOWED
+
+  :type allowed: sequence or set
+
+  :param callable schema:
+    A function possibly modifying (preprocessing) the value.
+    If the function raises, value is rejected,
+    otherwise the input is set to the returned value.
 
   It is recommended to use only one validator, but any
   combination of *schema*, *check* and *allowed* is allowed.
@@ -81,20 +87,21 @@ The most common data entry block is the :class:`Input`:
   Like :class:`Input`, but after certain time after the ``'put'`` event
   replace the current value with the *expired* value.
 
-  An InputExp takes the same arguments as :class:`Input`
+  An ``InputExp`` takes the same arguments as :class:`Input`
   plus two additional ones:
 
-  - *duration*
-      The default duration in seconds before a value expires.
-      Can be overridden on a per-event basis. Enter:
+  :param duration:
+    The default duration in seconds before a value expires.
+    May be overridden on a per-event basis. The argument
+    can be:
 
       - a numeric value, or
       - a :ref:`string with time units<Time intervals with units>`, or
       - ``None`` for no default duration. Without a default,
         every event must explicitly specify the duration.
 
-  - *expired*
-      A value to be applied after expiration; must pass the validators.
+  :param expired:
+    A value to be applied after expiration; must pass the validators.
 
   If a ``'duration'`` item (with the same format as *duration* argument)
   is present in the event data, it overrides the default duration.
@@ -112,8 +119,8 @@ A specialized block is provided for this task:
   *interval* seconds. The *interval* may be written also as a
   :ref:`string with time units<Time intervals with units>`.
   The *func* may be a regular or an async function, but not a coroutine.
-  (reminder: ``async def aex(...):`` -- ``aex`` is a function and
-  ``aex()`` is a coroutine)
+  (reminder: ``async def afn(...):`` -- ``afn`` is a function and
+  ``afn()`` is a coroutine)
 
   The interval is measured between function calls. The duration
   of the call itself represents an additional delay.
@@ -159,7 +166,7 @@ The options are:
 - ``on_error=None`` to ignore errors
 - ``on_error=edzed.Event.abort()`` to make every error fatal;
   see the :meth:`Event.abort`
-- customized error handling: specify events which will notify 
+- customized error handling: specify events which will notify
   circuit blocks created for this purpose
 
 In each case the error will be logged.
@@ -370,7 +377,7 @@ Periodic events
 
 **Dynamic updates**
 
-A :class:`TimeDate` block can be reconfigured during a simulation
+A ``TimeDate`` block can be reconfigured during a simulation
 by a ``'reconfig'`` event with event data containing items
 ``'times'``, ``'dates'`` and ``'weekdays'`` with exactly the same format,
 meaning and default values as the block's arguments with the same name.
@@ -448,7 +455,7 @@ Non-periodic events
 
 **Dynamic updates**
 
-A :class:`TimeSpan` block can be reconfigured during a simulation
+A ``TimeSpan`` block can be reconfigured during a simulation
 by a ``'reconfig'`` event with event data containing a ``'span'`` item
 with exactly the same format, meaning and default value as the block's
 *span* argument. The *utc* value is fixed and cannot be changed.
@@ -476,7 +483,7 @@ Blocks :class:`TimeDate` and :class:`TimeSpan` are implemented as clients
 of an internal "cron" service. This service has a form of a common :class:`SBlock`.
 
 The name of this automatically created block  is ``_cron_local`` or ``_cron_utc``
-for local or UTC time respectively. It accepts an event named ``get_schedule``
+for local or UTC time respectively. It accepts an event named ``'get_schedule'``
 and responds with a dump of the internal scheduling data in the form of a dict:
 ``{"HH:MM:SS": [block_names_to_recalculate]}``.
 
@@ -493,12 +500,13 @@ Counter
   and then wrap around. If *modulo* is not set, the output value
   is not bounded.
 
-  Arguments:
+  Initialization parameters:
 
-  - *persistent*
-      if true, initialize from the last known value
-  - *initdef*
-      initial value, 0 by default
+  :param bool persistent:
+    If true, initialize from the last known value
+
+  :param initdef:
+    Initial value, 0 by default
 
   Accepted events and relevant data items:
 
@@ -548,6 +556,54 @@ Repeat
     reasons. For a source of periodic events use a :class:`Timer` instead.
 
 
+Timer
+======
+
+.. class:: Timer(*args, restartable=True, **kwargs)
+
+  A timer (:ref:`source <Example (Timer)>`).
+
+  This is an FSM block. The output is ``False`` in state ``'off'`` for time
+  duration *t_off*, then ``True`` in state ``'on'`` for duration *t_on*,
+  and then the cycle repeats.
+
+  By default both durations are infinite (timer disabled), i.e. the
+  block is bistable. If one duration is set, the block is monostable.
+  If both durations are set, the block is astable.
+
+  :param bool restartable:
+    If ``True`` (default), a ``'start'`` event
+    occurring while in the ``'on'`` state restarts the timer
+    to measure the ``'t_on'`` time from the beginning. If not
+    restartable, the timer will continue to measure the
+    time and ignore the event. The same holds for the ``'stop'``
+    event in the ``'off'`` state.
+
+  The ``Timer`` accepts all standard :ref:`FSM parameters`:
+
+  :param t_on:
+    ``'on'`` state timer duration
+  :param t_off:
+    ``'off'`` state timer duration
+  :param initdef:
+    Set the initial state. Default is ``'off'``.
+    Use ``initdef='on'`` to start in the ``'on'`` state.
+  :param persistent:
+    Enable persistent state.
+
+  Events:
+
+  - ``'start'``
+      Go to the ``'on'`` state. See also: *restartable*.
+  - ``'stop'``
+      Go to the ``'off'`` state. See also: *restartable*.
+  - ``'toggle'``
+      Go from ``'on'`` to ``'off'`` or vice versa.
+
+  A conditional event :class:`EventCond`\ ``('start', 'stop')``
+  is often used for ``Timer`` control.
+
+
 Simulator control block
 =======================
 
@@ -567,5 +623,5 @@ Simulator control block
   there exists a reference to this name in the circuit. The :class:`Event`
   class provides constructors :meth:`Event.abort` and :meth:`Event.shutdown`
   creating the corresponding events in a convenient way.
-  
+
   The output value is fixed to ``None``.

@@ -44,7 +44,7 @@ def compare_logs(tlog, slog, delta_abs=10, delta_rel=0.15):
     """
     Compare the tlog with an expected standard slog.
 
-    The allowed negative difference is only 1/5 of the allowed positive
+    The allowed negative difference is only 1/10 of the allowed positive
     difference, because due to CPU load and overhead the tlog is
     expected to lag behind the slog, and not to outrun it.
 
@@ -65,7 +65,7 @@ def compare_logs(tlog, slog, delta_abs=10, delta_rel=0.15):
         if (tts - delta_abs)/sts > 1.0 + delta_rel:
             assert False, f"timestamps: {tts} is way above expected {sts} " \
             "(please repeat; timing tests may produce a false negative under high load!)"
-        if (tts + delta_abs/5)/sts < 1.0 - delta_rel/5:
+        if (tts + delta_abs/10)/sts < 1.0 - delta_rel/10:
             assert False, f"timestamps: {tts} is way below expected {sts} " \
             "(please repeat; timing tests may produce a false negative under high load!)"
 

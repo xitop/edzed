@@ -6,6 +6,14 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+21.3.25
+=======
+- all documented utilities are now provided by ``edzed.utils``
+  and should be imported from there
+- fixed an issue with :attr:`FSM.sdata` erroneously restored from
+  an expired saved state
+- :class:`InputExp` was rewritten
+
 21.3.16
 =======
 - :attr:`Block.comment` replaces the ``Block.desc``;
@@ -56,18 +64,6 @@ Version numbers are based on the release date (Y.M.D).
 - :attr:`FSM.sdata` was added
 - :class:`Block` now accepts a *debug* argument
 - Python version 3.9 was added to classifiers
-
-20.9.10
-=======
-
-- :meth:`Circuit.finalize` and :attr:`Circuit.error` were added
-- documentation: symbol references are printed without the ``edzed`` package name
-
-20.9.5
-======
-
-- :ref:`Event filters`: (incompatible change) the meaning of the returned value
-  was altered
 
 
 .. note:: See the git repository for older releases.

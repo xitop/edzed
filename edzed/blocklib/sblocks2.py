@@ -7,45 +7,57 @@ Home: https://github.com/xitop/edzed/
 """
 
 import asyncio
-import logging
 
 from .. import addons
 from .. import block
 from .. import fsm
-from ..utils import shield_cancel
+from .. import utils
 
 
 __all__ = ['Input', 'InputExp', 'OutputAsync', 'OutputFunc']
 
 
-class Input(addons.AddonPersistence, block.SBlock):
-    """
-    Input with optional value validation.
-    """
+class _Validation:
+    """Value validation mix-in."""
 
     def __init__(self, *args, schema=None, check=None, allowed=None, **kwargs):
         self._schema = schema
         self._check = check
         self._allowed = None if allowed is None else frozenset(allowed)
         super().__init__(*args, **kwargs)
+
+    def _validate(self, value):
+        """
+        Validate a value.
+
+        Return the result if the value is accepted.
+        Raise a ValueError if not.
+        """
+        if self._allowed is not None and value not in self._allowed:
+            raise ValueError(f"Validation error: {value!r} is not among allowed values")
+        if self._check is not None and not self._check(value):
+            raise ValueError(f"Validation function rejected value {value!r}")
+        if self._schema is not None:
+            try:
+                value = self._schema(value)
+            except Exception as err:
+                raise ValueError(
+                    f"Validation schema rejected value {value!r} with error: {err}") from None
+        return value
+
+
+class Input(_Validation, addons.AddonPersistence, block.SBlock):
+    """
+    Input with optional value validation.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         if self.initdef is not block.UNDEF:
             self._validate(self.initdef)
 
     def init_from_value(self, value):
         self.put(value)
-
-    def _validate(self, value):
-        if self._allowed is not None and value not in self._allowed:
-            raise ValueError(
-                f"Value {value!r} validation error: value not among allowed values")
-        if self._check is not None and not self._check(value):
-            raise ValueError(f"Value {value!r} validation error: check function not passed")
-        if self._schema is not None:
-            try:
-                value = self._schema(value)
-            except Exception as err:
-                raise ValueError(f"Value {value!r} schema validation error: {err}") from None
-        return value
 
     def _event_put(self, *, value, **_data):
         try:
@@ -59,53 +71,50 @@ class Input(addons.AddonPersistence, block.SBlock):
     _restore_state = init_from_value
 
 
-class InputExp(Input, fsm.FSM):
+class InputExp(_Validation, fsm.FSM):
     """
     Input with an expiration time.
     """
+
     STATES = ['expired', 'valid']
     TIMERS = {
         'valid': (None, fsm.Goto('expired')),
         }
     EVENTS = (
-        ('start', None, 'valid'),
+        ('put', None, 'valid'),
         )
 
-    def __init__(self, *args, duration, expired=None, **kwargs):
-        super().__init__(*args, t_valid=duration, **kwargs)
-        self._validate(expired)
-        self._expired = expired
+    def __init__(self, *args, duration, expired=None, initdef=block.UNDEF, **kwargs):
+        # meaning of the initdef parameter:
+        # - in InputExp: initial value
+        # - in the underlying FSM: initial state
+        has_init_value = initdef is not block.UNDEF
+        super().__init__(
+            *args,
+            t_valid=duration,
+            initdef = 'valid' if has_init_value else 'expired',
+            **kwargs)
+        if has_init_value:
+            self.sdata['input'] = self._validate(initdef)
+        self._expired = self._validate(expired)
 
-    def enter_expired(self):
-        Input._event_put(self, value=self._expired)
-
-    def _event_put(self, *, value, **data):
-        if not Input._event_put(self, value=value):
-            return False    # value not accepted by validators
-        with self._enable_event:
-            # value is missing in data, but we need only the optional 'duration' item
-            self.event(fsm.Goto('expired') if value == self._expired else 'start', **data)
+    def cond_put(self):
+        data = fsm.fsm_event_data.get()
+        value = data['value']
+        try:
+            value = self._validate(value)
+        except ValueError as err:
+            self.log_warning("%s", err)
+            return False
+        self.sdata['input'] = value
         return True
 
-    def init_from_value(self, value):
-        self.put(value)
+    def on_enter_expired(self):
+        self.sdata.pop('input', None)
 
-    def calc_output(self):      # pylint: disable=no-self-use
+    def calc_output(self):
         """Stop the FSM part from setting the output."""
-        return block.UNDEF
-
-    def get_state(self):
-        """Combine states of both parts."""
-        return {
-            'input': Input.get_state(self),
-            'fsm': fsm.FSM.get_state(self),
-        }
-
-    def _restore_state(self, state):
-        fsm.FSM._restore_state(self, state['fsm'])
-        if self._state is not block.UNDEF:
-            Input._event_put(self, value=state['input'])
-
+        return self.sdata['input'] if self._state == 'valid' else self._expired
 
 
 class OutputAsync(addons.AddonAsync, block.SBlock):
@@ -160,7 +169,7 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
             self.set_output(False)
         if self._guard_time > 0.0:
             try:
-                await shield_cancel.shield_cancel(asyncio.sleep(self._guard_time))
+                await utils.shield_cancel(asyncio.sleep(self._guard_time))
             except asyncio.CancelledError:
                 # shield_cancel re-reaises any CancelledError when it stops shielding
                 pass

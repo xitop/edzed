@@ -11,7 +11,7 @@ import asyncio
 import pytest
 
 import edzed
-from edzed.utils.shield_cancel import shield_cancel
+from edzed.utils import shield_cancel
 
 from .utils import *
 

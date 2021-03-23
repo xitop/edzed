@@ -463,10 +463,11 @@ Example (Timer)
 Creating FSMs blocks
 ====================
 
-FSM arguments
--------------
+FSM parameters
+--------------
 
-Summary of keyword arguments accepted by classes derived from :class:`FSM`.
+Summary of parameters accepted as keyword arguments by classes derived
+from the :class:`FSM` class.
 
 ``'STATE'`` and ``'EVENT'`` are placeholders to be substituted by real
 state and event names.

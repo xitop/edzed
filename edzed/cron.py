@@ -16,7 +16,7 @@ import time
 
 from . import addons
 from . import block
-from .utils import tconst
+from . import utils
 from .utils import timeinterval
 
 # HMS is an abbreviation for clock time hour, minute, second
@@ -151,8 +151,8 @@ class Cron(addons.AddonMainTask, block.SBlock):
                 if now.hms != next_hms:
                     # wrong time!
                     diff = now.hms.seconds_from(next_hms) + now.subsec
-                    if diff > tconst.SEC_PER_DAY / 2:
-                        diff -= tconst.SEC_PER_DAY
+                    if diff > utils.SEC_PER_DAY / 2:
+                        diff -= utils.SEC_PER_DAY
                     # diff > 0 = too late, diff < 0 = too early
                     reset = abs(diff) > _MAX_TRACKING_ERROR
                     self.log_warning(
