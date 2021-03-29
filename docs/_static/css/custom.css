@@ -1,0 +1,8 @@
+a:link {
+  text-decoration: dotted underline;
+}
+
+div.important {
+    background-color: #fcfaf0;
+    border: 1px solid #eee;
+}

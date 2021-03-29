@@ -130,6 +130,10 @@ async def test_guard_time_too_long(circuit):
 
 
 async def test_on_success(circuit):
+    def check_trigger(data):
+        assert data['trigger'] == 'success'
+        return True
+
     LOG = [
         (0, 'start i1'),
         (120, 'stop i1'),
@@ -143,7 +147,10 @@ async def test_on_success(circuit):
         (360, 'ok i2'),    # on_success
         (360, 'END')
         ]
-    await output_async(circuit, qmode=True, on_success=edzed.Event('logger'), log=LOG)
+    await output_async(
+        circuit, qmode=True,
+        on_success=edzed.Event('logger', efilter=check_trigger),
+        log=LOG)
 
 
 async def test_on_error_ignore(circuit):
@@ -170,6 +177,10 @@ async def test_on_error_abort(circuit):
 
 async def test_on_error_custom(circuit):
     """on_error=... overrides the default error handling."""
+    def check_trigger(data):
+        assert data['trigger'] == 'error'
+        return True
+
     LOG = [
         (0, 'start i1'),
         (0, 'division by zero'),
@@ -180,7 +191,11 @@ async def test_on_error_custom(circuit):
         ]
     await output_async(
         circuit, test_error=True, log=LOG,
-        on_error=edzed.Event('logger', efilter=lambda data: {'value': str(data['error'])}))
+        on_error=edzed.Event('logger', efilter=(
+            check_trigger,
+            lambda data: {'value': str(data['error'])}
+            )
+        ))
 
 
 async def test_stop(circuit):

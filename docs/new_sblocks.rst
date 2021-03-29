@@ -1,25 +1,39 @@
 .. currentmodule:: edzed
 
+==========================
 Creating sequential blocks
 ==========================
 
 
 Feel free to skip this chapter or some of its sections.
-Perfect ``edzed`` based applications can be written without
-the information contained here.
+Perfect ``edzed`` based applications can be written just with
+the blocks already defined.
+
+----
+
+Topics to be considered during the planning phase:
+
+- what fully defines the internal state?
+- how will be the internal state initialized?
+- what determines the output?
+- what events will be accepted?
+- what data is expected for particular events?
+
+Checklist for creating a new SBlock:
+
+- subclass from :class:`SBlock` and appropriate :ref:`add-ons <Add-ons>`
+- define :ref:`Initialization <SBlock initialization>` and other state related methods
+- define :ref:`event handlers <Event handlers>`
+- define :ref:`start and stop methods <Start and stop>`
+- implement :ref:`event generation <Sending events>` (rarely needed)
 
 
-Overview
---------
+SBlock initialization
+=====================
 
-Instructions for creating a new SBlock:
+The goal is to set the internal state and the output.
 
-#. subclass from :class:`SBlock` and appropriate :ref:`add-ons <Add-ons>`
-#. define :ref:`event handlers <Event handlers>`
-#. define :ref:`state related methods <State related methods>`
-#. define :ref:`start and stop methods <Start and stop>`
-
-Before we dive into details, let's recap the :ref:`initialization order <Initialization>`
+Let's recap the :ref:`initialization order <Initialization>`
 with links to corresponding sections added. Each block defines only those steps that are
 appropriate to its functionality.
 
@@ -34,14 +48,45 @@ appropriate to its functionality.
 
 .. important::
 
-  The general rule for all four listed initialization functions:
+  The general rule for all initialization functions:
   If it is not possible to initialize the block, leave it
   uninitialized and return. Do not raise on errors, only log
   a notice.
 
+.. method:: SBlock.get_state() -> Any
+  :noindex:
+
+  Return the internal state.
+
+  The default implementation assumes the state is equal to the output.
+
+  This method *must* be redefined for more complex SBlocks
+  to return the real internal state.
+
+  It is recommended that this method produces JSON serializable data,
+  especially when the block supports persistent state.
+  JSON serializable data can be stored or transferred with minimum
+  difficulties.
+
+.. method:: SBlock.init_regular() -> None
+
+  Initialize the internal state to a fixed value and set the output.
+
+  Define only if the block can be initialized this way.
+
+.. method:: SBlock.init_from_value(value) -> None
+
+  Initialize the internal state from the given *value*
+  and set the output.
+
+  Define only if the block can be initialized this way.
+
+  Defining this method automatically enables
+  :class:`SBlock`\'s keyword argument *initdef*.
+
 
 Event handlers
---------------
+==============
 
 There are two ways to handle :ref:`events <Events>`:
 
@@ -113,7 +158,7 @@ The :meth:`SBlock.event` is responsible for:
 
 
 Setting the output
-------------------
+==================
 
 Event handlers and initialization functions manage the internal
 state and the output value. The output setter is:
@@ -127,43 +172,59 @@ state and the output value. The output setter is:
   the first :meth:`set_output` call.
 
 
-State related methods
----------------------
+Sending events
+==============
 
-.. method:: SBlock.get_state() -> Any
-  :noindex:
+The recommended way to implement events to be sent when some trigger
+has fired is to add an *on_TRIGGER* keyword argument::
 
-  Return the internal state.
+    class ExampleBlock(edzed.SBlock):
 
-  The default implementation assumes the state is equal to the output.
+        def __init__(self, *args, on_bang=None, **kwargs):
+            self._bang_events = edzed.event_tuple(on_bang)
+            super().__init__(*args, **kwargs)
 
-  This method *must* be redefined for more complex SBlocks
-  to return the real internal state.
+        def _send_bang_events(self):
+            """Notify all recipients that a 'bang' has occurred."""
+            for event in self._bang_events:
+                event.send(self, trigger='bang')  # add event data as needed
 
-  It is recommended that this method produces JSON serializable data,
-  especially when the block supports persistent state.
-  JSON serializable data can be stored or transfered with minimum
-  difficulties.
+.. function:: event_tuple(arg) -> tuple[Event]
 
-.. method:: SBlock.init_regular() -> None
+  A helper supporting multiple ways to specify event(s).
 
-  Initialize the internal state to a fixed value and set the output.
+  Convert ``None``, a single :class:`Event` object or a sequence of :class:`Event`
+  objects to a tuple with zero, one or more events.
 
-  Define only if the block can be initialized this way.
+.. method:: Event.send(source: Block, /, **data) -> bool
 
-.. method:: SBlock.init_from_value(value) -> None
+  Apply filters, add source item to the data and send this event.
 
-  Initialize the internal state from the given *value*
-  and set the output.
+  Return ``True`` if the event was sent, ``False`` if rejected by a filter.
+  The return value may be important as a response to external events,
+  but the internal block-to-block events are one-way communication and the
+  return value from the :meth:`SBlock.event` is disregarded by sender blocks.
 
-  Define only if the block can be initialized this way.
+  Parameter *source* specifies the sender block. The destination is given
+  by the :class:`Event`. The purpose of *data* (given as ``name=value`` keyword arguments)
+  is to describe the event. Details depend on the particular sender and event type.
 
-  Defining this method automatically enables
-  :class:`SBlock`\'s keyword argument *initdef*.
+  ``'source': <name of sender block>`` item is added to the event data.
+
+  Blocks provided by ``edzed`` also include ``'trigger': <trigger name>``
+  where the trigger name is derived from the corresponding parameter
+  mainly by stripping the ``'on_'`` prefix.
+
+  .. note::
+
+    *source* is a positional-only parameter,
+    see `PEP-570 <https://www.python.org/dev/peps/pep-0570/>`_.
+    This is a new feature in Python 3.8, but
+    the current code emulates it also in Python 3.7.
 
 
 Start and stop
---------------
+==============
 
 :meth:`SBlock.start` is called when the circuit simulation is about to start,
 before the block initialization;
@@ -212,7 +273,7 @@ before the block initialization;
 
 
 Add-ons
--------
+=======
 
 .. important::
 
@@ -223,7 +284,7 @@ Add-ons
 
 
 Persistent state add-on
-+++++++++++++++++++++++
+-----------------------
 
 .. class:: AddonPersistence
 
@@ -272,7 +333,7 @@ Persistent state add-on
 
 
 Async add-on
-++++++++++++
+------------
 
 .. class:: AddonAsync
 
@@ -340,7 +401,7 @@ Async add-on
 
 
 Main task add-on
-++++++++++++++++
+----------------
 
 .. class:: AddonMainTask
 
@@ -363,7 +424,7 @@ Main task add-on
 
 
 Async initialization add-on
-+++++++++++++++++++++++++++
+---------------------------
 
 .. class:: AddonAsyncInit
 
@@ -378,7 +439,7 @@ Async initialization add-on
 
 
 Helper methods
---------------
+==============
 
 When creating new blocks, you may find these methods useful:
 
@@ -404,7 +465,7 @@ When creating new blocks, you may find these methods useful:
 
 
 Example (Input)
----------------
+===============
 
 An input block like :class:`Input`, but without data validation::
 

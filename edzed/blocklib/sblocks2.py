@@ -160,11 +160,11 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
         except Exception as err:
             self.log_error("output task failed for input value %r: %r", value, err)
             for ev in self._on_error:
-                ev.send(self, error=err)
+                ev.send(self, trigger='error', error=err)
         else:
             self.log_debug("output task returned value %r", retval)
             for ev in self._on_success:
-                ev.send(self, value=retval)
+                ev.send(self, trigger='success', value=retval)
         if self._queue.empty():
             self.set_output(False)
         if self._guard_time > 0.0:
@@ -269,11 +269,11 @@ class OutputFunc(block.SBlock):
         except Exception as err:
             self.log_error("output function failed for input value %r: %r", value, err)
             for ev in self._on_error:
-                ev.send(self, error=err)
+                ev.send(self, trigger='error', error=err)
         else:
             self.log_debug("output function returned value %r", retval)
             for ev in self._on_success:
-                ev.send(self, value=retval)
+                ev.send(self, trigger='success', value=retval)
 
     def init_regular(self):
         """Initialize the internal state."""

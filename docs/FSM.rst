@@ -497,8 +497,7 @@ state and event names.
 Generating FSM events
 ---------------------
 
-FSM instances may :ref:`define events<Generating events>` to be sent
-to other blocks.
+FSM instances may define :ref:`events<Events>` to be sent to other blocks.
 
 The corresponding keyword arguments are:
 
@@ -509,12 +508,12 @@ The corresponding keyword arguments are:
 
     Events are sent with these data items:
 
-    - ``'source'`` = sender's block name
-    - ``'trigger'`` = either ``'enter'`` or ``'exit'``
-    - ``'state'`` = the FSM state just entered or exited
-    - ``'sdata'`` = a shallow copy of :attr:`FSM.sdata` with private data items removed
+    - ``'source'``: sender's block name
+    - ``'trigger'``: either ``'enter'`` or ``'exit'``
+    - ``'state'``: the FSM state just entered or exited
+    - ``'sdata'``: a shallow copy of :attr:`FSM.sdata` with private data items removed
       (private data are items with keys starting with an underscore).
-    - ``'value'`` = the output value
+    - ``'value'``: the output value
 
 - ``on_notrans``
 
@@ -523,10 +522,10 @@ The corresponding keyword arguments are:
 
     Events are sent with these data items:
 
-    - ``'source'`` = sender's block name
-    - ``'trigger'`` = always ``'notrans'``
-    - ``'state'`` = the current FSM state
-    - ``'event'`` = the not accepted event
+    - ``'source'``: sender's block name
+    - ``'trigger'``: always ``'notrans'``
+    - ``'state'``: the current FSM state
+    - ``'event'``: the not accepted event
 
 Other event data items may be added in the future.
 

@@ -53,6 +53,10 @@ async def test_basic(circuit):
 
 
 async def test_on_success(circuit):
+    def check_trigger(data):
+        assert data['trigger'] == 'success'
+        return True
+
     LOG = [
         (0, 2),
         (0, 102),
@@ -63,7 +67,7 @@ async def test_on_success(circuit):
         (100, '--stop--'),
         (100, 'END')
         ]
-    await output_func(circuit, on_success=edzed.Event('logger'), log=LOG)
+    await output_func(circuit, on_success=edzed.Event('logger', efilter=check_trigger), log=LOG)
 
 
 async def test_on_error_ignore(circuit):
@@ -87,6 +91,10 @@ async def test_on_error_abort(circuit):
 
 
 async def test_on_error_custom(circuit):
+    def check_trigger(data):
+        assert data['trigger'] == 'error'
+        return True
+
     LOG = [
         (0, 2),
         (50, 'integer division or modulo by zero'),
@@ -96,7 +104,11 @@ async def test_on_error_custom(circuit):
         ]
     await output_func(
         circuit, v2=0, log=LOG,
-        on_error=edzed.Event('logger', efilter=lambda data: {'value': str(data['error'])}))
+        on_error=edzed.Event(
+            'logger',
+            efilter=(check_trigger, lambda data: {'value': str(data['error'])})
+            )
+        )
 
 
 async def test_stop(circuit):

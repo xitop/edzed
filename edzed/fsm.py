@@ -350,9 +350,10 @@ class FSM(addons.AddonPersistence, block.SBlock):
                     self.log_debug("timer: cancelled")
             self._active_timer = None
 
-    def _send_events(self, trigger_type, state):
+    def _send_events(self, trigger_type):
         """Send events triggered by 'on_enter_STATE' or 'on_exit_STATE'."""
         state_events = self._state_events[trigger_type]
+        state = self._state
         try:
             events = state_events[state]
         except KeyError:
@@ -361,9 +362,9 @@ class FSM(addons.AddonPersistence, block.SBlock):
             event.send(
                 self,
                 sdata={k: v for k, v in self.sdata.items() if not k.startswith('_')},
+                trigger=trigger_type[3:],   # strip 'on_' from trigger_type
                 state=state,
                 value=self._output,
-                trigger=trigger_type[3:],   # strip 'on_' from trigger_type
                 )
 
     def _run_cb(self, cb_type, name):
@@ -430,7 +431,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
                 self.log_debug(
                     "No transition defined for event %s in state %s", etype, self._state)
                 for event in self._on_notrans:
-                    event.send(self, event=etype, trigger='notrans', state=self._state)
+                    event.send(self, trigger='notrans', event=etype, state=self._state)
                 return False
             if self.is_initialized() and not all(self._run_cb('cond', etype)):
                 self.log_debug(
@@ -454,7 +455,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
         try:
             if self.is_initialized():
                 self._run_cb('exit', self._state)
-                self._send_events('on_exit', self._state)
+                self._send_events('on_exit')
                 self._stop_timer()
             assert self._next_event is None
             for _ in range(self._ct_chainlimit):
@@ -484,7 +485,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
             output = self.calc_output()
             if output is not block.UNDEF:
                 self.set_output(output)
-            self._send_events('on_enter', self._state)
+            self._send_events('on_enter')
             return True
         finally:
             self._fsm_event_active = False

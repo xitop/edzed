@@ -181,7 +181,7 @@ Output blocks
   The function *func* is called with a single argument, the ``'value'``
   item from the ``'put'`` event data.
 
-  The block triggers *on_success* and *on_error* :ref:`events<Generating events>`
+  The block triggers *on_success* and *on_error* :ref:`events<Events>`
   depending on the result of the function call.
   Any returned value is considered a success, and the value is added to the
   *on_success* event data as ``'value'``. An exception means an error,
@@ -216,7 +216,7 @@ Output blocks
   The output of an OutputAsync block is a boolean busy flag:
   ``True``, when the block is running a task; ``False`` when idle.
 
-  The block triggers *on_success* and *on_error* :ref:`events<Generating events>`
+  The block triggers *on_success* and *on_error* :ref:`events<Events>`
   depending on the result of the task. A normal termination is
   considered a success (the returned value is added to the *on_success* event data as ``'value'``).
   An exception other than :exc:`asyncio.CancelledError` means an error

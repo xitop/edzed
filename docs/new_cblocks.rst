@@ -1,5 +1,6 @@
 .. currentmodule:: edzed
 
+=============================
 Creating combinational blocks
 =============================
 
@@ -7,7 +8,7 @@ Feel free to skip this chapter. As noted elsewhere, the :class:`FuncBlock` is an
 combinational block and there is very little reason to write a new one.
 
 Directions
-----------
+==========
 
 Directions for creating a new CBlock:
 
@@ -66,7 +67,7 @@ Directions for creating a new CBlock:
 
 
 Input signatures
-----------------
+================
 
 An input signature is a :class:`dict` with the following structure:
 
@@ -118,7 +119,7 @@ An input signature is a :class:`dict` with the following structure:
 
 
 Example (Invert)
-----------------
+================
 
 :class:`Invert` source::
 

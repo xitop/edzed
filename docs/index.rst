@@ -22,6 +22,7 @@ Contents
   software
   intro
   blocks
+  events
   cblocks
   sblocks
   filters

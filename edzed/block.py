@@ -334,10 +334,6 @@ class Block:
         """Log a message with ERROR priority."""
         self.log_msg(*args, level=logging.ERROR, **kwargs)
 
-    def _send_output_events(self, previous, value):
-        for event in self._output_events:
-            event.send(self, previous=previous, value=value)
-
     def start(self) -> None:
         """Pre-simulation hook."""
 
@@ -564,7 +560,8 @@ class CBlock(Block, metaclass=abc.ABCMeta):
             return False
         self.log_debug("output: %s -> %s", previous, value)
         self._output = value
-        self._send_output_events(previous, value)
+        for event in self._output_events:
+            event.send(self, trigger='output', previous=previous, value=value)
         return True
 
     def get_conf(self) -> Mapping[str, Any]:
@@ -633,10 +630,11 @@ class SBlock(Block):
                             cls._ct_handlers[etype] = method
         assert sblock_seen
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, on_every_output: EventsArg = None, **kwargs):
         if self.has_method('init_from_value'):
             self.initdef = kwargs.pop('initdef', UNDEF)
         self._event_active = False      # guard against event recursion
+        self._every_output_events = event_tuple(on_every_output)
         # completed Circuit.init_sblock initialization steps (2 in total)
         self.init_steps_completed = 0
         super().__init__(*args, **kwargs)
@@ -647,11 +645,17 @@ class SBlock(Block):
             raise ValueError("Output value must not be <UNDEF>")
         previous = self._output
         if previous == value:
-            return
-        self.log_debug("output: %s -> %s", previous, value)
-        self._output = value
-        self.circuit.sblock_queue.put_nowait(self)
-        self._send_output_events(previous, value)
+            if not self._every_output_events:
+                return
+            self.log_debug("output: %s (unchanged)", value)
+        else:
+            self.log_debug("output: %s -> %s", previous, value)
+            self._output = value
+            self.circuit.sblock_queue.put_nowait(self)
+            for event in self._output_events:
+                event.send(self, trigger='output', previous=previous, value=value)
+        for event in self._every_output_events:
+            event.send(self, trigger='output', previous=previous, value=value)
 
     def _event(self, etype, data):  # pylint: disable=unused-argument, no-self-use
         """
@@ -736,7 +740,7 @@ class SBlock(Block):
         A context manager temporarily enabling recursive events.
 
         Usage:
-            ... during handling of an event ...
+            ... while handling an event ...
             with self._enable_event:
                 self.event(...) # without _enable_event this would
                                 # raise "Forbidden recursive event()"

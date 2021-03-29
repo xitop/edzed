@@ -25,12 +25,13 @@ Common features
   Create a block and add it to the current circuit.
 
   The ``Block`` implements common features of all circuit blocks, combinational and sequential.
-  It cannot be instantiated directly. Concrete blocks must be derived either from the combinational
+  It cannot be instantiated directly (such classes are called abstract classes).
+  Concrete blocks must be derived either from the combinational
   base class :class:`CBlock` or from the sequential base class :class:`SBlock`.
 
   The mandatory argument *name* is block's unique identifier, a non-empty string.
   Names prefixed by an underscore are reserved for automatically created
-  blocks and names. Enter ``None`` to request a generated name.
+  blocks. Enter ``None`` to request a generated name.
   Use this feature only for auxiliary blocks that you will not need
   to reference by name.
 
@@ -41,7 +42,7 @@ Common features
       called ``desc``. The old name will be recognized at least until 15-JUN-2021.
 
   The *on_output* argument specifies :ref:`events<Events>` to be sent on each
-  output change. More details in :ref:`generating events<Generating events>` below.
+  output change.
 
   The *debug* argument initializes the *debug* attribute.
 
@@ -137,9 +138,18 @@ Constants
 
 .. class:: Const(value: Any)
 
-  A pseudo-block with a constant value on its output. ``Const`` objects
+  A pseudo-block with a constant *value* on its output. ``Const`` objects
   are not registered as members of the circuit and are not derived from
   the :class:`Block` base class.
+
+  .. attribute:: name
+    :type: str
+
+    The automatically generated block's name.
+
+  .. attribute:: output
+
+    Block's constant output value, a read-only property.
 
 
 Combinational blocks
@@ -218,26 +228,26 @@ Sequential blocks
 Base class arguments
 --------------------
 
-.. class:: SBlock(*args, **kwargs)
+.. class:: SBlock(*args, initdef=edzed.UNDEF, persistent=False, sync_state=True, expiration=None, init_timeout=None, stop_timeout=None, **kwargs)
 
-  Arguments accepted by the :class:`SBlock` are not uniform.
-  Refer to descriptions of individual blocks for details
-  which arguments from the list below are appropriate.
-  All arguments are keyword arguments and are optional
-  unless noted otherwise.
+  .. important::
+
+    Each sequential block type accepts only certain parameters.
+    Refer to descriptions of individual blocks for details
+    which parameters are appropriate for the given block.
 
   - Setting the initial state:
       Argument *initdef* specifies the initial internal state.
       Its precise meaning varies depending on the block:
 
-      1. *initdef* is not accepted, because the internal state
-         is not adjustable (e.g. determined by current date or time).
-      2. *initdef* is the primary initial value used
-         to initialize the block. In this case is the argument
-         mandatory for the given block.
-      3. *initdef* is the default value just for the case
-         the regular initialization fails. In this case is the argument
-         optional, but highly recommended for the given block.
+      - *initdef* is not accepted, because the internal state
+        is not adjustable (e.g. determined by current date or time).
+      - *initdef* is the primary initial value used
+        to initialize the block. In this case is the argument
+        mandatory for the given block.
+      - *initdef* is the default value just for the case
+        the regular initialization fails. In this case is the argument
+        optional, but highly recommended for the given block.
 
       If accepted, the *initdef* value is saved as an attribute.
 
@@ -284,6 +294,13 @@ Base class arguments
       ``None`` for the default timeout, or
       a :ref:`string with time units<Time intervals with units>`.
 
+      The timeouts should be explicitly set. A warning is logged,
+      when the default is used.
+
+  - The *on_every_output* argument specifies :ref:`events<Events>` to be sent
+    on each output event. It differs from *on_output*, more details in
+    :ref:`output events<Output events>`.
+
 
 Internal state
 --------------
@@ -328,212 +345,3 @@ may have been initialized already. In such case the routine may
 keep the state or it may overwrite it.
 
 The simulation fails if any block remains uninitialized.
-
-
-Events
-------
-
-Events play a key role in sequential blocks' operation.
-
-An event is a message addressed to a destination block.
-It has a type and optional data. For example a common event type
-is ``'put'``. By convention ``'put'`` events are always sent with
-a ``'value'`` data item.
-
-Events may be generated internally by circuit blocks or may originate from
-external systems and be forwarded through some sort of input interface.
-
-Receiving events
-^^^^^^^^^^^^^^^^
-
-An event is delivered by calling the :meth:`SBlock.event` method
-of the destination block.
-
-.. method:: SBlock.event(etype: Union[str, EventType], /, **data) -> Any
-
-  Handle the event of type *etype* with attached *data* items (key=value pairs).
-
-  In particular:
-
-  - update the internal state, and
-  - set the output value
-
-  according to the block's rules.
-
-  The event type *etype* is either a plain string identifier (a name)
-  or an :ref:`event type<Event types>` object.
-
-  .. note::
-
-    *etype* is a positional-only parameter,
-    see `PEP-570 <https://www.python.org/dev/peps/pep-0570/>`_.
-    This is a new feature in Python 3.8, but
-    the current code emulates it also in Python 3.7.
-
-  :meth:`event` may return a value of any type except the ``NotImplemented``
-  Python constant reserved for internal use. Other blocks ignore the returned
-  value, but it may be useful for input interfaces to external systems.
-
-  Accepted event types together with required data and returned values for each
-  supported event type are part of the API for each particular block type.
-
-  A block must ignore any additional data items.
-
-  .. warning::
-
-    If an exception (other than an unknown event type or a trivial parameter error)
-    is raised during event handling, the simulation terminates with an error
-    even if the caller handles the exception with a ``try-except`` construct.
-    This is a measure to protect the integrity of internal state.
-
-.. method:: SBlock.put(value: Any, **data) -> Any
-
-  This is a shortcut for the frequently used ``event('put', value=value, ...)``.
-
-Generating events
-^^^^^^^^^^^^^^^^^
-
-Every block (even a combinational one) can generate events on its
-output change, so let's show the details on an example with ``on_output``.
-Other generated events differ only in the trigger condition and in the
-event data sent with the event.
-
-The event type and the destination are set in the sender block's configuration::
-
-   ExampleBlock(
-      'block1', comment="example of sending put events to block2",
-      on_output=edzed.Event(block2, 'put'))
-
-.. important::
-
-  Parameters instructing a block to send events in
-  certain situations have names starting with an ``"on_"`` prefix.
-  They accept:
-
-  - ``None`` meaning no events (an empty list or tuple has the same effect), or
-  -  a single :class:`Event` object, or
-  -  multiple (zero or more) :class:`Event` objects given as a tuple, list or other sequence.
-
-.. class:: Event(dest: Union[str, Block], etype: Union[str, EventType] = 'put', efilter=None, repeat=None, count=None)
-
-  Specify an event of type *etype* addressed to the *dest* block
-  together with optional event filters to be applied.
-
-  The *dest* argument may be an :class:`SBlock` object or its name.
-
-  :ref:`Event filters` are functions (*callables* to be exact) documented below.
-  The *efilter* argument can be:
-
-  - ``None`` meaning no filters (an empty list or tuple has the same effect), or
-  - a single function, or
-  - a tuple, list or other sequence of functions.
-
-  If a repeat interval is given with the *repeat* parameter, a :class:`Repeat` block
-  is automatically created to repeat the event. This::
-
-      edzed.Event(dest, etype, repeat=INTERVAL, count=COUNT)  # count is optional
-
-  is equivalent to::
-
-      edzed.Event(
-        edzed.Repeat(
-          None,
-          comment="<generated comment>",
-          dest, etype, interval=INTERVAL, count=COUNT),
-        etype)
-
-  The *count* argument is valid only with the *repeat* argument.
-
-  .. method:: send(source: Block, /, **data) -> bool
-
-    Apply filters and send this event with the given data.
-
-    ``source=<block name of source>`` item is added to the event data.
-
-    Return ``True`` if the event was sent, ``False`` if rejected by a filter
-
-    .. note::
-
-      block-to-block events are one-way communication. The return
-      value from the :meth:`SBlock.event` is disregarded.
-
-    .. note::
-
-      *source* is a positional-only parameter,
-      see `PEP-570 <https://www.python.org/dev/peps/pep-0570/>`_.
-      This is a new feature in Python 3.8, but
-      the current code emulates it also in Python 3.7.
-
-  .. method:: abort() -> Event
-    :classmethod:
-
-    A shortcut for ``edzed.Event('_ctrl', 'abort')``.
-
-    Create an event addressed to circuit's :class:`ControlBlock`
-    with an instruction to abort the simulation due to an error.
-
-  .. method:: shutdown() -> Event
-    :classmethod:
-
-    A shortcut for ``edzed.Event('_ctrl', 'shutdown')``
-
-    Create an event addressed to circuit's :class:`ControlBlock`
-    with an instruction to shut down the simulation.
-
-Data describing the event is added each time a new event is triggered.
-``on_output`` events are sent with three data items:
-
-- ``'previous'`` = previous value (:const:`UNDEF` on first change after initialization)
-- ``'value'`` = current output value
-- ``'source'`` = sender's block name, which is always added
-
-Thus, when the output of ``block1`` from our example changes e.g. from ``23`` to ``27``,
-following code will be executed::
-
-   block2.event('put', previous=23, value=27, source='block1')
-
-Event types
-^^^^^^^^^^^
-
-A simple name (string) is commonly used to identify the event type.
-
-Occasionally a string is not suitable to fully identify
-more complex events. For those few cases we use event type objects
-instead of names.
-
-There is only one such event type for general use.
-It's the conditional event simplifying the block-to-block event delivery:
-
-.. class:: EventCond(etrue, efalse)
-
-  A conditional event type, roughly equivalent to::
-
-    etype = etrue if value else efalse
-
-  where the ``value`` is taken from the event data item ``'value'``.
-  Missing ``value`` is evaluated as ``False``, i.e. ``efalse`` is selected.
-
-  ``None`` as *etrue* or *efalse* means no event in that case.
-
-Event filters
-^^^^^^^^^^^^^
-
-Event filters serve two purposes. As the name suggests, they can filter out
-an event, i.e. cancel its delivery. The second use is to modify the filter data.
-
-An event filter function is called with the event data
-as its sole argument (i.e. as a :class:`dict`).
-
-- If it returns a :class:`dict`, the event is accepted and the returned
-  dict becomes the new event data.
-
-- If the function returns anything else than a :class:`dict` instance,
-  the event will be accepted or rejected depending on the boolean value
-  of the returned value (true = accept, false (e.g. ``False`` or ``None``) = reject).
-
-Event filters may modify the event data in-place.
-
-Multiple filters are called in their definition order like a *pipeline*.
-
-Event filters are usually very simple, often an "one-liner" or a ``lambda``
-is all it takes.

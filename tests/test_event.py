@@ -89,7 +89,8 @@ def test_dest_name(circuit):
     dest = EventMemory('event_dest_block_name')
     init(circuit)
 
-    assert dest.output == ('put', {'source': 'src', 'previous': edzed.UNDEF, 'value': 'ok'})
+    assert dest.output == (
+        'put', {'source': 'src', 'trigger': 'output', 'previous': edzed.UNDEF, 'value': 'ok'})
 
 
 def test_on_output(circuit):
@@ -102,12 +103,13 @@ def test_on_output(circuit):
         initdef=None)
     init(circuit)
 
+    CDATA = {'source': 'src', 'trigger': 'output'}
     src.put(0)
-    assert dest.output == ('ev', {'source': 'src', 'previous': None, 'value': 0})
+    assert dest.output == ('ev', {**CDATA, 'previous': None, 'value': 0})
     src.put(911)
-    assert dest.output == ('ev', {'source': 'src', 'previous': 0, 'value': 911})
+    assert dest.output == ('ev', {**CDATA, 'previous': 0, 'value': 911})
     src.put('string')
-    assert dest.output == ('ev', {'source': 'src', 'previous': 911, 'value': 'string'})
+    assert dest.output == ('ev', {**CDATA, 'previous': 911, 'value': 'string'})
 
     dest.event('clear')
     src.put('string')    # same value, no change, no output event
@@ -116,7 +118,30 @@ def test_on_output(circuit):
     assert dest.output == ('clear', {})
 
     src.put(0)
-    assert dest.output == ('ev', {'source': 'src', 'previous': 'string', 'value': 0})
+    assert dest.output == ('ev', {**CDATA, 'previous': 'string', 'value': 0})
+
+
+def test_on_every_output(circuit):
+    """Test that on_output generates events."""
+    dest = EventMemory('dest')
+    dest_every = EventMemory('dest_every')
+    src = edzed.Input(
+        'src',
+        on_output=edzed.Event(dest, etype='ev'),
+        on_every_output=edzed.Event(dest_every, etype='ev'),
+        initdef=None)
+    init(circuit)
+
+    CDATA = {'source': 'src', 'trigger': 'output'}
+    src.put(0)
+    assert dest.output == dest_every.output == ('ev', {**CDATA, 'previous': None, 'value': 0})
+    src.put(911)
+    assert dest.output == dest_every.output == ('ev', {**CDATA, 'previous': 0, 'value': 911})
+    dest.event('ev', cleared=True)
+    dest_every.event('ev', cleared=True)
+    src.put(911)
+    assert dest.output == ('ev', {'cleared': True})
+    assert dest_every.output == ('ev', {**CDATA, 'previous': 911, 'value': 911})
 
 
 def test_multiple_events(circuit):
@@ -131,15 +156,14 @@ def test_multiple_events(circuit):
         initdef=None)
     init(circuit)
 
+    CDATA = {'source': 'src', 'trigger': 'output'}
     src.put(0)
-    assert dest1.output == ('ev1', {'source': 'src', 'previous': None, 'value': 0})
-    assert dest2.output == ('ev2', {'source': 'src', 'previous': None, 'value': 0})
+    assert dest1.output == ('ev1', {**CDATA, 'previous': None, 'value': 0})
+    assert dest2.output == ('ev2', {**CDATA, 'previous': None, 'value': 0})
     src.put(911)
-    assert dest1.output[1] == dest2.output[1] == \
-        {'source': 'src', 'previous': 0, 'value': 911}
+    assert dest1.output[1] == dest2.output[1] == {**CDATA, 'previous': 0, 'value': 911}
     src.put('last')
-    assert dest1.output[1] == dest2.output[1] == \
-        {'source': 'src', 'previous': 911, 'value': 'last'}
+    assert dest1.output[1] == dest2.output[1] == {**CDATA, 'previous': 911, 'value': 'last'}
 
 
 def test_conditional_events(circuit):
@@ -176,7 +200,8 @@ def test_nested_conditional_events(circuit):
     assert cnt.output == 0
     cnt.event(edzed.EventCond(edzed.EventCond('inc', 'ERR'), None), value=True)
     assert cnt.output == 1
-    cnt.event(edzed.EventCond('ERR', edzed.EventCond(None, edzed.EventCond('ERR', 'dec'))), value=0)
+    cnt.event(edzed.EventCond(
+        'ERR', edzed.EventCond(None, edzed.EventCond('ERR', 'dec'))), value=0)
     assert cnt.output == 0
 
 
@@ -188,7 +213,8 @@ def test_init_by_event(circuit):
     init(circuit)
 
     assert src.output == dest.output == 'ok'
-    assert mem.output == ('put', {'source': 'dest', 'previous': edzed.UNDEF, 'value': 'ok'})
+    assert mem.output == (
+        'put', {'source': 'dest', 'trigger': 'output', 'previous': edzed.UNDEF, 'value': 'ok'})
 
 
 def test_no_circular_init_by_event(circuit):
@@ -248,7 +274,8 @@ def test_filter_pipe(circuit):
     init(circuit)
 
     src.put('V')
-    assert dest.output == ('put', {'source': 'src', 'value': 'V', 'new': 'XYZ??'})
+    assert dest.output == (
+        'put', {'source': 'src', 'trigger': 'output', 'value': 'V', 'new': 'XYZ??'})
 
 
 def test_no_chained_edit():
@@ -267,19 +294,20 @@ def test_dataedit_filter(circuit):
             return data
         return _check
 
+    CDATA = {'source': 'src', 'trigger': 'output'}
     src = edzed.Input(
         'src',
         on_output=edzed.Event(
             'dest',
             efilter=(
                 edzed.not_from_undef,
-                check({'previous': None, 'source': 'src', 'value': 'V'}),
+                check({**CDATA, 'previous': None, 'value': 'V'}),
                 edzed.DataEdit.copy('value', 'saved'),
-                check({'previous': None, 'source': 'src', 'value': 'V', 'saved': 'V'}),
+                check({**CDATA, 'previous': None, 'value': 'V', 'saved': 'V'}),
                 edzed.DataEdit.add(a=1, b=2, c=3),
-                check(
-                    {'previous': None, 'source': 'src', 'value': 'V', 'saved': 'V',
-                     'a': 1, 'b': 2, 'c': 3}),
+                check({
+                    **CDATA,
+                    'previous': None, 'value': 'V', 'saved': 'V', 'a': 1, 'b': 2, 'c': 3}),
                 edzed.DataEdit.permit('source', 'saved', 'a'),
                 check({'source': 'src', 'saved': 'V', 'a': 1}),
                 edzed.DataEdit.copy('saved', 'value'),
