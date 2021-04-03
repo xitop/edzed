@@ -57,14 +57,18 @@ List of :ref:`event filters<Event filters>`.
 
     Add data items, existing values for the same key will be overwritten.
 
-  .. classmethod:: default(key1=value1, key2=value2, ...)
+  .. classmethod:: setdefault(key1=value1, key2=value2, ...)
 
-    Add data items, but only if such key is not present already.
+    Add data items, but only if such key is not already present.
 
   .. classmethod:: copy(srckey, dstkey)
 
     Copy the value associated with the *srckey* (must exist) to *dstkey*:
     ``data[dstkey] = data[srckey]``
+
+  .. classmethod:: rename(srckey, dstkey)
+
+    Rename a key. Like :meth:`copy`, but the *srckey* item is deleted afterward.
 
   .. classmethod:: delete(key1, key2, ...)
 
@@ -76,14 +80,18 @@ List of :ref:`event filters<Event filters>`.
 
   .. classmethod:: modify(key, func)
 
-    Modify an event data value using the *func*.
+    Modify an event using the *func*.
 
-    The *key* must be present in the event data.
-    The corresponding value is replaced by the return value
-    of the function *func*: ``data[key] = func(data[key])``.
+    The *key* must be present in the event data. The corresponding
+    value is passed to the function *func*: ``func(data[key])``
+    and the event is modified according to the value returned
+    fron the function call:
 
-    As a special case, if the function returns the :const:`DataEdit.REJECT`
-    constant, the event will be rejected.
+    - normally the item's value is replaced by the return value
+    - if the function returns the special :const:`DataEdit.DELETE`
+      constant, the item will be deleted
+    - if the function returns the special :const:`DataEdit.REJECT`
+      constant, the whole event will be rejected
 
     Examples::
 
@@ -93,6 +101,14 @@ List of :ref:`event filters<Event filters>`.
 
       # enforce an upper limit of 100.0
       efilter=edzed.DataEdit.modify('value', lambda v: min(v, 100.0))
+
+  .. attribute:: DELETE
+
+    constant used in :meth:`modify` (class attribute)
+
+  .. attribute:: REJECT
+
+    constant used in :meth:`modify` (class attribute)
 
 ----
 

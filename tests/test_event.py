@@ -312,22 +312,51 @@ def test_dataedit_filter(circuit):
                 check({'source': 'src', 'saved': 'V', 'a': 1}),
                 edzed.DataEdit.copy('saved', 'value'),
                 check({'source': 'src', 'saved': 'V', 'value': 'V', 'a': 1}),
-                edzed.DataEdit.default(saved='NO'),
+                edzed.DataEdit.setdefault(saved='NO'),
                 check({'source': 'src', 'saved': 'V', 'value': 'V', 'a': 1}),
                 edzed.DataEdit.delete('saved'),
                 check({'source': 'src', 'value': 'V', 'a': 1}),
                 edzed.DataEdit.modify('a', lambda x: x+50),
                 check({'source': 'src', 'value': 'V', 'a': 51}),
-                edzed.DataEdit.default(saved='YES'),
+                edzed.DataEdit.setdefault(saved='YES'),
                 check({'source': 'src', 'saved': 'YES', 'value': 'V', 'a': 51}),
-                edzed.DataEdit.default(saved='MAYBE'),
+                edzed.DataEdit.setdefault(saved='MAYBE'),
+                check({'source': 'src', 'value': 'V', 'a': 51, 'saved': 'YES'}),
+                edzed.DataEdit.modify('a', lambda a: edzed.DataEdit.DELETE if a == 52 else a+1),
+                check({'source': 'src', 'value': 'V', 'a': 52, 'saved': 'YES'}),
+                edzed.DataEdit.modify('a', lambda a: edzed.DataEdit.DELETE if a == 52 else a+1),
+                check({'source': 'src', 'value': 'V', 'saved': 'YES'})
             )),
         initdef=None)
     dest = EventMemory('dest')
     init(circuit)
 
     src.put('V')
-    assert dest.output == ('put', {'source': 'src', 'value': 'V', 'a': 51, 'saved': 'YES'})
+    assert dest.output == ('put', {'source': 'src', 'value': 'V', 'saved': 'YES'})
+
+
+def test_dataedit_modify_reject(circuit):
+    """Test event rejecting in DataEdit.modify."""
+    dest = EventMemory('dest')
+    src = edzed.Input(
+        'src',
+        on_output=edzed.Event(
+            dest, etype='ev',
+            efilter=edzed.DataEdit.modify(
+                'value',
+                lambda x: edzed.DataEdit.REJECT if x < 0 else x),
+            ),
+        initdef=3)
+    init(circuit)
+
+    CDATA = {'source': 'src', 'trigger': 'output'}
+    src.put(911)
+    after911 = {**CDATA, 'previous': 3, 'value': 911}
+    assert dest.output[1] == after911
+    src.put(-4)
+    assert dest.output[1] == after911
+    src.put(4)
+    assert dest.output[1] == {**CDATA, 'previous': -4, 'value': 4}
 
 
 def test_edge_detector_from_undef(circuit):

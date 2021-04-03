@@ -126,9 +126,11 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
     def __init__(
             self, *args,
             coro, guard_time=0.0,
-            qmode=False, on_success=None, on_error, stop_value=block.UNDEF,
+            qmode=False, on_success=None, on_cancel=None, on_error,
+            stop_value=block.UNDEF,
             **kwargs):
         self._on_success = block.event_tuple(on_success)
+        self._on_cancel = block.event_tuple(on_cancel)
         self._on_error = block.event_tuple(on_error)
         self._coro = coro
         self._guard_time = guard_time
@@ -157,14 +159,16 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
         except asyncio.CancelledError:
             # it is assumed that the coroutine was cancelled by the control task
             self.log_debug("output task cancelled")
+            for ev in self._on_cancel:
+                ev.send(self, trigger='cancel', arg=value)
         except Exception as err:
             self.log_error("output task failed for input value %r: %r", value, err)
             for ev in self._on_error:
-                ev.send(self, trigger='error', error=err)
+                ev.send(self, trigger='error', error=err, arg=value)
         else:
             self.log_debug("output task returned value %r", retval)
             for ev in self._on_success:
-                ev.send(self, trigger='success', value=retval)
+                ev.send(self, trigger='success', value=retval, arg=value)
         if self._queue.empty():
             self.set_output(False)
         if self._guard_time > 0.0:
@@ -265,15 +269,17 @@ class OutputFunc(block.SBlock):
 
     def _event_put(self, *, value, **_data):
         try:
-            retval = self._func(value)
+            result = self._func(value)
         except Exception as err:
             self.log_error("output function failed for input value %r: %r", value, err)
             for ev in self._on_error:
                 ev.send(self, trigger='error', error=err)
+            return ('error', err)
         else:
-            self.log_debug("output function returned value %r", retval)
+            self.log_debug("output function returned value %r", result)
             for ev in self._on_success:
-                ev.send(self, trigger='success', value=retval)
+                ev.send(self, trigger='success', value=result)
+            return ('result', result)
 
     def init_regular(self):
         """Initialize the internal state."""
@@ -281,5 +287,5 @@ class OutputFunc(block.SBlock):
 
     def stop(self):
         if self._stop_value is not block.UNDEF:
-            self.put(self._stop_value)
+            self._event_put(value=self._stop_value)
         super().stop()

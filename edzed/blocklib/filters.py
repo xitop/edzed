@@ -97,9 +97,12 @@ class DataEdit:
         return cls(lambda data: {**data, **kwargs})
 
     @classmethod
-    def default(cls, **kwargs):
+    def setdefault(cls, **kwargs):
         """Add key=value pairs only if key is missing."""
         return cls(lambda data: {**kwargs, **data})
+
+    # FIXME: keep the old name for a short transitory period
+    default = setdefault
 
     @classmethod
     def delete(cls, *args):
@@ -128,6 +131,16 @@ class DataEdit:
             return data
         return cls(_edit)
 
+    @classmethod
+    def rename(cls, src, dst):
+        """Rename key: data[src] -> data[dst]."""
+        def _edit(data):
+            data[dst] = data[src]
+            del data[src]
+            return data
+        return cls(_edit)
+
+    DELETE = object()
     REJECT = object()
 
     @classmethod
@@ -138,7 +151,10 @@ class DataEdit:
             replacement = func(current)
             if replacement is cls.REJECT:
                 return None
-            data[key] = replacement
+            if replacement is cls.DELETE:
+                del data[key]
+            else:
+                data[key] = replacement
             return data
         return cls(_edit)
 

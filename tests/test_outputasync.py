@@ -48,15 +48,22 @@ async def output_async(circuit, *, test_error=False, log, on_error=None, **kwarg
 async def test_noqmode(circuit):
     LOG = [
         (0, 'start i1'),
+        (100, 'cancel i1'), # on_cancel event
         (100, 'start i2'),  # i2 cancels i1
         (150, '--stop--'),
         (220, 'stop i2'),   # wait for i2
         (220, 'END')
         ]
-    await output_async(circuit, log=LOG)
+    await output_async(
+        circuit,
+        log=LOG,
+        on_cancel=edzed.Event(
+            'logger',
+            efilter=lambda data: {'value': f"cancel {data['arg']}"}),
+        )
 
 
-async def test_timeout(circuit):
+async def test_stop_timeout(circuit):
     LOG = [
         (0, 'start i1'),
         (100, 'start i2'),
@@ -132,6 +139,9 @@ async def test_guard_time_too_long(circuit):
 async def test_on_success(circuit):
     def check_trigger(data):
         assert data['trigger'] == 'success'
+        v = data['value']
+        if v.startswith('ok'):
+            assert v.endswith(data['arg'])
         return True
 
     LOG = [
@@ -179,6 +189,8 @@ async def test_on_error_custom(circuit):
     """on_error=... overrides the default error handling."""
     def check_trigger(data):
         assert data['trigger'] == 'error'
+        assert isinstance(data['error'], ZeroDivisionError)
+        assert data['arg'] in {'i1', 'i2'}
         return True
 
     LOG = [

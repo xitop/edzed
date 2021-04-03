@@ -176,16 +176,21 @@ Output blocks
 
 .. class:: OutputFunc(*args, func, on_success=None, on_error, stop_value=edzed.UNDEF, **kwargs)
 
-  Call a function when a value arrives.
+  Call a function when a value arrives via a ``'put'`` event.
 
   The function *func* is called with a single argument, the ``'value'``
-  item from the ``'put'`` event data.
+  item from the event data. Any returned value is considered a success.
+  An exception means an error.
 
-  The block triggers *on_success* and *on_error* :ref:`events<Events>`
-  depending on the result of the function call.
-  Any returned value is considered a success, and the value is added to the
-  *on_success* event data as ``'value'``. An exception means an error,
-  the exception is added to the *on_error* event data as: ``'error'``.
+  On success:
+    - *on_success* :ref:`events<Events>` are triggered and the
+      returned value is added to the event data as ``'value'``
+    - the event returns ``('result', <returned_value>)``
+
+  On error:
+    - *on_error* :ref:`events<Events>` are triggered and the
+      the exception is added to the *on_error* event data as: ``'error'``.
+    - the event returns ``('error', <exception>)``
 
   If the *stop_value* is defined, it is fed into the block
   during the cleanup and processed as the last item before stopping.
@@ -193,9 +198,11 @@ Output blocks
 
   The output of an OutputFunc block is always ``False``.
 
-.. class:: OutputAsync(*args, coro, guard_time=0.0, qmode=False, on_success=None, on_error, stop_value=edzed.UNDEF, **kwargs)
+.. class:: OutputAsync(*args, coro, guard_time=0.0, qmode=False, on_success=None, on_cancel=None, on_error, stop_value=edzed.UNDEF, **kwargs)
 
-  Run a coroutine *coro* as an asycio task when a value arrives.
+  Run a coroutine *coro* as an asycio task when a value arrives
+  via a ``'put'`` event. The event returns immediately and does not
+  return any result.
 
   The coroutine is invoked with a single argument, the ``'value'``
   item from the ``'put'`` event data.
@@ -216,12 +223,15 @@ Output blocks
   The output of an OutputAsync block is a boolean busy flag:
   ``True``, when the block is running a task; ``False`` when idle.
 
-  The block triggers *on_success* and *on_error* :ref:`events<Events>`
-  depending on the result of the task. A normal termination is
-  considered a success (the returned value is added to the *on_success* event data as ``'value'``).
-  An exception other than :exc:`asyncio.CancelledError` means an error
-  (the exception is added to the *on_error* event data as ``'error'``).
-  A cancelled task does not trigger any events.
+  The block triggers *on_success*, *on_cancel* and *on_error* :ref:`events<Events>`
+  depending on the result of the task. A normal termination is considered
+  a success and the returned value is added to the *on_success* event data as ``'value'``.
+  An exception other than :exc:`asyncio.CancelledError` means an error;
+  the raised exception is added to the *on_error* event data as ``'error'``.
+  A cancelled task triggers *on_cancel* events. Note that no tasks are
+  cancelled in the queue mode. In all three cases (success, cancel, error)
+  the coroutine's argument - i.e. the value received by the ``'put'`` -
+  is included in the event data with key ``'arg'``.
 
   If the *stop_value* is defined, it is inserted into the queue
   and processed as the last item before stopping. This allows to leave
