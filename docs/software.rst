@@ -21,10 +21,12 @@ We recommend using a virtual environment. If you don't want a virtual
 environment, consider an installation to user's local directory with
 the ``--user`` option.
 
-Install from PyPi (recommended) with::
+Install from PyPi with::
 
   python3 -m pip install --upgrade edzed
 
 Alternatively install from github with::
 
   python3 -m pip install --upgrade git+https://github.com/xitop/edzed.git
+
+Not all github releases are uploaded to PyPi.

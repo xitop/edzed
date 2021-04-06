@@ -16,7 +16,7 @@ from .utils import *
 
 
 def test_keys(circuit):
-    """Test keys under which the persistent data is stored."""
+    """Test keys identifying the persistent block data."""
     assert edzed.Input('ipers').key == "<Input 'ipers'>"
     assert edzed.Timer('tpers').key == "<Timer 'tpers'>"
 
@@ -62,6 +62,21 @@ def test_load_state(circuit):
     assert inp.output == 'saved'
     inp.event('put', value=3.14)
     assert storage == {inp.key: 3.14}
+
+
+def test_remove_unused(circuit):
+    """
+    Verify that unused keys are removed.
+
+    All 'edzed-*' keys are reserved for internal use and are preserved.
+    """
+    inp = edzed.Input('ipers', initdef=1, persistent=True)
+    storage = {inp.key: 2, 'wtf': 3, 'edzed-xyz': 4}
+    circuit.set_persistent_data(storage)
+    init(circuit)
+
+    assert inp.output == 2
+    assert storage == {inp.key: 2, 'edzed-xyz': 4}  # without the 'wtf' item
 
 
 def test_expiration(circuit):
@@ -115,6 +130,6 @@ def test_no_save_on_error(circuit):
     with pytest.raises(RuntimeError):   # but this is serious, an error raised in the handler
         inp.event('errput', value=7, err=True)
     assert not circuit.is_ready()   # simulation stopped
-    assert not inp.persistent       # state tainted?, saving of state prevented
+    assert not inp.persistent       # possibly tainted state -> saving of state prevented
     assert inp.output == 7
     assert storage[inp.key] == 44

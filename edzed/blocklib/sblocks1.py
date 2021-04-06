@@ -51,16 +51,21 @@ class Counter(addons.AddonPersistence, block.SBlock):
         super().__init__(*args, initdef=initdef, **kwargs)
 
     def _setmod(self, value):
-        self.set_output(value if self._mod is None else value % self._mod)
+        output = value if self._mod is None else value % self._mod
+        self.set_output(output)
+        return output
 
     def _event_inc(self, *, amount=1, **_data):
-        self._setmod(self._output + amount)
+        return self._setmod(self._output + amount)
 
     def _event_dec(self, *, amount=1, **_data):
-        self._setmod(self._output - amount)
+        return self._setmod(self._output - amount)
 
     def _event_put(self, *, value, **_data):
-        self._setmod(value)
+        return self._setmod(value)
+
+    def _event_reset(self, **_data):
+        return self._setmod(self.initdef)
 
     init_from_value = _setmod
     _restore_state = _setmod

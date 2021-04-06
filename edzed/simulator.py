@@ -144,14 +144,6 @@ class Circuit:
         """Setup the persistent state data storage."""
         self.check_not_finalized()
         self.persistent_dict = persistent_dict
-        self.persistent_ts = ts = persistent_dict.get('edzed-stop-time')
-        if ts is None:
-            _logger.warning(
-                "The timestamp of persistent data is missing, "
-                "state expiration will not be checked")
-        elif ts > time.time():
-            _logger.error(
-                "The timestamp of persistent data is in the future, check the system time")
 
     def addblock(self, blk: block.Block) -> None:
         """
@@ -217,13 +209,26 @@ class Circuit:
                 _logger.warning("No data storage, state persistence unavailable")
                 for blk in persistent_blocks:
                     blk.persistent = False
+            return
+
+        try:
+            self.persistent_ts = self.persistent_dict['edzed-stop-time']
+        except KeyError:
+            self.persistent_ts = None
+            _logger.warning(
+                "The timestamp of persistent data is missing, "
+                "state expiration will not be checked")
         else:
-            # clear the unused items
-            used_keys = {blk.key for blk in persistent_blocks}
-            for key in list(self.persistent_dict):
-                if key not in used_keys and not key.startswith('edzed-'):
-                    _logger.info("Removing unused persistent state for '%s'", key)
-                    del self.persistent_dict[key]
+            if self.persistent_ts > time.time():
+                _logger.error(
+                    "The timestamp of persistent data is in the future, check the system time")
+
+        # clear the unused items
+        for key in self.persistent_dict.keys() - {blk.key for blk in persistent_blocks}:
+            if key.startswith('edzed-'):
+                continue
+            _logger.info("Removing unused persistent state for '%s'", key)
+            del self.persistent_dict[key]
 
     def _validate_blk(self, blk):
         """
@@ -411,13 +416,13 @@ class Circuit:
         while not queue.empty():
             queue.get_nowait()
 
-    async def _stop_sblocks(self):
+    async def _stop_sblocks(self, blocks: set):
         """
-        Stop all sequential blocks. Wait until all blocks are stopped.
+        Stop sequential blocks. Wait until all blocks are stopped.
 
         Suppress errors.
         """
-        for blk in self.getblocks(block.SBlock):
+        for blk in blocks:
             try:
                 blk.stop()
             except Exception:
@@ -425,7 +430,7 @@ class Circuit:
         await asyncio.sleep(0)
         wait_tasks = [
             (blk, asyncio.create_task(blk.stop_async()), blk.stop_timeout)
-            for blk in self.getblocks(addons.AddonAsync)
+            for blk in blocks.intersection(self.getblocks(addons.AddonAsync))
             if blk.has_method('stop_async') and blk.stop_timeout > 0.0]
         if wait_tasks:
             self.log_debug("Waiting for async cleanup")
@@ -513,7 +518,8 @@ class Circuit:
                 msg = "The simulator is already running."
             raise EdzedInvalidState(msg)
         self._simtask = asyncio.current_task()
-        blocks_started = False
+        started_blocks = set()
+        start_ok = False
         try:
             try:
                 if self._error is not None:
@@ -529,11 +535,12 @@ class Circuit:
                 self.finalize()
 
                 self.log_debug("Setting up circuit blocks")
-                blocks_started = True
                 for blk in self.getblocks():
                     blk.start()
+                    started_blocks.add(blk)
                 # return control to the loop in order to run any tasks created by start()
                 await asyncio.sleep(0)
+                start_ok = True
                 self.log_debug("Initializing sequential blocks")
                 self._init_sblocks_sync_1()
                 await self._init_sblocks_async()
@@ -565,14 +572,14 @@ class Circuit:
             _logger.critical(
                 "Fatal circuit simulation error: %s", self._error, exc_info=self._error)
 
-        if blocks_started:
-            # if blocks were started (at least some of them), they must be stopped
+        if started_blocks:
+            # if blocks were started (at least some of them), they must be stopped;
             # save the state first, because stop may invalidate the state information
-            if self.persistent_dict is not None:
-                for blk in self.getblocks(addons.AddonPersistence):
+            if start_ok and self.persistent_dict is not None:
+                for blk in started_blocks.intersection(self.getblocks(addons.AddonPersistence)):
                     blk.save_persistent_state()
                 self.persistent_dict['edzed-stop-time'] = time.time()
-            await self._stop_sblocks()
+            await self._stop_sblocks(started_blocks)
         raise self._error
 
     def abort(self, exc: Exception) -> None:

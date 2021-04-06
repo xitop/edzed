@@ -239,13 +239,13 @@ before the block initialization;
 
   .. important::
 
-    When using :meth:`start`, always call the ``super().start()``.
+    When using ``start()``, always call the ``super().start()``.
 
   .. note::
 
-    Why do we need :meth:`start` when we have :meth:`__init__`?
+    Why do we need ``start()`` when we have ``__init__()``?
 
-    Only the :meth:`start` is the right place for actions that:
+    Only the ``start()`` is the right place for actions that:
 
     - have a side effect, or
     - are resource intensive (time, memory, CPU), or
@@ -257,19 +257,16 @@ before the block initialization;
 
 .. method:: SBlock.stop() -> None
 
-  Post-simulation hook.
+  Post-simulation hook, a counterpart of :meth:`start`.
 
-  This is a function dedicated for cleanup actions.
-  It's a counterpart of :meth:`start`.
+  ``stop()`` is dedicated for cleanup actions. It is called when the circuit
+  simulation has finished, but only if :meth:`start` was successfully called.
 
-  If an error occurs during circuit initialization,
-  :meth:`stop` may be called even when :meth:`start` hasn't been called.
-
-  An exception in :meth:`stop` will be logged, but otherwise ignored.
+  An exception in ``stop()`` will be logged, but otherwise ignored.
 
   .. important::
 
-    When using :meth:`stop`, always call the ``super().stop()``
+    When using ``stop()``, always call the ``super().stop()``
 
 
 Add-ons
@@ -316,7 +313,7 @@ Persistent state add-on
 
   This method is usually called by the simulator.
 
-.. method:: SBlock._restore_state(state: Any) -> None
+.. method:: SBlock._restore_state(state: Any)
   :abstractmethod:
 
   Initialize by restoring the *state* (presumably created by :meth:`get_state`)

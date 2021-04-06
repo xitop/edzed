@@ -20,14 +20,14 @@ def test_inc_dec(circuit):
     init(circuit)
     for i in range(5):
         assert cnt.output == i
-        assert cnt100.output == 100+i
-        cnt.event('inc')
-        cnt100.event('inc')
+        assert cnt100.output == i + 100
+        assert cnt.event('inc') == i + 1
+        assert cnt100.event('inc')== i + 101
     for i in reversed(range(5)):
-        cnt.event('dec')
-        cnt100.event('dec')
+        assert cnt.event('dec') == i
+        assert cnt100.event('dec') == i + 100
         assert cnt.output == i
-        assert cnt100.output == 100+i
+        assert cnt100.output == 100 + i
 
 
 def test_amount_1(circuit):
@@ -73,6 +73,25 @@ def test_put(circuit):
         assert cnt.output == i
         cnt11.put(i)
         assert cnt11.output == i % 11
+
+
+def test_reset(circuit):
+    """Test put events."""
+    cnt0 = edzed.Counter('cnt0')
+    cnt9 = edzed.Counter('cnt9', initdef=9)
+    init(circuit)
+
+    cnt0.event('inc')
+    cnt0.event('inc')
+    assert cnt0.output == 2
+    cnt0.event('reset')
+    assert cnt0.output == 0
+
+    cnt9.event('dec')
+    cnt9.event('dec')
+    assert cnt9.output == 7
+    cnt9.event('reset')
+    assert cnt9.output == 9
 
 
 def test_modulo_1(circuit):

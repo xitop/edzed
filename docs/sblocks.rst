@@ -196,6 +196,9 @@ Output blocks
   during the cleanup and processed as the last item before stopping.
   This allows to leave the controlled process in a well-defined state.
 
+  .. important::
+    No events are triggered when the *stop_value* is processed.
+
   The output of an OutputFunc block is always ``False``.
 
 .. class:: OutputAsync(*args, coro, guard_time=0.0, qmode=False, on_success=None, on_cancel=None, on_error, stop_value=edzed.UNDEF, **kwargs)
@@ -238,6 +241,9 @@ Output blocks
   the controlled process in a well-defined state. As this happen
   during the stop phase, make sure the *stop_timeout* gives enough time
   for a successful output task run.
+
+  .. important::
+    No events are triggered when the *stop_value* is processed.
 
   The *guard_time* is the duration of a mandatory and uncancellable sleep
   after each run of the output task. No output activity can
@@ -527,6 +533,10 @@ Counter
      decrement (count down) the counter by 1 or by ``'amount'``
   - ``'put'``
      set to ``'value'`` data item (mod M)
+  - ``'reset'``
+     reset to the initial value as defined by *initdef*
+
+  All events return the updated output value.
 
   The counter can process floating point numbers.
 

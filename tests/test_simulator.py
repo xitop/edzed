@@ -154,7 +154,7 @@ async def test_control_block_error(circuit):
 
 
 async def test_abort_before_start(circuit):
-    """Show that abort prevents the start."""
+    """Verify that abort prevents the start."""
     Noop('block')
     circuit.abort(RuntimeError('unit test'))
     simtask = asyncio.create_task(circuit.run_forever())
@@ -165,14 +165,14 @@ async def test_abort_before_start(circuit):
 
 
 async def no_shutdown_before_start(circuit):
-    """Show that shutdown cannot be too early (i.e no race)."""
+    """Verify that shutdown cannot be too early (i.e no race)."""
     Noop('block')
     with pytest.raises(edzed.EdzedInvalidState):
         await circuit.shutdown()
 
 
-async def test_state_check(event_loop, circuit):
-    """Test check_not_finalized()."""
+async def test_check_not_finalized(event_loop, circuit):
+    """Test check_not_finalized() internal function."""
     Noop('block')
     circuit.check_not_finalized()
     simtask = asyncio.create_task(circuit.run_forever())
@@ -195,13 +195,12 @@ async def test_no_simulator_restart(circuit):
         await circuit.run_forever()
 
 
-async def test_no_multiple_awaits(circuit):
-    """It is not possible to await the simulation."""
+async def test_no_multiple_simulations(circuit):
+    """It is not possible to run the simulation more then once."""
     Noop('block')
     asyncio.create_task(circuit.run_forever())
     await asyncio.sleep(0)
     with pytest.raises(edzed.EdzedInvalidState, match="already running"):
-        # cannot await more than once
         await circuit.run_forever()
     await circuit.shutdown()
 
@@ -276,3 +275,51 @@ async def test_init_event(circuit):
     await circuit.wait_init()
     await circuit.shutdown()
     assert ev.output == 'IV!'
+
+
+async def test_nostart_nostop(circuit):
+    """Verify that stop is called only if start was called."""
+    class StartStop(edzed.CBlock):
+        def start(self):
+            if len(started) == CNT - 10:
+                raise RuntimeError("failed start")
+            started.add(self.name)
+            super().start()
+
+        def stop(self):
+            stopped.add(self.name)
+            super().stop()
+
+        def calc_output(self):
+            return None
+
+    CNT = 50
+    started = set()
+    stopped = set()
+    for i in range(CNT):
+        StartStop(None)
+
+    with pytest.raises(RuntimeError):
+        await circuit.run_forever()
+
+    assert len(started) == CNT - 10
+    assert started == stopped
+
+
+async def test_nostart_nopersistent(circuit):
+    """Persistent data are not touched if the start fails."""
+    class NoStart(edzed.CBlock):
+        def start(self):
+            raise RuntimeError("failed start")
+
+        def calc_output(self):
+            return None
+
+    NoStart('nostart')
+    inp1 = edzed.Input('input1', persistent=True)
+    edzed.Input('input2', persistent=True, initdef=0)
+    pd = {inp1.key: 33}
+    circuit.set_persistent_data(pd)
+    with pytest.raises(RuntimeError):
+        await circuit.run_forever()
+    assert pd == {inp1.key: 33}

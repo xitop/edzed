@@ -19,7 +19,7 @@ pytest_plugins = ('pytest_asyncio',)
 pytestmark = pytest.mark.asyncio
 
 
-async def output_func(circuit, *, log, v2=2, on_error=None, **kwargs):
+async def output_func(circuit, *, log, v2=2, on_error=None, mstop=True, **kwargs):
     def worker(arg):
         v = 12//arg
         logger.put(v)
@@ -27,7 +27,7 @@ async def output_func(circuit, *, log, v2=2, on_error=None, **kwargs):
 
     try:
         inp = edzed.Input('inp', initdef=6, on_output=edzed.Event('echo'))
-        logger = TimeLogger('logger', mstop=True)
+        logger = TimeLogger('logger', mstop=mstop)
         edzed.OutputFunc('echo', func=worker, on_error=on_error, **kwargs)
         asyncio.create_task(circuit.run_forever())
         await asyncio.sleep(0.05)
@@ -115,10 +115,24 @@ async def test_stop(circuit):
     """Test the stop value."""
     LOG = [
         (0, 2),
-        (50, 6),
+        (50, 1),
         (100, 4),
-        (100, '--stop--'),
+        # (100, '--stop--'),
+        # --stop-- mark disabled, because the TimeLogger's stop could happen
+        # before or after the OutputFunc's stop which generates the output 1.
         (100, 1),
         (100, 'END')
         ]
-    await output_func(circuit, stop_value=12, log=LOG)
+    VLOG = [
+        (0, 102),
+        (50, 101),
+        (100, 104),
+        # (100, 101) <-- no output event for stop_value
+        (100, '--stop--'),
+        ]
+    vlog = TimeLogger('vlog', mstop=True)
+    await output_func(
+        circuit, v2=12, stop_value=12, log=LOG,
+        on_success=edzed.Event('vlog'),
+        mstop=False)
+    vlog.compare(VLOG)

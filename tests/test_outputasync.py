@@ -19,7 +19,9 @@ pytest_plugins = ('pytest_asyncio',)
 pytestmark = pytest.mark.asyncio
 
 
-async def output_async(circuit, *, test_error=False, log, on_error=None, **kwargs):
+async def output_async(
+        circuit, *,
+        log, t1=0.1, test_error=False, mstop=True, on_error=None, **kwargs):
     async def worker(arg):
         logger.put(f'start {arg}')
         if test_error:
@@ -31,10 +33,10 @@ async def output_async(circuit, *, test_error=False, log, on_error=None, **kwarg
 
     try:
         inp = edzed.Input('inp', initdef='i1', on_output=edzed.Event('echo'))
-        logger = TimeLogger('logger', mstop=True)
+        logger = TimeLogger('logger', mstop=mstop)
         edzed.OutputAsync('echo', coro=worker, on_error=on_error, **kwargs)
         asyncio.create_task(circuit.run_forever())
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(t1)
         if circuit.is_ready():      # skip after an error,
             inp.put('iX')           # has an effect in qmode only
             inp.put('i2')
@@ -214,10 +216,19 @@ async def test_stop(circuit):
     """Test the stop value."""
     LOG = [
         (0, 'start i1'),
-        (100, 'start i2'),
-        (150, '--stop--'),
-        (150, 'start CLEANUP'),
-        (270, 'stop CLEANUP'),
-        (270, 'END')
+        (120, 'stop i1'),
+        (150, 'start i2'),
+        (200, 'start CLEANUP'),
+        (320, 'stop CLEANUP'),
+        (320, 'END')
         ]
-    await output_async(circuit, stop_value='CLEANUP', log=LOG)
+    VLOG = [
+        (120, 'ok i1'),
+        (200, '--stop--'),
+        ]
+
+    vlog = TimeLogger('vlog', mstop=True)
+    await output_async(
+        circuit, stop_value='CLEANUP', log=LOG, t1=0.15,
+        on_success=edzed.Event('vlog'), mstop=False)
+    vlog.compare(VLOG)

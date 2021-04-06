@@ -76,7 +76,7 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
             self.circuit.persistent_dict.pop(self.key, None)  # remove stale data
 
     @abc.abstractmethod
-    def _restore_state(self, state: Any) -> None:
+    def _restore_state(self, state: Any):
         """
         Initialize by restoring the state (low-level).
         """
@@ -196,8 +196,6 @@ class AddonMainTask(AddonAsync, metaclass=abc.ABCMeta):
         self._mtask = asyncio.create_task(self._task_wrapper(self._maintask(), is_service=True))
 
     async def stop_async(self) -> None:
-        if self._mtask is None:
-            return
         self._mtask.cancel()
         try:
             await self._mtask

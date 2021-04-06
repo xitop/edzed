@@ -37,33 +37,31 @@ Directions for creating a new CBlock:
 
   Pre-simulation hook.
 
-  :meth:`start` is called when the circuit simulation is about to start.
+  ``start()`` is called when the circuit simulation is about to start.
 
   By definition CBlocks do not require any preparations.
-  :meth:`start` typically just checks the :ref:`input signature <Input signatures>`.
+  ``start()`` typically just checks the :ref:`input signature <Input signatures>`.
 
   .. important::
 
-    When using :meth:`start`, always call the ``super().start()``.
+    When using ``start()``, always call the ``super().start()``.
 
 .. method:: CBlock.stop() -> None
 
   Post-simulation hook.
 
-  :meth:`stop` is called when the circuit simulation has finished.
+  ``stop()`` is called when the circuit simulation has finished,
+  but only if :meth:`start` was successfully called.
 
-  By definition CBlocks do not require cleanup, so :meth:`stop`
-  is usually not used. A possible use-case might be processing
+  By definition CBlocks do not require cleanup, so ``stop()``
+  is rarely used. A possible use-case might be processing
   of some gathered statistics data.
 
-  Note that if an error occurs during circuit initialization,
-  :meth:`stop` may be called even when :meth:`start` hasn't been called.
-
-  An exception in :meth:`stop` will be logged, but otherwise ignored.
+  An exception in ``stop()`` will be logged, but otherwise ignored.
 
   .. important::
 
-    When using :meth:`stop`, always call the ``super().stop()``
+    When using ``stop()``, always call the ``super().stop()``
 
 
 Input signatures

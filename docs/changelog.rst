@@ -6,9 +6,17 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+21.4.8
+======
+- make sure :meth:`CBlock.stop`/:meth:`SBlock.stop` and :meth:`SBlock.stop_async`
+  (if defined) are called only if matching ``Block.start()`` was called
+- prohibit output events when an :class:`OutputFunc` or :class:`OutputAsync`
+  block processes its *stop_value*
+- events in :class:`Counter` return the new counter value
+- add ``'reset'`` event to :class:`Counter`
+
 21.4.4
 ======
-
 - rename ``DataEdit.default`` to :class:`DataEdit.setdefault`
 - :meth:`DataEdit.modify` can remove a data item
 - ``'put'`` events handled by :class:`OutputFunc` return a value

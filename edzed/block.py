@@ -734,6 +734,7 @@ class SBlock(Block):
         finally:
             self._event_active = False
 
+    # property + class is an awesome combination, isn't it?
     @property
     class _enable_event:
         """

@@ -235,16 +235,14 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
         self.set_output(False)
 
     def stop(self):
-        if self._ctask is None:
-            return  # start wasn't called
         if self._stop_value is not block.UNDEF:
+            # prohibit output events, because other blocks could be already stopped
+            self._on_success = self.on_cancel = self._on_error = ()
             self.put(self._stop_value)
         self._queue.put_nowait(self._STOP_CMD)   # this will not cancel a running output task
         super().stop()
 
     async def stop_async(self):
-        if self._ctask is None:
-            return  # start wasn't called
         try:
             await self._ctask
         except asyncio.CancelledError:
@@ -287,5 +285,7 @@ class OutputFunc(block.SBlock):
 
     def stop(self):
         if self._stop_value is not block.UNDEF:
+            # prohibit output events, because other blocks could be already stopped
+            self._on_success = self._on_error = ()
             self._event_put(value=self._stop_value)
         super().stop()
