@@ -51,32 +51,21 @@ List of :ref:`event filters<Event filters>`.
 
 .. class:: DataEdit
 
-  This class provides a set of simple data modifiers:
+  This class provides a set of simple data modifiers. Multiple modifiers
+  may be chained (see examples below):
 
   .. classmethod:: add(key1=value1, key2=value2, ...)
 
     Add data items, existing values for the same key will be overwritten.
-
-  .. classmethod:: setdefault(key1=value1, key2=value2, ...)
-
-    Add data items, but only if such key is not already present.
 
   .. classmethod:: copy(srckey, dstkey)
 
     Copy the value associated with the *srckey* (must exist) to *dstkey*:
     ``data[dstkey] = data[srckey]``
 
-  .. classmethod:: rename(srckey, dstkey)
-
-    Rename a key. Like :meth:`copy`, but the *srckey* item is deleted afterward.
-
   .. classmethod:: delete(key1, key2, ...)
 
     Delete all items with given keys. Ignore missing keys.
-
-  .. classmethod:: permit(key1, key2, ...)
-
-    Delete all items *except* the given keys.
 
   .. classmethod:: modify(key, func)
 
@@ -93,14 +82,17 @@ List of :ref:`event filters<Event filters>`.
     - if the function returns the special :const:`DataEdit.REJECT`
       constant, the whole event will be rejected
 
-    Examples::
+  .. classmethod:: permit(key1, key2, ...)
 
-      # convert a numeric value to a readable text
-      table = {0: "red", 1: "green", 2: "blue"}
-      efilter=edzed.DataEdit.modify('color', table.__getitem__)
+    Delete all items *except* the given keys.
 
-      # enforce an upper limit of 100.0
-      efilter=edzed.DataEdit.modify('value', lambda v: min(v, 100.0))
+  .. classmethod:: rename(srckey, dstkey)
+
+    Rename a key. Like :meth:`copy`, but the *srckey* item is deleted afterward.
+
+  .. classmethod:: setdefault(key1=value1, key2=value2, ...)
+
+    Add data items, but only if such key is not already present.
 
   .. attribute:: DELETE
 
@@ -109,6 +101,23 @@ List of :ref:`event filters<Event filters>`.
   .. attribute:: REJECT
 
     constant used in :meth:`modify` (class attribute)
+
+  Examples::
+
+    # convert a numeric value to a readable text
+    table = {0: "red", 1: "green", 2: "blue"}
+    efilter=edzed.DataEdit.modify('color', table.__getitem__)
+
+    # enforce an upper limit of 100.0
+    efilter=edzed.DataEdit.modify('value', lambda v: min(v, 100.0))
+
+    # chaining (processed left to right)
+    efilter=edzed.DataEdit.add(x=3).delete('y', 'z')
+
+  .. note::
+
+      The chaining feature is implemented with a customized ``@classmethod`` decorator
+      which allows all class methods to be called as instance methods as well.
 
 ----
 

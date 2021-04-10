@@ -11,7 +11,7 @@ import asyncio
 from .. import addons
 from .. import block
 from .. import utils
-from ..exceptions import EdzedError
+from ..exceptions import EdzedCircuitError
 
 
 __all__ = ['ControlBlock', 'Counter', 'Repeat', 'ValuePoll']
@@ -27,7 +27,7 @@ class ControlBlock(block.SBlock):
         self.circuit.abort(exc)
 
     def _event_abort(self, *, source='<no-source-data>', error='<no-error-data>', **_data):
-        exc = EdzedError(f"{self}: error reported by '{source}': {error!r}")
+        exc = EdzedCircuitError(f"{self}: error reported by '{source}': {error!r}")
         if isinstance(error, Exception):
             exc.__cause__ = error
         self.circuit.abort(exc)

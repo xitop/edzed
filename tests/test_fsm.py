@@ -261,7 +261,7 @@ def test_no_multiple_next_states(circuit):
     abc = ABC('abc')
     init(circuit)
 
-    with pytest.raises(edzed.EdzedError, match="event multiplication"):
+    with pytest.raises(edzed.EdzedCircuitError, match="event multiplication"):
         abc.event('start')
 
 
@@ -278,7 +278,7 @@ def test_no_transition_chaining1(circuit):
     abc = ABC('abc')
     init(circuit)
 
-    with pytest.raises(edzed.EdzedError, match='Forbidden recursive event'):
+    with pytest.raises(edzed.EdzedCircuitError, match='Forbidden recursive event'):
         abc.event('start')
 
 
@@ -294,7 +294,7 @@ def test_no_transition_chaining2(circuit):
     abc = ABC('abc', on_enter_B=edzed.Event('abc', edzed.Goto('C')))
     init(circuit)
 
-    with pytest.raises(edzed.EdzedError, match='Forbidden recursive event'):
+    with pytest.raises(edzed.EdzedCircuitError, match='Forbidden recursive event'):
         abc.event('start')
 
 
@@ -313,7 +313,7 @@ def test_no_infinite_loop(circuit):
     ab = AB('ab loop')
     init(circuit)
 
-    with pytest.raises(edzed.EdzedError, match='infinite loop?'):
+    with pytest.raises(edzed.EdzedCircuitError, match='infinite loop?'):
         ab.event('start')
 
 

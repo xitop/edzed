@@ -18,7 +18,7 @@ from typing import Optional, Sequence, Tuple, Union
 from . import addons
 from . import block
 from . import utils
-from .exceptions import EdzedError
+from .exceptions import *   # pylint: disable=wildcard-import
 from .utils import looptimes
 
 
@@ -48,7 +48,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
     @classmethod
     def _check_state(cls, state):
         if state not in cls._ct_states:
-            raise ValueError(f"Unknown state '{state}'")
+            raise ValueError(f"Unknown state {state!r}")
 
     @classmethod
     def _build_tables(cls):
@@ -272,8 +272,8 @@ class FSM(addons.AddonPersistence, block.SBlock):
             try:
                 timed_event = self._ct_timed_event[state]
             except KeyError:
-                raise EdzedError(
-                    f"cannot set a timer for a not timed state '{state}'") from None
+                raise EdzedCircuitError(
+                    f"cannot set a timer for a not timed state {state!r}") from None
             self._set_timer(remaining, timed_event)
         self._state = state
         self.sdata = sdata
@@ -330,7 +330,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
         else:
             duration = self.get_duration(self._state)
             if duration is None:
-                raise EdzedError(f"Timer duration for state '{self._state}' not set")
+                raise EdzedCircuitError(f"Timer duration for state {self._state!r} not set")
         if duration == INF_TIME:
             return
         if duration <= 0.0:
@@ -422,7 +422,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
             self._check_state(newstate)
         else:
             if etype not in self._ct_events:
-                return NotImplemented
+                raise EdzedUnknownEvent(f"{self}: Unknown event type {etype!r}")
             try:
                 newstate = self._ct_transition[(etype, self.state)]
             except KeyError:
@@ -444,7 +444,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
             #   - event ->  enter_STATE -> new event, or
             #   - timed event with zero duration -> next event
             if self._next_event is not None:
-                raise EdzedError(
+                raise EdzedCircuitError(
                     "Forbidden event multiplication; "
                     f"Two events ({self._next_event[0]} and {etype}) were generated "
                     "while handling a single event")
@@ -481,7 +481,8 @@ class FSM(addons.AddonPersistence, block.SBlock):
                         continue
                 break
             else:
-                raise EdzedError('Chained state transition limit reached (infinite loop?)')
+                raise EdzedCircuitError(
+                    'Chained state transition limit reached (infinite loop?)')
             output = self.calc_output()
             if output is not block.UNDEF:
                 self.set_output(output)

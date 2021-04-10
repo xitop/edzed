@@ -15,7 +15,7 @@ import time
 from typing import Any, Awaitable, Mapping, Union
 
 from . import block
-from .exceptions import EdzedError
+from .exceptions import EdzedCircuitError
 from . import utils
 
 
@@ -152,19 +152,19 @@ class AddonAsync(block.Addon):
             self.log_debug("stop_timeout not set, default is %.3fs", DEFAULT_STOP_TIMEOUT)
             self.stop_timeout = DEFAULT_STOP_TIMEOUT
 
-    async def _task_wrapper(self, coro: Awaitable, is_service: bool = False) -> Any:
+    async def _task_monitor(self, coro: Awaitable, is_service: bool = False) -> Any:
         """
         A coroutine wrapper delivering exceptions to the simulator.
 
         Couroutines marked as services (is_service=True) are supposed
-        to run until cancelled - a normal exit is treated as an error.
+        to run until cancelled - even a normal exit is treated as an error.
 
         Cancellation is not considered an error.
         """
         try:
             retval = await coro
             if is_service:
-                raise EdzedError("Coroutine providing a service has exited")
+                raise EdzedCircuitError("Unexpected task termination")
         # not needed in Python 3.8+
         except asyncio.CancelledError:  # pylint: disable=try-except-raise
             raise
@@ -175,6 +175,9 @@ class AddonAsync(block.Addon):
             self.circuit.abort(err)
             raise
         return retval
+
+    def _create_monitored_task(self, coro, is_service: bool = False):
+        return asyncio.create_task(self._task_monitor(coro, is_service))
 
 
 class AddonMainTask(AddonAsync, metaclass=abc.ABCMeta):
@@ -193,7 +196,7 @@ class AddonMainTask(AddonAsync, metaclass=abc.ABCMeta):
     def start(self) -> None:
         super().start()
         assert self._mtask is None
-        self._mtask = asyncio.create_task(self._task_wrapper(self._maintask(), is_service=True))
+        self._mtask = self._create_monitored_task(self._maintask(), is_service=True)
 
     async def stop_async(self) -> None:
         self._mtask.cancel()

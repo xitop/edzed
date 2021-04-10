@@ -169,7 +169,7 @@ def init(circ):
         if not blk.is_initialized():
             circ.init_sblock(blk, full=True)
             if not blk.is_initialized():
-                raise edzed.EdzedError(f"{blk}: not initialized")
+                raise edzed.EdzedCircuitError(f"{blk}: not initialized")
 
 
 @pytest.fixture

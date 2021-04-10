@@ -340,7 +340,7 @@ Finding blocks
   returns all sequential circuit blocks.
 
   If the result has to be stored, you may want to convert the returned
-  iterator to a :class:`list` or a :class:`set`.
+  iterator to a list or a set.
 
 .. method:: Circuit.findblock(name: str) -> Block
 
@@ -395,7 +395,7 @@ Inspecting CBlocks
 .. attribute:: CBlock.inputs
   :type: dict
 
-  Block's input connections as a :class:`dict`, where keys
+  Block's input connections as a dict, where keys
   are input names and values are either single blocks or tuples
   of blocks for input groups. The structure directly corresponds
   to parameters given to :meth:`CBlock.connect`.

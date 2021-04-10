@@ -16,7 +16,7 @@ from .utils import *
 def test_noinit(circuit):
     """Test missing init."""
     edzed.Input('no_init')
-    with pytest.raises(edzed.EdzedError, match='not initialized'):
+    with pytest.raises(edzed.EdzedCircuitError, match='not initialized'):
         init(circuit)
 
 
@@ -49,7 +49,7 @@ def test_events(circuit):
     assert inp.output == 4
     with pytest.raises(TypeError):
         inp.event('put')    # missing value
-    with pytest.raises(ValueError):
+    with pytest.raises(edzed.EdzedUnknownEvent):
         inp.event('sleep')  # unknown event
 
 

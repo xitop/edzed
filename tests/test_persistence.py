@@ -118,7 +118,7 @@ def test_no_save_on_error(circuit):
     assert circuit.is_ready()
     assert inp.persistent
 
-    with pytest.raises(ValueError): # wrong usage
+    with pytest.raises(edzed.EdzedUnknownEvent): # wrong usage
         inp.event('wrong')
     assert circuit.is_ready()       # harmless error, because the event handler was not called
     assert inp.persistent

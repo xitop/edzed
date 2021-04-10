@@ -11,16 +11,23 @@ Exceptions
 
 .. exception:: EdzedError
 
-  Exception raised for any error related to the circuit and its blocks
+  Base class for exceptions listed below.
+
+.. exception:: EdzedCircuitError
+
+  Raised for any error related to the circuit and its blocks
   where a standard exception like :exc:`ValueError` or :exc:`TypeError`
   is not fully appropriate.
 
 .. exception:: EdzedInvalidState
 
-  Subclass of :exc:`EdzedError`. This exception is raised
-  for calls that are made in a wrong situation, e.g. when trying
-  to start a simulation when it is already running.
+  This exception is raised for calls that are made in a wrong situation,
+  e.g. when trying to start a simulation when it is already running.
 
+.. exception:: EdzedUnknownEvent
+
+  This specific exception is raised when :meth:`SBlock.event` is called
+  with an event type that the block does not support.
 
 Error checking in asyncio
 =========================
@@ -30,7 +37,7 @@ Error checking in asyncio
   This section is not specific to ``edzed``.
 
 A non-trivial `asyncio <https://docs.python.org/3/library/asyncio.html>`_
-application may need several long-running tasks (services).
+application may need several long-running tasks. Let's call them *services*.
 Even if the code was written in agreement with the
 *"Errors should never pass silently"* guideline, tasks in asyncio
 are *"fire and forget"*. When a task crashes, the rest of the program
@@ -44,7 +51,7 @@ continues to run. The application could become unresponsive or ill-behaving.
 There are several options (and combinations):
 
 - use wrappers around the services. When the code
-  after a ``try-await service()-except`` block is reached,
+  after a ``try / await service() / except`` block is reached,
   you know that the service coroutine has terminated.
   (``edzed`` uses this approach internally.)
 - do not treat any task as a "background task". Organize
@@ -77,7 +84,7 @@ and one to events.
     is not ready to handle it, because it did not finish the handling of the
     current event.
 
-    .. warning::
+    .. important::
 
       While a block is handling an event, it will raise an exception when it receives an event.
 

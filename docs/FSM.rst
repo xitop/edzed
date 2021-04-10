@@ -100,10 +100,10 @@ States, events, transitions
 ---------------------------
 
 An FSM has a current state. A transition from the current state
-to next state is triggered by a received event. The next state
-is determined by a transition table:
+to the next state is triggered by a received event. The next state
+is determined by a transition table lookup:
 
-    (state, event) --> next state
+    (current state, event) --> next state
 
 All states and regular events are represented by a name (string).
 Avoid any special characters in names, because function names are
@@ -115,11 +115,11 @@ and ``False`` for rejected FSM events.
 
 .. note::
 
-  We use the term "list of items" in general sense that includes Python's
-  :class:`list`, :class:`tuple` and similar.
+  In this section we use the term *"list of items"* in general sense
+  that means Python's list, tuple or other sequence of items.
 
 .. attribute:: FSM.STATES
-  :type: sequence (list, tuple) of strings
+  :type: list of strings
 
   Class attribute.
 
@@ -129,47 +129,57 @@ and ``False`` for rejected FSM events.
   default initial state.
 
 .. attribute:: FSM.EVENTS
-  :type: sequence (list, tuple) of triples
+  :type: list of lists
 
   Class attribute.
 
-  Events and rules, i.e. the transition table.
-  The set of all valid events is comprised from the first table column.
+  Events and rules, i.e. the transition table. The table has three columns::
 
-  Data format:
+    [event, states, next_state]
 
-    table with 3 columns, i.e. a list of rows ``[event, states, next_state]``
+  and as many entries as necessary. *states* (column 2) define in which states
+  will the *event* (column 1) trigger a transition to the *next_state* (column 3).
+  The transition table must be deterministic. Only one next state may be defined
+  for any combination of event and state.
 
-  where the *states* value defines in which states will the *event*
-  trigger a transition to the *next_state*.
+  Data format of a table entry in detail:
 
-  *states* must be one of:
+  - *event* is always a string, the name of an event. The set of all valid
+    events is comprised from the entire first column.
 
-  - list of states (strings)
+  - *states* must be one of:
 
-    If there is only one state in the list,
-    it may be written directly as a string. These two table
-    rows are equivalent::
+    - a single state (string)
+    - a list of multiple states (strings)
+    - ``None`` as a special value for any state.
+      An entry with ``None`` has lower precedence than
+      an entry with explicitly listed states.
 
-      ('push', ['unlocked'], 'locked'),     # standard notation (a list with 1 item)
-      ('push', 'unlocked', 'locked'),       # simplified notation
+  - *next_state* must be:
 
-  - ``None`` as a special value for all states
-
-    An entry with explicitly listed states has a precedence over
-    an entry with ``None``.
-
-  ``None`` as *next_state* makes a transition explicitly disallowed.
+    - a single state (string), or
+    - ``None`` to make a transition explicitly disallowed
 
   Examples::
 
-    ["ev1", None, "state2"],    # default rule for "ev1" and all states except
-                                # more specific rules for state2 and state3 below
+    #1
+    ('push', 'unlocked', 'locked'),
+
+    #2 - same as #1
+    ('push', ['unlocked'], 'locked'),
+
+    #3
+    ('start', ['on', 'off'], 'on'),
+
+    #4 - same as #3 if there exist only the 'on' and 'off state
+    ('start', None, 'on'),
+
+    #5
+    ["ev1", None, "state2"],        # default rule for "ev1" and all states except
+                                    # more specific rules for state2 and state3 below
     ["ev1", ["state2"], "state3"],  # rule for state2 -> state3
     ["ev1", ["state3"], None],      # ev1 is ignored in state3
 
-  The transition table must be deterministic. Only one next state may be
-  defined for any combination of event and state.
 
 .. attribute:: FSM.TIMERS
   :type: dict
@@ -191,8 +201,8 @@ and ``False`` for rejected FSM events.
   that a transition from a timed state to the same state restarts
   the timer. If this is undesirable, disallow the transition.
 
-  If the *timed_event* gets rejected, the block will remain
-  in *timed_state* without a timer.
+  If the *timed_event* gets rejected, the block stays in *timed_state*
+  without a timer.
 
   See also: :ref:`Goto special event`.
 

@@ -6,6 +6,15 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+21.4.19
+=======
+- add new exceptions :exc:`EdzedUnknownEvent` and :exc:`EdzedCircuitError`
+- add :class:`InExecutor`
+- make the interfacing of :class:`OutputFunc` and :class:`OutputAsync`
+  with output functions more flexible
+- allow chaining of :class:`DataEdit` methods
+- replace ``AddonAsync._task_wrapper()`` with :meth:`AddonAsync._create_monitored_task`
+
 21.4.8
 ======
 - make sure :meth:`CBlock.stop`/:meth:`SBlock.stop` and :meth:`SBlock.stop_async`

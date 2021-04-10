@@ -67,7 +67,7 @@ Directions for creating a new CBlock:
 Input signatures
 ================
 
-An input signature is a :class:`dict` with the following structure:
+An input signature is a dict with the following structure:
 
 - key: the input name (string)
     The reserved group name ``'_'`` represents the group of unnamed inputs, if any.

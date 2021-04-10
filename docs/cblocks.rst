@@ -57,11 +57,13 @@ refer to the :ref:`previous chapter <Common features>`.
 
   Either pass input to output unchanged or override it with a value.
 
+  A typical use-case is an on/auto/off switch.
+
   This block has two named inputs. Usage::
 
-    edzed.Override(NAME).connect(input=..., override=...)
+    edzed.Override(NAME).connect(input=<block1>, override=<block2>)
 
-  - pass mode (output = ``input`` value):
-      when ``override`` input is equal to *null_value*.
-  - override mode (output = ``override`` value):
-      when ``override`` input differs from *null_value*.
+  - pass mode (output = value from block ``input``):
+      when ``override`` is equal to *null_value*.
+  - override mode (output = value from block ``override``):
+      when ``override`` differs from *null_value*.

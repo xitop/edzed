@@ -12,7 +12,7 @@ import time
 import pytest
 
 import edzed
-from edzed.utils.timeinterval import HMS, MD
+from edzed.blocklib.timeinterval import HMS, MD
 
 from .utils import *
 

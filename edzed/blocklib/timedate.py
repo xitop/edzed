@@ -8,9 +8,9 @@ Home: https://github.com/xitop/edzed/
 
 from .. import addons
 from .. import block
-from .. import cron
 from .. import simulator
-from ..utils import timeinterval
+from . import cron
+from . import timeinterval
 
 
 __all__ = ['TimeDate', 'TimeSpan']

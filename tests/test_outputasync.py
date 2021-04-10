@@ -7,6 +7,7 @@ Test the OutputAsync block.
 # pylint: disable=wildcard-import, unused-wildcard-import
 
 import asyncio
+import time
 
 import pytest
 
@@ -61,7 +62,7 @@ async def test_noqmode(circuit):
         log=LOG,
         on_cancel=edzed.Event(
             'logger',
-            efilter=lambda data: {'value': f"cancel {data['arg']}"}),
+            efilter=lambda data: {'value': f"cancel {data['put']['value']}"}),
         )
 
 
@@ -143,7 +144,7 @@ async def test_on_success(circuit):
         assert data['trigger'] == 'success'
         v = data['value']
         if v.startswith('ok'):
-            assert v.endswith(data['arg'])
+            assert v.endswith(data['put']['value'])
         return True
 
     LOG = [
@@ -182,7 +183,8 @@ async def test_on_error_abort(circuit):
         (0, 'start i1'),
         (0, '--stop--'),
         ]
-    with pytest.raises(edzed.EdzedError, match="error reported by 'echo': ZeroDivisionError"):
+    with pytest.raises(
+            edzed.EdzedCircuitError, match="error reported by 'echo': ZeroDivisionError"):
         await output_async(
             circuit, test_error=True, on_error=edzed.Event.abort(), log=LOG)
 
@@ -192,7 +194,7 @@ async def test_on_error_custom(circuit):
     def check_trigger(data):
         assert data['trigger'] == 'error'
         assert isinstance(data['error'], ZeroDivisionError)
-        assert data['arg'] in {'i1', 'i2'}
+        assert data['put']['value'] in {'i1', 'i2'}
         return True
 
     LOG = [
@@ -229,6 +231,31 @@ async def test_stop(circuit):
 
     vlog = TimeLogger('vlog', mstop=True)
     await output_async(
-        circuit, stop_value='CLEANUP', log=LOG, t1=0.15,
+        circuit, stop_data={'value': 'CLEANUP'}, log=LOG, t1=0.15,
         on_success=edzed.Event('vlog'), mstop=False)
     vlog.compare(VLOG)
+
+
+async def test_executor(circuit):
+    """Test execution of blocking output functions in threads."""
+    THREADS = 10
+    LOG = [(10 + 20*i, i) for i in range(THREADS)] + [(250, '--stop--')]
+
+    def blocking(v):
+        time.sleep(0.01 + 0.015*v)
+        return v
+
+    log = TimeLogger('log', mstop=True)
+    blocks = [
+        edzed.OutputAsync(
+            str(i), coro=edzed.InExecutor(blocking),
+            on_success=edzed.Event(log), on_error=edzed.Event.abort())
+        for i in range(THREADS)]
+    asyncio.create_task(circuit.run_forever())
+    await circuit.wait_init()
+    for i, blk in enumerate(blocks):
+        blk.put(i)
+        await asyncio.sleep(0.005)
+    await asyncio.sleep(0.2)
+    await circuit.shutdown()
+    log.compare(LOG)

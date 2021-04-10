@@ -65,7 +65,7 @@ async def test_shield():
 
 
 async def test_maintask(circuit):
-    """Test_task_wrapper in AddonMainTask (is_service=True)."""
+    """Test the task monitoring in AddonMainTask (is_service=True)."""
     class Short(edzed.AddonMainTask, edzed.SBlock):
         async def _maintask(self):
             await asyncio.sleep(0.17)
@@ -76,14 +76,14 @@ async def test_maintask(circuit):
     timelimit(1, error=False)
     logger = TimeLogger('logger', mstop=True)
 
-    with pytest.raises(edzed.EdzedError, match="service has exited"):
+    with pytest.raises(edzed.EdzedCircuitError, match="task termination"):
         await circuit.run_forever()
 
     logger.compare([(170, '--stop--')])
 
 
-async def test_task_wrapper(circuit):
-    """Test_task_wrapper with is_service=False (default)."""
+async def test_task_monitoring(circuit):
+    """Test the task monitoring with is_service=False (default)."""
     async def coro(waitstates, fail=False):
         logger.put(f"start {waitstates}")
         await asyncio.sleep(waitstates * 0.05)
@@ -94,7 +94,7 @@ async def test_task_wrapper(circuit):
     class Worker(edzed.AddonMainTask, edzed.SBlock):
         async def _maintask(self):
             for i in range(1, 7):
-                asyncio.create_task(self._task_wrapper(coro(i, i == 4)))
+                self._create_monitored_task(coro(i, i == 4))
             await asyncio.sleep(0.25) # will be cancelled at T=200 ms
             logger.put("notreached")
         def init_regular(self):

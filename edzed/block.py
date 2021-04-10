@@ -14,7 +14,7 @@ import logging
 from typing import Any, Callable, Iterable, Mapping, Optional, Sequence, Tuple, Union
 import weakref
 
-from .exceptions import EdzedError, EdzedInvalidState
+from .exceptions import *   # pylint: disable=wildcard-import
 
 
 __all__ = [
@@ -166,7 +166,8 @@ class Event:
         """
         self, source = args
         if self.dest.circuit is not source.circuit:
-            raise EdzedError(f"event destination {self.dest} is not in the current circuit")
+            raise EdzedCircuitError(
+                f"event destination {self.dest} is not in the current circuit")
         data['source'] = source.name
         for efilter in self._filters:
             retval = efilter(data)
@@ -414,7 +415,7 @@ class CBlock(Block, metaclass=abc.ABCMeta):
             try:
                 return self[name]
             except KeyError:
-                raise AttributeError(f"{self._blk} has no input '{name}'") from None
+                raise AttributeError(f"{self._blk} has no input {name!r}") from None
 
     def __init_subclass__(cls, *args, **kwargs):
         """Verify that no SBlock add-ons were added to a CBlock."""
@@ -661,7 +662,7 @@ class SBlock(Block):
         """
         Handle an event.
         """
-        return NotImplemented
+        raise EdzedUnknownEvent(f"{self}: Unknown event type {etype!r}")
 
     # TODO: There is an issue fixed in Python3.8+ by PEP570, but
     # we want to support Python 3.7, so a workaround must be used.
@@ -702,7 +703,7 @@ class SBlock(Block):
         else:
             self.log_debug("got event %r", etype)
         if self._event_active:
-            raise EdzedError(f"{self}: Forbidden recursive event() call")
+            raise EdzedCircuitError(f"{self}: Forbidden recursive event() call")
         self._event_active = True
         try:
             while isinstance(etype, EventCond):
@@ -714,6 +715,8 @@ class SBlock(Block):
             try:
                 # handler is an unbound method, bind it with handler.__get__(self)
                 retval = handler.__get__(self)(**data) if handler else self._event(etype, data)
+            except EdzedUnknownEvent:
+                raise
             except Exception as err:
                 if not self.circuit.is_current_task() and err.__traceback__.tb_next is not None:
                     # 1. The raised exception won't be handled by the simulation task.
@@ -722,14 +725,12 @@ class SBlock(Block):
                     # and the error must have occurred inside the handler. The internal state
                     # of the block could have been corrupted. That's a sufficient reason for
                     # aborting the simulation.
-                    sim_err = EdzedError(
+                    sim_err = EdzedCircuitError(
                         f"{self}: {type(err).__name__} during handling of event "
                         f"'{etype}', data: {data}: {err}")
                     sim_err.__cause__ = err
                     self.circuit.abort(sim_err)
                 raise
-            if retval is NotImplemented:
-                raise ValueError(f"{self}: Unknown event type '{etype}'")
             return retval
         finally:
             self._event_active = False

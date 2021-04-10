@@ -17,7 +17,7 @@ from . import addons
 from . import block
 from .blocklib import cblocks
 from .blocklib import sblocks1
-from .exceptions import EdzedError, EdzedInvalidState
+from .exceptions import *   # pylint: disable=wildcard-import
 
 
 __all__ = ['get_circuit', 'reset_circuit']
@@ -48,7 +48,8 @@ def reset_circuit() -> None:
     if _current_circuit is None:
         return
     try:
-        _current_circuit.abort(EdzedError('forced circuit reset'))  # ignored if not running
+        _current_circuit.abort(EdzedCircuitError('forced circuit reset'))
+         # abort is ignored if not running
     except Exception as err:
         # e.g. RuntimeError: Event loop is closed
         _logger.warning("reset_circuit(): %r error ignored", err)
@@ -172,7 +173,7 @@ class Circuit:
             return self._blocks[name]
         except KeyError:
             # add an error message
-            raise KeyError(f"Block '{name}' not found") from None
+            raise KeyError(f"Block {name!r} not found") from None
 
     def set_debug(self, value: bool, *args) -> int:
         """
@@ -406,7 +407,7 @@ class Circuit:
             # and waiting for an event that will be sent during another block's init
         for blk in self.getblocks(block.SBlock):
             if not blk.is_initialized():
-                raise EdzedError(f"{blk}: not initialized")
+                raise EdzedCircuitError(f"{blk}: not initialized")
         # save the internal states after initialization
         if self.persistent_dict is not None:
             for blk in self.getblocks(addons.AddonPersistence):
@@ -480,7 +481,7 @@ class Circuit:
                 continue
             eval_cnt += 1
             if eval_cnt > eval_limit:
-                raise EdzedError(
+                raise EdzedCircuitError(
                     "Circuit instability detected (too many block evaluations)")
             if len(eval_set) == 1:
                 blk = eval_set.pop()
@@ -525,7 +526,7 @@ class Circuit:
                 if self._error is not None:
                     raise self._error       # stop before start
                 if not self._blocks:
-                    raise EdzedError("The circuit is empty")
+                    raise EdzedCircuitError("The circuit is empty")
 
                 self.log_debug("Initializing the circuit")
                 self.sblock_queue = asyncio.Queue()
@@ -588,7 +589,7 @@ class Circuit:
 
         abort() is necessary only when an ordinary exception wouldn't
         be propagated to the simulator. This is the case in asyncio
-        tasks NOT using the SBlock._task_wrapper helper.
+        tasks NOT started with the AddonAsync._create_monitored_task helper.
 
         The first error stops the simulation, that's why abort()
         delivers the exception only if the simulation hasn't received

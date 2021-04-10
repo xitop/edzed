@@ -66,97 +66,107 @@ class Delta:
         return False
 
 
+class dualmethod(classmethod):
+    """
+    Dual (class/instance) method decorator.
+
+    When the decorated method is called as a class method,
+    create an instance on the fly.
+
+    When called as an instance method, proceed normally.
+    """
+    def __get__(self, instance, cls):
+        if instance is None:
+            instance = cls()
+        return self.__func__.__get__(instance, cls)
+
+
 class DataEdit:
     """
     Modify the event data.
+
+    Methods may be chained.
     """
 
-    def __init__(self, func):
-        self._func = func
+    def __init__(self):
+        self._editlist = []
 
-    def __getattribute__(self, name):
-        """
-        Disallow chaining of edit functions.
-
-        Without this check, expressions similar to this one:
-            DataEdit.add(key1).delete(key2)
-        would be valid code, but wouldn't work as expected. Only the
-        last operation will be performed. We better disallow this
-        type of usage entirely.
-        """
-        attr = super().__getattribute__(name)   # raises if attr not found
-        if not name.startswith('_'):
-            # hide the filter functions in instances, the class must be the only source
-            raise AttributeError(
-                f"'{type(self).__name__}' object does not allow access to attribute '{name}'")
-        return attr
-
-    @classmethod
-    def add(cls, **kwargs):
+    # @dualmethod confuses pylint a little
+    # pylint: disable=bad-classmethod-argument, no-member
+    @dualmethod
+    def add(self, **kwargs):
         """Add key=value pairs. Existing values wil be overwritten."""
-        return cls(lambda data: {**data, **kwargs})
+        self._editlist.append(lambda data: {**data, **kwargs})
+        return self
 
-    @classmethod
-    def setdefault(cls, **kwargs):
-        """Add key=value pairs only if key is missing."""
-        return cls(lambda data: {**kwargs, **data})
+    @dualmethod
+    def copy(self, src, dst):
+        """Copy data[src] to data[dst]."""
+        def _edit(data):
+            data[dst] = data[src]
+            return data
+        self._editlist.append(_edit)
+        return self
 
-    # FIXME: keep the old name for a short transitory period
-    default = setdefault
-
-    @classmethod
-    def delete(cls, *args):
+    @dualmethod
+    def delete(self, *args):
         """Delete listed keys. Non-existing keys are ignored."""
         def _edit(data):
             for key in args:
                 data.pop(key, None)
             return data
-        return cls(_edit)
+        self._editlist.append(_edit)
+        return self
 
-    @classmethod
-    def permit(cls, *args):
+    DELETE = object()
+    REJECT = object()
+
+    @dualmethod
+    def modify(self, key, func):
+        """Apply the func to a value identified by key."""
+        def _edit(data):
+            current = data[key]
+            replacement = func(current)
+            if replacement is self.REJECT:
+                return None
+            if replacement is self.DELETE:
+                del data[key]
+            else:
+                data[key] = replacement
+            return data
+        self._editlist.append(_edit)
+        return self
+
+    @dualmethod
+    def permit(self, *args):
         """Delete all but listed keys."""
         def _edit(data):
             for key in list(data):
                 if key not in args:
                     del data[key]
             return data
-        return cls(_edit)
+        self._editlist.append(_edit)
+        return self
 
-    @classmethod
-    def copy(cls, src, dst):
-        """Copy data[src] to data[dst]."""
-        def _edit(data):
-            data[dst] = data[src]
-            return data
-        return cls(_edit)
-
-    @classmethod
-    def rename(cls, src, dst):
+    @dualmethod
+    def rename(self, src, dst):
         """Rename key: data[src] -> data[dst]."""
         def _edit(data):
             data[dst] = data[src]
             del data[src]
             return data
-        return cls(_edit)
+        self._editlist.append(_edit)
+        return self
 
-    DELETE = object()
-    REJECT = object()
-
-    @classmethod
-    def modify(cls, key, func):
-        """Apply the func to a value identified by key."""
-        def _edit(data):
-            current = data[key]
-            replacement = func(current)
-            if replacement is cls.REJECT:
-                return None
-            if replacement is cls.DELETE:
-                del data[key]
-            else:
-                data[key] = replacement
-            return data
-        return cls(_edit)
+    @dualmethod
+    def setdefault(self, **kwargs):
+        """Add key=value pairs only if key is missing."""
+        self._editlist.append(lambda data: {**kwargs, **data})
+        return self
 
     def __call__(self, data):
-        return self._func(data)
+        for func in self._editlist:
+            data = func(data)
+            if not isinstance(data, dict):
+                break
+        return data

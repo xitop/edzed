@@ -148,5 +148,5 @@ async def test_no_busy_loop(circuit):
     """Busy loop (zero period clock) is detected as chained events."""
     timer = edzed.Timer('timer', t_on=0, t_off=0)
 
-    with pytest.raises(edzed.EdzedError, match="infinite loop?"):
+    with pytest.raises(edzed.EdzedCircuitError, match="infinite loop?"):
         await circuit.run_forever()

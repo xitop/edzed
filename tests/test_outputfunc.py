@@ -19,6 +19,15 @@ pytest_plugins = ('pytest_asyncio',)
 pytestmark = pytest.mark.asyncio
 
 
+def test_argument_checks(circuit):
+    """Test f_args and f_kwargs validation."""
+    for val in (None, 0, "string", edzed.UNDEF, {1:2}, {'xy'}, ["A", "B", 1], (True, False)):
+        with pytest.raises(TypeError, match="f_args"):
+            edzed.OutputFunc('err', func=lambda x: 0, on_error=None, f_args=val)
+        with pytest.raises(TypeError, match="f_kwargs"):
+            edzed.OutputFunc('err', func=lambda x: 0, on_error=None, f_kwargs=val)
+
+
 async def output_func(circuit, *, log, v2=2, on_error=None, mstop=True, **kwargs):
     def worker(arg):
         v = 12//arg
@@ -86,7 +95,8 @@ async def test_on_error_abort(circuit):
         (0, 2),
         (50, '--stop--'),
         ]
-    with pytest.raises(edzed.EdzedError, match="error reported by 'echo': ZeroDivisionError"):
+    with pytest.raises(
+            edzed.EdzedCircuitError, match="error reported by 'echo': ZeroDivisionError"):
         await output_func(circuit, v2=0, on_error=edzed.Event.abort(), log=LOG)
 
 
@@ -112,7 +122,7 @@ async def test_on_error_custom(circuit):
 
 
 async def test_stop(circuit):
-    """Test the stop value."""
+    """Test the stop arguments."""
     LOG = [
         (0, 2),
         (50, 1),
@@ -127,12 +137,12 @@ async def test_stop(circuit):
         (0, 102),
         (50, 101),
         (100, 104),
-        # (100, 101) <-- no output event for stop_value
+        # (100, 101) <-- no output event for stop_args
         (100, '--stop--'),
         ]
     vlog = TimeLogger('vlog', mstop=True)
     await output_func(
-        circuit, v2=12, stop_value=12, log=LOG,
+        circuit, v2=12, stop_data=dict(value=12), log=LOG,
         on_success=edzed.Event('vlog'),
         mstop=False)
     vlog.compare(VLOG)

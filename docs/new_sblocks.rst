@@ -122,8 +122,10 @@ There are two ways to handle :ref:`events <Events>`:
 
     :meth:`_event` will be called for events without a specialized event handler.
 
-    Return :const:`NotImplemented` to indicate an unknown event type. Return
-    anything else for recognized event types.
+    Raise :exc:`EdzedUnknownEvent` if the *etype* is not supported.
+    ``event()`` may return a response of any type. It has a significance only
+    when interfacing with an external system. Other circuit blocks ignore
+    the returned vale.
 
     Example::
 
@@ -137,7 +139,7 @@ There are two ways to handle :ref:`events <Events>`:
               return None
 
           # let the parent handle everything else,
-          # the base class simply returns NotImplemented
+          # the base class simply raises :exc:`EdzedUnknownEvent`
           return super()._event(event, data)
 
 Do not confuse the internal method :meth:`_event` with the API method :meth:`event`.
@@ -146,7 +148,6 @@ The :meth:`SBlock.event` is responsible for:
 
 - resolving the conditional events (see :class:`EventCond`)
 - dispatching events to a proper handler
-- translating :const:`NotImplemented` to raised :exc:`ValueError`
 - aborting the simulation on error
 
 .. note::
@@ -339,10 +340,14 @@ Async add-on
 
   This class also implements a helper for general use:
 
-  .. method:: _task_wrapper(coro: Awaitable, is_service: bool = False) -> Any
+  .. method:: _create_monitored_task(coro: Awaitable, is_service: bool = False) -> asyncio.Task
     :async:
 
-    A coroutine wrapper delivering exceptions to the simulator.
+    Create a task monitored for an eventual failure.
+
+    Like :meth:`asyncio.create_task`, but if the task exits due to an exception,
+    the simulation will abort. ``_create_monitored_task()`` also adds the block
+    name to the exception arguments for better problem identification.
 
     Coroutines marked as services (*is_service*  is ``True``) are supposed
     to run until cancelled - even a normal exit is treated as an error.

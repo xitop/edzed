@@ -10,8 +10,8 @@ Events may be generated internally by circuit blocks or may originate from
 external systems and be forwarded through some input interface.
 
 An event is a message addressed to its destination block. It has
-a :ref:`type<Event types>` and can carry arbitrary data. The type
-is usually a string; the data consists of ``'name': <value>`` pairs.
+a :ref:`type<Event types>` and can carry arbitrary :ref:`data<Event data format>`.
+The type is usually a string; the data consists of ``'name':<value>`` pairs.
 
 Every block (even a combinational one) can generate events on its output change.
 These are the most common events and are defined with an *on_output* argument.
@@ -29,7 +29,8 @@ The :class:`Event` instance sets the destination and the event type. New data
 is added each time the event is sent.
 
 For example, this code instructs the ``block1`` to send a ``put`` event
-to ``block2`` each time when its output value changes::
+to ``block2`` each time when its output value changes. This creates a logical
+link from ``block1`` to ``block2``::
 
   edzed.Input('block1', initdef=0, on_output=edzed.Event(block2, 'put'))
 
@@ -51,8 +52,12 @@ Event objects
 
 .. class:: Event(dest: Union[str, Block], etype: Union[str, EventType] = 'put', efilter=None, repeat=None, count=None)
 
-  Specify an event of :ref:`type<Event types>` *etype* addressed to the *dest* block
-  together with optional event filters to be applied.
+  Create an object with event settings. Mandatory settings are
+  the :ref:`type<Event types>` *etype* and the destination block *dest*.
+
+  A source block uses this ``Event`` object to send a new event each time some trigger
+  condition is satisfied. Every such event is then a combination of fixed settings
+  from the ``Event`` object and variable data specific to the particular event.
 
   The *dest* argument may be a sequential block object or its name.
 
@@ -84,7 +89,7 @@ Event objects
 
     A shortcut for ``edzed.Event('_ctrl', 'abort')``.
 
-    Create an event addressed to circuit's :class:`ControlBlock`
+    Specify an event addressed to circuit's :class:`ControlBlock`
     with an instruction to abort the simulation due to an error.
 
   .. method:: shutdown() -> Event
@@ -92,7 +97,7 @@ Event objects
 
     A shortcut for ``edzed.Event('_ctrl', 'shutdown')``
 
-    Create an event addressed to circuit's :class:`ControlBlock`
+    Specify an event addressed to circuit's :class:`ControlBlock`
     with an instruction to shut down the simulation.
 
 
@@ -120,6 +125,15 @@ It's the conditional event simplifying the block-to-block event delivery:
   ``None`` as *etrue* or *efalse* means no event in that case.
 
 
+Event data format
+=================
+
+The event data form a Python dict, i.e. they consist of ``'name': <value>`` pairs.
+The keys (names) must be strings and valid Python identifiers, because the data
+items are passed to functions as keyword arguments. Best practice is to use
+only ASCII letters ``a-z``, ``A-Z``, digits ``0-9`` and the ``_`` (underscore).
+
+
 Event filters
 =============
 
@@ -127,12 +141,12 @@ Event filters serve two purposes. As the name suggests, they can filter out
 an event, i.e. cancel its delivery. The second use is to modify the filter data.
 
 An event filter function is called with the event data
-as its sole argument (i.e. as a :class:`dict`).
+as its sole argument (i.e. as a dict).
 
-- If it returns a :class:`dict`, the event is accepted and the returned
+- If it returns a dict, the event is accepted and the returned
   dict becomes the new event data.
 
-- If the function returns anything else than a :class:`dict` instance,
+- If the function returns anything else than a dict instance,
   the event will be accepted or rejected depending on the boolean value
   of the returned value (true = accept, false (e.g. ``False`` or ``None``) = reject).
 
@@ -176,21 +190,17 @@ Receiving events
 ================
 
 Application code transfers data from an external system to the circuit by sending
-events which the circuit receives.
+events which the circuit receives. Internal events originate from other circuit blocks.
 
-An event is delivered by calling the :meth:`SBlock.event` method
-of the destination block. This method is used for both external
-and internal events.
+In both cases events are delivered by calling the :meth:`SBlock.event` method
+of the destination block.
 
 .. method:: SBlock.event(etype: Union[str, EventType], /, **data) -> Any
 
   Handle the event of :ref:`type<Event types>` *etype* with attached *data*.
+  Raise :exc:`EdzedUnknownEvent` if the *etype* is not supported.
 
-  In particular:
-
-  - update the internal state, and
-  - set the output value
-
+  In particular, update the internal state and set the output value
   according to the block's rules.
 
   .. note::
@@ -200,8 +210,7 @@ and internal events.
     This is a new feature in Python 3.8, but
     the current code emulates it also in Python 3.7.
 
-  ``event()`` may return a value of any type except the ``NotImplemented``
-  Python constant reserved for internal use. Other blocks ignore the returned
+  ``event()`` may return a value of any type. Other blocks ignore the returned
   value, but it may be useful for input interfaces to external systems.
 
   Accepted event types together with required data and returned values for each
@@ -211,9 +220,7 @@ and internal events.
   .. warning::
 
     If an exception (other than an unknown event type or a trivial parameter error)
-    is raised during event handling, the simulation terminates with an error
-    even if the caller handles the exception with a ``try-except`` construct.
-    This is a measure to protect the integrity of internal state.
+    is raised during event handling, the simulation terminates with an error.
 
 .. method:: SBlock.put(value: Any, **data) -> Any
 

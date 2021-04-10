@@ -13,7 +13,7 @@ import pytest
 
 import edzed
 from edzed.utils import MONTH_NAMES
-from edzed.utils.timeinterval import HMS, MD
+from edzed.blocklib.timeinterval import HMS, MD
 
 from .utils import *
 

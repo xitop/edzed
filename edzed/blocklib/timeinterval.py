@@ -13,7 +13,7 @@ import re
 import time
 from typing import Generator, Sequence, Union
 
-from .tconst import *   # pylint: disable=wildcard-import
+from ..utils.tconst import *   # pylint: disable=wildcard-import
 
 
 DAYS = (None, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
@@ -113,9 +113,9 @@ def _to_intlist(seq):
     try:
         return [int(x) for x in seq]
     except TypeError:
-        raise TypeError(f"Cannot convert this type: '{seq!r}'")
+        raise TypeError(f"Cannot convert this type: {seq!r}")
     except ValueError:
-        raise ValueError(f"Cannot convert this value: '{seq}'")
+        raise ValueError(f"Cannot convert this value: {seq!r}")
 
 
 class HMS(tuple):
@@ -162,7 +162,7 @@ class HMS(tuple):
                 if len(hms3) == 2:
                     hms3.append(0)
                 elif len(hms3) != 3:
-                    raise ValueError(f"Invalid time specification: '{hms}'")
+                    raise ValueError(f"Invalid time specification: {hms!r}")
             _validate(hms=hms3)
         return super().__new__(cls, hms3)
 
@@ -248,7 +248,7 @@ class MD(tuple):
             else:
                 md2 = _to_intlist(md)
                 if len(md) != 2:
-                    raise ValueError(f"Invalid month, day specification: '{md}'")
+                    raise ValueError(f"Invalid month, day specification: {md!r}")
             _validate(md=md2)
         return super().__new__(cls, md2)
 
@@ -304,7 +304,7 @@ class YDT(tuple):
                 if len(ydt6) == 5:
                     ydt6.append(0)
                 elif len(ydt6) != 6:
-                    raise ValueError(f"Invalid date and time specification: '{ydt}'")
+                    raise ValueError(f"Invalid date and time specification: {ydt!r}")
                 _validate(y=ydt6[0], md=ydt6[1:3], hms=ydt6[3:6])
         return super().__new__(cls, ydt6)
 
@@ -391,7 +391,7 @@ class _Interval:
                     split_here = rstr.index(RANGECHAR, 1, -1)
                 except ValueError:
                     if not self._RCLOSED_INTERVAL:
-                        raise ValueError(f"Invalid range '{rstr}'") from None
+                        raise ValueError(f"Invalid range {rstr!r}") from None
                     low = high = self._convert(rstr)
                 else:
                     low = self._convert(rstr[:split_here])

@@ -22,7 +22,7 @@ pytestmark = pytest.mark.asyncio
 
 async def test_empty_circuit(circuit):
     """An empty circuit is useless."""
-    with pytest.raises(edzed.EdzedError, match="is empty"):
+    with pytest.raises(edzed.EdzedCircuitError, match="is empty"):
         await circuit.run_forever()
 
 
@@ -118,7 +118,7 @@ async def test_instability_1(circuit):
         )
 
     simtask = asyncio.create_task(circuit.run_forever())
-    with pytest.raises(edzed.EdzedError, match="instability"):
+    with pytest.raises(edzed.EdzedCircuitError, match="instability"):
         await asyncio.wait_for(simtask, timeout=1.0)
 
 
@@ -131,7 +131,7 @@ async def test_instability_2(circuit):
     assert ctrl.output is not edzed.UNDEF
     # so far so good, but now create an instability
     ctrl.put(True)
-    with pytest.raises(edzed.EdzedError, match="instability"):
+    with pytest.raises(edzed.EdzedCircuitError, match="instability"):
         await asyncio.wait_for(simtask, timeout=1.0)
 
 
@@ -148,7 +148,7 @@ async def test_control_block_stop(circuit):
 async def test_control_block_error(circuit):
     timelimit(0.06, error=True)
     logger = TimeLogger('logger', mstop=True)
-    with pytest.raises(edzed.EdzedError, match="time limit"):
+    with pytest.raises(edzed.EdzedCircuitError, match="time limit"):
         await asyncio.wait_for(asyncio.create_task(circuit.run_forever()), timeout=1.0)
     logger.compare([(60, '--stop--')])
 

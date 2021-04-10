@@ -116,11 +116,11 @@ A specialized block is provided for this task:
   A source of measured or computed values.
 
   This block outputs the result of an acquisition function *func* every
-  *interval* seconds. The *interval* may be written also as a
+  *interval* seconds.
+  The *func* argument should be a regular function (defined with ``def``)
+  or a coroutine function (defined with ``async def``).
+  The *interval* may be written also as a
   :ref:`string with time units<Time intervals with units>`.
-  The *func* may be a regular or an async function, but not a coroutine.
-  (reminder: ``async def afn(...):`` -- ``afn`` is a function and
-  ``afn()`` is a coroutine)
 
   The interval is measured between function calls. The duration
   of the call itself represents an additional delay.
@@ -135,7 +135,7 @@ A specialized block is provided for this task:
   - return some sentinel value understood by connected
     circuit blocks as missing value
   - return :const:`UNDEF`. If it returns :const:`UNDEF`, it will be ignored
-    and no output change will happen.
+    and no output change will happen
 
   Initialization rules:
 
@@ -174,54 +174,83 @@ In each case the error will be logged.
 Output blocks
 -------------
 
-.. class:: OutputFunc(*args, func, on_success=None, on_error, stop_value=edzed.UNDEF, **kwargs)
+Output blocks invoke a supplied function to perform an output operation.
+The appropriate block type depends on the output function's type:
 
-  Call a function when a value arrives via a ``'put'`` event.
+- :class:`OutputFunc` - for regular non-blocking functions
+- :class:`OutputAsync` with :class:`InExecutor` - for regular blocking (or possibly blocking) functions::
 
-  The function *func* is called with a single argument, the ``'value'``
-  item from the event data. Any returned value is considered a success.
-  An exception means an error.
+    edzed.OutputAsync(..., coro=edzed.InExecutor(blocking_function), ...)
+
+- :class:`OutputAsync` - for coroutine functions
+
+In this context, a *blocking function* is a function that does not
+return in a short time, because it does a CPU intensive computation
+or slow I/O. Local file access is considered not blocking, but
+any network communication is a typical example of blocking I/O.
+
+---
+
+.. class:: OutputFunc(*args, func, f_args=['value'], f_kwargs=(), on_success=None, on_error, stop_data=None, **kwargs)
+
+  .. note::
+    Due to a software limitation, the default *f_args*
+    value is shown as a list, but actually it is a tuple.
+
+  Call a function when a ``'put'`` event arrives.
+
+  The function *func* is called with arguments extracted from the event data.
+  The default *f_args* and *f_kwargs* values cause the *func* to be called
+  with ``data['value']`` as its sole argument. This covers most use-cases.
+  If you want to change that:
+
+    The keys of values to extract as positional (keyword) arguments
+    are specified with the *f_args* (*f_kwargs*) respectively. Both arguments must be
+    sequences of names. The event data of every received ``'put'`` event must contain
+    the keys listed in *f_args* and *f_kwargs*.
+
+  Any returned value is considered a success. An exception means an error.
 
   On success:
     - *on_success* :ref:`events<Events>` are triggered and the
       returned value is added to the event data as ``'value'``
-    - the event returns ``('result', <returned_value>)``
+    - the ``'put'`` event returns ``('result', <returned_value>)``
 
-  On error:
+  On error (see :ref:`error handling<Error handling>`):
     - *on_error* :ref:`events<Events>` are triggered and the
       the exception is added to the *on_error* event data as: ``'error'``.
-    - the event returns ``('error', <exception>)``
+    - the ``'put'`` event returns ``('error', <exception>)``
 
-  If the *stop_value* is defined, it is fed into the block
-  during the cleanup and processed as the last item before stopping.
-  This allows to leave the controlled process in a well-defined state.
+  If the *stop_data* is not ``None``, it is used as the event data of a virtual
+  event delivered to the block during the cleanup and processed as the
+  last item before stopping. This allows to leave the controlled process
+  in a well-defined state. *stop_data* argument must a dict.
 
   .. important::
-    No events are triggered when the *stop_value* is processed.
+    No events are triggered when the *stop_data* is processed.
 
   The output of an OutputFunc block is always ``False``.
 
-.. class:: OutputAsync(*args, coro, guard_time=0.0, qmode=False, on_success=None, on_cancel=None, on_error, stop_value=edzed.UNDEF, **kwargs)
+.. class:: OutputAsync(*args, coro, f_args=['value'], f_kwargs=(), qmode=False, guard_time=0.0, on_success=None, on_cancel=None, on_error, stop_data=None, **kwargs)
 
-  Run a coroutine *coro* as an asycio task when a value arrives
-  via a ``'put'`` event. The event returns immediately and does not
-  return any result.
+  Run a coroutine function *coro* as an asycio task when a ``'put'`` event arrives.
+  The coroutine function is invoked with arguments extracted from the event data.
+  The event returns immediately and does not return any result.
 
-  The coroutine is invoked with a single argument, the ``'value'``
-  item from the ``'put'`` event data.
+  Parameters *f_args*, *f_kwargs*, *on_success*, *on_error*, and *stop_data* have
+  the same meaning as in :class:`OutputFunc`.
 
   There are two operation modes: the noqueue mode (*qmode* is ``False``,
   this is the default) and the queue mode (*qmode* is ``True``). The
-  difference is in the behavior when a new value arrives before
+  difference is in the behavior when a new ``'put'`` event arrives before the
   processing of the previous one has finished:
 
-  - In the noqueue mode the task processing the previous value will be
-    cancelled (and awaited) if it is still running. All unprocessed
-    values except the last one are dropped.
+  - In the noqueue mode the task processing the previous event will be
+    cancelled and awaited. All unprocessed events except the last one are dropped.
 
-  - In the queue mode all values are enqueued and processed one by one
+  - In the queue mode all events are enqueued and processed one by one
     in order they have arrived. This may introduce delays. Make sure
-    the coroutine can keep up with the rate of incoming values.
+    the coroutine can keep up with the rate of incoming events.
 
   The output of an OutputAsync block is a boolean busy flag:
   ``True``, when the block is running a task; ``False`` when idle.
@@ -233,17 +262,15 @@ Output blocks
   the raised exception is added to the *on_error* event data as ``'error'``.
   A cancelled task triggers *on_cancel* events. Note that no tasks are
   cancelled in the queue mode. In all three cases (success, cancel, error)
-  the coroutine's argument - i.e. the value received by the ``'put'`` -
-  is included in the event data with key ``'arg'``.
+  the original ``'put'`` event data is inserted into the output event data
+  as item ``'put'``. This makes it possible to pair an event and its response.
 
-  If the *stop_value* is defined, it is inserted into the queue
-  and processed as the last item before stopping. This allows to leave
-  the controlled process in a well-defined state. As this happen
-  during the stop phase, make sure the *stop_timeout* gives enough time
-  for a successful output task run.
+  If the *stop_data* is defined, it is processed as the last item before stopping.
+  As this happen during the stop phase, make sure the *stop_timeout* gives enough
+  time for a successful output task run.
 
   .. important::
-    No events are triggered when the *stop_value* is processed.
+    No events are triggered when the *stop_data* is processed.
 
   The *guard_time* is the duration of a mandatory and uncancellable sleep
   after each run of the output task. No output activity can
@@ -251,6 +278,16 @@ Output blocks
   of actions, for instance when controlling a hardware switch.
   Default value is 0.0 [seconds], i.e. no guard_time. The *guard_time*
   must not be longer than the *stop_timeout*.
+
+.. class:: InExecutor(func, executor=concurrent.futures.ThreadPoolExecutor)
+
+  Create a coroutine function - suitable as *coro* argument in :class:`OutputAsync` -
+  that runs the provided regular function *func* in a thread pool or other *executor*,
+  e.g. a process pool. This allows to run an otherwise blocking function without
+  actually blocking the asyncio's event loop.
+
+  ``InExecutor`` is a thin wrapper around the asyncio's
+  `run_in_executor <https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.run_in_executor>`_.
 
 
 Time and date
