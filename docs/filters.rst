@@ -49,6 +49,17 @@ List of :ref:`event filters<Event filters>`.
   If the absolute difference is smaller than *delta*, it filters out the event.
 
 
+.. class:: IfOutput(control_block: [str, Block])
+
+  Enable or disable events depending on *control_block*\'s output.
+
+  This filter passes through events while the output of the controlling
+  block evaluates to boolean true and rejects them if the output is false.
+
+  The block may be specified by name;
+  see also: :ref:`logically inverted output<Inverted output>`.
+
+
 .. class:: DataEdit
 
   This class provides a set of simple data modifiers. Multiple modifiers

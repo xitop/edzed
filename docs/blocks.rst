@@ -194,17 +194,10 @@ The output of a combinational block depends only on its present input values.
 
        - a :class:`Block` object
 
-       - the name of a Block object
+       - the name of a Block object (string)
 
-       - ``"_not_name"`` derived from another block's name by prepending
-         a ``"_not_"`` prefix. This is a shortcut for connecting a logically
-         inverted output. A new block::
-
-          edzed.Invert('_not_name').connect(name)
-
-         will be created automatically if it does not exist
-         already. The original name must not begin with an
-         underscore; ``"_not__not_name"`` will not create an :class:`Invert`.
+       - ``'_not_NAME'`` for connecting the :ref:`logically inverted output<Inverted output>`
+         of another block.
 
     2. or to a constant value given as:
 

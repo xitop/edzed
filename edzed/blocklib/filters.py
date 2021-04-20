@@ -9,9 +9,10 @@ Home: https://github.com/xitop/edzed/
 import logging
 
 from .. import block
+from .. import simulator
 
 
-__all__ = ['not_from_undef', 'Edge', 'Delta', 'DataEdit']
+__all__ = ['not_from_undef', 'Edge', 'Delta', 'DataEdit', 'IfOutput']
 
 _logger = logging.getLogger(__package__)
 
@@ -66,6 +67,20 @@ class Delta:
         return False
 
 
+class IfOutput:
+    """
+    Enable/disable events depending on block output.
+    """
+
+    # pylint: disable=redefined-outer-name
+    def __init__(self, control_block: [str, block.Block]):
+        self._ctrl_blk = control_block
+        simulator.get_circuit().resolve_name(self, '_ctrl_blk')
+
+    def __call__(self, data):
+        return data if self._ctrl_blk.output else None
+
+
 class dualmethod(classmethod):
     """
     Dual (class/instance) method decorator.
@@ -73,7 +88,8 @@ class dualmethod(classmethod):
     When the decorated method is called as a class method,
     create an instance on the fly.
 
-    When called as an instance method, proceed normally.
+    When called as an instance method, proceed normally,
+    i.e. as if not decorated.
     """
     def __get__(self, instance, cls):
         if instance is None:

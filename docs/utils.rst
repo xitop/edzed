@@ -89,3 +89,45 @@ task sections from immediate cancellation.
   Make the shielded code and its execution time as short as possible.
 
   .. warning:: Never suppress task cancellation completely!
+
+
+Name to block resolver
+======================
+
+When referencing a circuit block, ``edzed`` generally allows to use
+either a block name or a block object.
+
+At some point the names need to be resolved, because the software works
+only with objects internally. The resolver is a service provided by the
+:doc:`circuit simulator<simulation>`.
+
+.. method:: Circuit.resolve_name(obj, attr: str, block_type=edzed.Block)
+
+  Register an object with the resolver.
+
+  The object *obj* should be storing a reference to a circuit block
+  in its attribute named *attr*.
+
+  - If the reference is a name (i.e. a string), register the object
+    to be processed by the resolver. The resolver will then replace the
+    name by the corresponding block object and check its type
+    before the simulation starts.
+
+  - If the reference is a block object already, name resolving
+    is not needed. Just check the type and return.
+
+  The *block_type* is the required type of the referenced block.
+  A :exc:`TypeError` is raised if the block is not an instance of this type.
+
+Inverted output
+---------------
+
+The name to block resolver supports the ``'_not_NAME'`` notation, where the name
+is derived from another block's NAME by prepending a ``'_not_'`` prefix.
+The original NAME must not begin with an underscore.
+
+This is a shortcut for connecting a logically inverted output. A new
+:class:`Invert` block will be created automatically if it does not
+exist already::
+
+  edzed.Invert('_not_NAME').connect(NAME)

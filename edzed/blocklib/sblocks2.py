@@ -229,7 +229,8 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
             if task and not task.done():
                 if not stop:
                     task.cancel()
-                # the _output_task_wrapper catches all exceptions, no need for try-except here
+                # do not use try/await task/except here, because the _output_task_wrapper
+                # catches all exceptions from user-supplied 'coro'
                 await task
             if stop:
                 break
@@ -240,7 +241,8 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
                     stop = True
                     break
                 data = new_data
-            task = self._create_monitored_task(self._output_task_wrapper(data))
+            # we are already running as monitored task
+            task = asyncio.create_task(self._output_task_wrapper(data))
 
     async def _control_qmode(self):
         """

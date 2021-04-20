@@ -53,8 +53,52 @@ def reset_circuit() -> None:
     except Exception as err:
         # e.g. RuntimeError: Event loop is closed
         _logger.warning("reset_circuit(): %r error ignored", err)
-    block.Event.instances.clear()
     _current_circuit = Circuit()
+
+
+class _BlockResolver:
+    """     # export to API
+    A helper allowing to reference a block by name.
+
+    Objects with a reference to be resolved must register themselves.
+
+    The simulator initialization routine calls resolve() to replace
+    block names by real block objects in all registered objects.
+    """
+
+    def __init__(self, resolve_function):
+        self._unresolved = []
+        self._resolve_function = resolve_function
+
+    @staticmethod
+    def _check_type(obj, attr, blk, block_type):
+        if not isinstance(blk, block_type):
+            raise TypeError(
+                f"type of {blk!r} stored in {obj!r} as attribute {attr!r} "
+                f"should be {block_type.__name__}")
+
+
+    def register(self, obj, attr: str, block_type=block.Block):
+        """Register an object with a block reference to be resolved."""
+        blk = getattr(obj, attr)
+        if isinstance(blk, str):
+            # name to be resolved
+            self._unresolved.append((obj, attr, block_type))
+        else:
+            # no need to resolve, just check
+            self._check_type(obj, attr, blk, block_type)
+
+    def resolve(self):
+        """
+        Resolve references by name in all registered objects.
+
+        Replace block names by real block object.
+        """
+        for obj, attr, block_type in self._unresolved:
+            blk = self._resolve_function(getattr(obj, attr))
+            self._check_type(obj, attr, blk, block_type)
+            setattr(obj, attr, blk)
+        self._unresolved.clear()
 
 
 class Circuit:
@@ -82,7 +126,10 @@ class Circuit:
                                     # was not created yet. That may lead to errors in rare
                                     # scenarios with asyncio.new_event_loop().
         self._init_done = None      # an Event for wait_init() synchronization
+        self._resolver = _BlockResolver(self._validate_blk)
+        self.resolve_name = self._resolver.register     # export to API
         self.debug = False          # enable debug messages
+
 
     def log_debug(self, *args, **kwargs) -> None:
         """Log a debug message if enabled."""
@@ -257,16 +304,6 @@ class Circuit:
         if blk not in self.getblocks():
             raise ValueError(f"{blk} is not in the current circuit")
         return blk
-
-    def _resolve_events(self):
-        """Resolve temporary references by name in Event objects."""
-        for event in block.Event.instances:
-            if isinstance(event.dest, str):
-                event.dest = self._validate_blk(event.dest)
-            if not isinstance(event.dest, block.SBlock):
-                raise ValueError(
-                    f"Event destination block {event.dest} is not a sequential block")
-        block.Event.instances.clear()   # free some memory
 
     def _finalize(self):
         """
@@ -532,7 +569,7 @@ class Circuit:
                 self.sblock_queue = asyncio.Queue()
                 self._init_done = asyncio.Event()
                 self._check_persistent_data()
-                self._resolve_events()
+                self._resolver.resolve()
                 self.finalize()
 
                 self.log_debug("Setting up circuit blocks")

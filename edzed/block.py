@@ -99,100 +99,6 @@ def checkname(name, nametype):
         raise ValueError(f"{nametype} must be a non-empty string")
 
 
-class EventType:
-    """
-    A base class for all special event types.
-
-    The regular event type is str (plain string like 'put').
-    """
-
-
-EFilter = Callable[[Mapping], Any]
-EventsArg = Union[None, 'Event', Iterable['Event'], Sequence['Event']]
-EFiltersArg = Union[None, EFilter, Iterable[EFilter], Sequence[EFilter]]
-
-
-class Event:
-    """
-    An event to be send.
-    """
-
-    # all circuit Events to check by Circuit._resolve_events, cleared afterward
-    instances = weakref.WeakSet()
-
-    def __init__(
-            self,
-            dest: Union[str, 'SBlock'],
-            etype: Union[str, EventType] = 'put',
-            *, efilter: EFiltersArg = None,
-            repeat=None, count=None):
-        if repeat is not None:
-            destname = dest if isinstance(dest, str) else dest.name
-            dest = sblocks1.Repeat(
-                None,
-                comment=f"automatic repeat: event={etype!r}, destination={destname!r}",
-                dest=dest, etype=etype, interval=repeat, count=count)
-        elif count is not None:
-            raise ValueError("Argument 'count' is valid only with 'repeat'")
-        self.typecheck(etype)
-        self.dest = dest
-        self.etype = etype
-        self._filters = efilter_tuple(efilter)
-        type(self).instances.add(self)
-
-    @classmethod
-    def abort(cls):
-        return cls('_ctrl', 'abort')
-
-    @staticmethod
-    def typecheck(etype):
-        """Raise if etype is not a valid event type value."""
-        if isinstance(etype, str):
-            if not etype:
-                raise ValueError("event name must be a non-empty string")
-        elif not isinstance(etype, EventType):
-            raise TypeError(f"event type must be a string or EventType, but got {etype!r}")
-
-    # TODO in Python3.8+ (see SBlock.event for an explanation):
-    #   def send(self, source: 'Block', /, **data) -> bool:
-    # pylint: disable=no-method-argument, protected-access
-    def send(*args, **data) -> bool:
-        """
-        Apply filters and send the event to the dest block.
-
-        Add sender block's name to the event data as 'source'.
-
-        Return True if sent, False if rejected by a filter.
-        """
-        self, source = args
-        if self.dest.circuit is not source.circuit:
-            raise EdzedCircuitError(
-                f"event destination {self.dest} is not in the current circuit")
-        data['source'] = source.name
-        for efilter in self._filters:
-            retval = efilter(data)
-            if isinstance(retval, dict):
-                data = retval
-            elif not retval:
-                source.log_debug(f"Not sending event {self} (rejected by a filter)")
-                return False
-        dest = self.dest
-        if dest.init_steps_completed < 2:
-            # a destination block may be uninitialized, because events
-            # may be generated during the initialization process
-            dest.log_debug("pending event, initializing early")
-            source.circuit.init_sblock(dest, full=True)
-        source.log_debug("sending event %s", self)
-        dest.event(self.etype, **data)
-        return True
-
-    def __str__(self):
-        dest = self.dest
-        # give correct result even before resolving the dest name to the dest block
-        dest_name = dest if isinstance(dest, str) else dest.name
-        return f"<{type(self).__name__} dest='{dest_name}', event='{self.etype}'>"
-
-
 def _is_multiple(arg):
     """
     Check if arg specifies multiple ordered items (inputs, events, etc.)
@@ -213,51 +119,6 @@ def _is_multiple(arg):
     return not isinstance(arg, str) and isinstance(arg, (cabc.Sequence, cabc.Iterator))
 
 
-def _to_tuple(args, validator):
-    """
-    Transform 'args' to a tuple of items. Validate each item.
-
-    The validation is deemed successful unless the validator raises.
-    """
-    if args is None:
-        return ()
-    if isinstance(args, tuple):
-        pass
-    elif _is_multiple(args):
-        args = tuple(args)
-    else:
-        args = (args,)
-    for arg in args:
-        validator(arg)
-    return args
-
-
-def event_tuple(events: EventsArg) -> Tuple[Event, ...]:
-    """
-    Transform the argument to a tuple of events.
-
-    Accept a single event or a sequence of events.
-    """
-    def validator(event):
-        if not hasattr(event, 'send'):
-            raise TypeError(f"Expected was an Event-like object, got {event!r}")
-
-    return _to_tuple(events, validator)
-
-
-def efilter_tuple(efilters: EFiltersArg) -> Tuple[EFilter, ...]:
-    """
-    Transform the argument to a tuple of event filters.
-
-    Accept a single event filter or a sequence of filters.
-    """
-    def validator(efilter):
-        if not callable(efilter):
-            raise TypeError(f"Expected was a callable, got {efilter!r}")
-
-    return _to_tuple(efilters, validator)
-
-
 class Block:
     """
     Base class for a circuit building block.
@@ -267,7 +128,7 @@ class Block:
             name: Optional[str], *,
             comment: str = "",
             desc: str = "",     # DEPRECATED
-            on_output: EventsArg = None,
+            on_output: 'EventsArg' = None,
             _reserved: bool = False,
             debug: bool = False,
             **kwargs):
@@ -575,29 +436,6 @@ class CBlock(Block, metaclass=abc.ABCMeta):
         return conf
 
 
-class Addon:
-    """
-    Base class for all SBlock add-ons.
-    """
-
-
-@dataclass(frozen=True)
-class EventCond(EventType):
-    """
-    A conditional event type.
-
-    Roughly equivalent to:
-        etype = etrue if value else efalse
-    where the value is taken from the event data item ['value'].
-    Missing value is evaluated as False, i.e. 'efalse' is selected.
-
-    None value means no event.
-    """
-    __slots__ = ['etrue', 'efalse']
-    etrue: Union[None, str, EventType]
-    efalse: Union[None, str, EventType]
-
-
 class SBlock(Block):
     """
     Base class for sequential blocks, i.e. blocks with internal state.
@@ -631,7 +469,7 @@ class SBlock(Block):
                             cls._ct_handlers[etype] = method
         assert sblock_seen
 
-    def __init__(self, *args, on_every_output: EventsArg = None, **kwargs):
+    def __init__(self, *args, on_every_output: 'EventsArg' = None, **kwargs):
         if self.has_method('init_from_value'):
             self.initdef = kwargs.pop('initdef', UNDEF)
         self._event_active = False      # guard against event recursion
@@ -788,6 +626,164 @@ class SBlock(Block):
         conf = super().get_conf()
         conf['type'] = 'sequential'
         return conf
+
+
+class Addon:
+    """
+    Base class for all SBlock add-ons.
+    """
+
+class EventType:
+    """
+    A base class for all special event types.
+
+    The regular event type is str (plain string like 'put').
+    """
+
+
+@dataclass(frozen=True)
+class EventCond(EventType):
+    """
+    A conditional event type.
+
+    Roughly equivalent to:
+        etype = etrue if value else efalse
+    where the value is taken from the event data item ['value'].
+    Missing value is evaluated as False, i.e. 'efalse' is selected.
+
+    None value means no event.
+    """
+    __slots__ = ['etrue', 'efalse']
+    etrue: Union[None, str, EventType]
+    efalse: Union[None, str, EventType]
+
+
+EFilter = Callable[[Mapping], Any]
+EventsArg = Union[None, 'Event', Iterable['Event'], Sequence['Event']]
+EFiltersArg = Union[None, EFilter, Iterable[EFilter], Sequence[EFilter]]
+
+
+class Event:
+    """
+    Define event settings.
+    """
+
+    def __init__(
+            self,
+            dest: Union[str, 'SBlock'],
+            etype: Union[str, EventType] = 'put',
+            *, efilter: EFiltersArg = None,
+            repeat=None, count=None):
+        if repeat is not None:
+            destname = dest if isinstance(dest, str) else dest.name
+            dest = sblocks1.Repeat(
+                None,
+                comment=f"automatic repeat: event={etype!r}, destination={destname!r}",
+                dest=dest, etype=etype, interval=repeat, count=count)
+        elif count is not None:
+            raise ValueError("Argument 'count' is valid only with 'repeat'")
+        self.typecheck(etype)
+        self.dest = dest
+        self.etype = etype
+        self._filters = efilter_tuple(efilter)
+        simulator.get_circuit().resolve_name(self, 'dest', SBlock)
+
+    @classmethod
+    def abort(cls):
+        return cls('_ctrl', 'abort')
+
+    @staticmethod
+    def typecheck(etype):
+        """Raise if etype is not a valid event type value."""
+        if isinstance(etype, str):
+            if not etype:
+                raise ValueError("event name must be a non-empty string")
+        elif not isinstance(etype, EventType):
+            raise TypeError(f"event type must be a string or EventType, but got {etype!r}")
+
+    # TODO in Python3.8+ (see SBlock.event for an explanation):
+    #   def send(self, source: Block, /, **data) -> bool:
+    # pylint: disable=no-method-argument, protected-access
+    def send(*args, **data) -> bool:
+        """
+        Apply filters and send the event to the dest block.
+
+        Add sender block's name to the event data as 'source'.
+
+        Return True if sent, False if rejected by a filter.
+        """
+        self, source = args
+        if self.dest.circuit is not source.circuit:
+            raise EdzedCircuitError(
+                f"event destination {self.dest} is not in the current circuit")
+        data['source'] = source.name
+        for efilter in self._filters:
+            retval = efilter(data)
+            if isinstance(retval, dict):
+                data = retval
+            elif not retval:
+                source.log_debug(f"Not sending event {self} (rejected by a filter)")
+                return False
+        dest = self.dest
+        if dest.init_steps_completed < 2:
+            # a destination block may be uninitialized, because events
+            # may be generated during the initialization process
+            dest.log_debug("pending event, initializing early")
+            source.circuit.init_sblock(dest, full=True)
+        source.log_debug("sending event %s", self)
+        dest.event(self.etype, **data)
+        return True
+
+    def __str__(self):
+        dest = self.dest
+        # give correct result even before resolving the dest name to the dest block
+        dest_name = dest if isinstance(dest, str) else dest.name
+        return f"<{type(self).__name__} dest='{dest_name}', event='{self.etype}'>"
+
+
+def _to_tuple(args, validator):
+    """
+    Transform 'args' to a tuple of items. Validate each item.
+
+    The validation is deemed successful unless the validator raises.
+    """
+    if args is None:
+        return ()
+    if isinstance(args, tuple):
+        pass
+    elif _is_multiple(args):
+        args = tuple(args)
+    else:
+        args = (args,)
+    for arg in args:
+        validator(arg)
+    return args
+
+
+def event_tuple(events: EventsArg) -> Tuple[Event, ...]:
+    """
+    Transform the argument to a tuple of events.
+
+    Accept a single event or a sequence of events.
+    """
+    def validator(event):
+        if not hasattr(event, 'send'):
+            raise TypeError(f"Expected was an Event-like object, got {event!r}")
+
+    return _to_tuple(events, validator)
+
+
+def efilter_tuple(efilters: EFiltersArg) -> Tuple[EFilter, ...]:
+    """
+    Transform the argument to a tuple of event filters.
+
+    Accept a single event filter or a sequence of filters.
+    """
+    def validator(efilter):
+        if not callable(efilter):
+            raise TypeError(f"Expected was a callable, got {efilter!r}")
+
+    return _to_tuple(efilters, validator)
 
 
 # importing at the end when all names are defined resolves a circular import issue

@@ -281,7 +281,7 @@ def test_delta(circuit):
 
 
 def test_event_handlers(circuit):
-    """test event_ETYPE."""
+    """Test event_ETYPE."""
     class B0:
         # not defined in a SBlock or Addon subclass -> ignored
         def _event_X(self, **data):
@@ -314,12 +314,46 @@ def test_event_handlers(circuit):
         addsub.event('X')
 
 
-def test_reset(circuit):
-    """Verify that events to be resolved are cleared by reset_circuit."""
-    Noop('c1')
-    ev1 = edzed.Event('c1')
+def test_ifoutput(circuit):
+    """Test the IfOutput."""
 
-    # simulation not started, event destination names remain unresolved
-    assert ev1 in edzed.Event.instances
-    edzed.reset_circuit()
-    assert ev1 not in edzed.Event.instances
+    enable = edzed.Input('enable', initdef='truthy')
+    cnt = edzed.Counter('cnt')
+    cnt2 = edzed.Counter('cnt2')
+    increment = edzed.Event('cnt', 'inc', efilter=edzed.IfOutput(enable))
+    increment2 = edzed.Event('cnt2', 'inc', efilter=edzed.IfOutput('_not_enable'))
+    src = Noop('src', comment='faked event source')
+
+    init(circuit)
+    inv = circuit.findblock('_not_enable')
+
+    assert cnt.output == cnt2.output == 0
+
+    assert increment.send(src)
+    assert cnt.output == 1
+    assert not increment2.send(src)
+    assert cnt2.output == 0
+
+    assert increment.send(src)
+    assert cnt.output == 2
+    assert not increment2.send(src)
+    assert cnt2.output == 0
+
+    enable.put(False)
+    inv.eval_block()
+    assert not increment.send(src)
+    assert cnt.output == 2
+    assert increment2.send(src)
+    assert cnt2.output == 1
+    enable.put(0)
+    inv.eval_block()
+    assert not increment.send(src)
+    assert cnt.output == 2
+    assert increment2.send(src)
+    assert cnt2.output == 2
+    enable.put(1)
+    inv.eval_block()
+    assert increment.send(src)
+    assert cnt.output == 3
+    assert not increment2.send(src)
+    assert cnt2.output == 2

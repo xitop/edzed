@@ -25,6 +25,10 @@ async def shield_cancel(aw: Awaitable) -> Any:
             cancel_exc = err
         else:
             break
-    if cancel_exc:
-        raise cancel_exc
+    if cancel_exc is not None:
+        try:
+            raise cancel_exc
+        finally:
+            # break the reference loop
+            cancel_exc = None
     return retval

@@ -6,6 +6,13 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+21.4.22
+=======
+**stable release candidate**
+
+- add :class:`IfOutput` event filter
+- rewrite and document the :ref:`name to block resolver<Name to block resolver>`
+
 21.4.19
 =======
 - add new exceptions :exc:`EdzedUnknownEvent` and :exc:`EdzedCircuitError`
@@ -80,21 +87,6 @@ Version numbers are based on the release date (Y.M.D).
 - :class:`SBlock` :ref:`initialization order <Initialization>` was modified
 - :func:`CBlock._eval` was renamed to :func:`CBlock.calc_output` (incompatible change)
 - :func:`FSM._eval` was renamed to :func:`FSM.calc_output` (incompatible change)
-
-21.2.7
-======
-
-- fixed messages ``"init_timeout (or stop_timeout) not set, default is 10.000s"``
-  being logged even if such timeouts were not applicable
-- the format of :ref:`event data sent by FSM blocks<Generating FSM events>`
-  was changed (incompatible change)
-
-21.1.30
-=======
-
-- :attr:`FSM.sdata` was added
-- :class:`Block` now accepts a *debug* argument
-- Python version 3.9 was added to classifiers
 
 
 .. note:: See the git repository for older releases.

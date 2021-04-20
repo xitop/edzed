@@ -10,10 +10,9 @@ The package contains:
 
 ## Project status
 
-After one year of development on github, we are getting near
-the point of having a stable API and a complete feature set.
+We are preparing to change the status from "beta" to "stable" in May 2021.
 
-The first stable release is expected in May 2021.
+21.4.22 is a release candidate.
 
 ## Documentation
 
