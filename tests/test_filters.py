@@ -147,6 +147,29 @@ def test_chained_dataedit(circuit):
     src.put('V')
     assert dest.output == ('put', {'a':1, 'src': 'crs', 'trigger': 'output'})
 
+def test_dataedit_add_output(circuit):
+    """Test add_output."""
+    add = edzed.Input('add', initdef=12)
+    dest = EventMemory('dest')
+    src = edzed.Input(
+        'src',
+        on_output=edzed.Event(
+            dest, etype='ev',
+            efilter=edzed.DataEdit.add_output('A', add).add_output('self', 'src'),
+            ),
+        initdef=3)
+    init(circuit)
+
+    CDATA = {'source': 'src', 'trigger': 'output'}
+    src.put(4)
+    assert dest.output[1] == {**CDATA, 'previous': 3, 'value': 4, 'self': 4, 'A': 12}
+    add.put('old')
+    add.put('new')
+    src.put(5)
+    assert dest.output[1] == {**CDATA, 'previous': 4, 'value': 5, 'self': 5, 'A': 'new'}
+    src.put(6)
+    assert dest.output[1] == {**CDATA, 'previous': 5, 'value': 6, 'self': 6, 'A': 'new'}
+
 
 def test_dataedit_modify_reject(circuit):
     """Test event rejecting in DataEdit.modify."""

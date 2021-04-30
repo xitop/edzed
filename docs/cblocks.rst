@@ -6,11 +6,16 @@ List of combinational blocks
 
 This section lists combinational blocks offered by the ``edzed`` library.
 
-Only block specific properties are documented here. For common features
-refer to the :ref:`previous chapter <Common features>`.
+Only block specific parameters are listed in the signatures. In detail:
 
+- the mandatory positional argument *name* is documented in the base class :class:`Block`
 
-.. class:: FuncBlock(*args, func, unpack: bool = True, **kwargs)
+- common optional keyword arguments *on_output*, *debug*, *comment* and *x_NAME*
+  are shown only as ``**kwargs``, they are documented in the base class :class:`Block`
+
+----
+
+.. class:: FuncBlock(name, *, func, unpack: bool = True, **kwargs)
 
   Create a circuit block from a regular Python function *func*.
 
@@ -23,20 +28,34 @@ refer to the :ref:`previous chapter <Common features>`.
   Inputs as defined by :meth:`CBlock.connect`'s positional
   and keyword arguments will be passed to the function as its respective
   positional and keyword arguments. The return value of *func*
-  is the block's output.
+  becomes the block's output.
 
-  When *unpack* is ``False``, all positional argument will be passed as
-  a single tuple. This allows to directly call many useful
-  functions expecting an iterable like :func:`all` (logical AND),
-  :func:`any` (logical OR), :func:`sum`, etc.
+  When *unpack* is ``False``, all positional argument will be passed
+  as a single tuple. This allows to directly call many useful
+  functions expecting an iterable like :func:`all` and :func:`any`
+  (see :func:`And` and :func:`Or` helpers below), :func:`sum`, etc.
+  In Python, it represents the difference between ``func(*args)`` when
+  unpack is ``True`` (default) and ``func(args)`` when *unpack* is ``False``.
 
+.. class:: Not(name, **kwargs)
 
-.. class:: Invert(*args, **kwargs)
+  Logical NOT (Inverter). This block has exactly one unnamed input.
 
-  Boolean negation (logical NOT). This block has one unnamed input.
+.. function:: And(name, **kwargs)
 
+  Logical AND with arbitrary number of unnamed inputs.
+  The output is ``True`` only if all inputs are true.
 
-.. class:: Compare(*args, low, high, **kwargs)
+  ``And`` simply returns a :class:`FuncBlock` created with ``func=all``.
+
+.. function:: Or(name, **kwargs)
+
+  Logical OR with arbitrary number of unnamed inputs.
+  The output is ``True`` only if at least one input is true.
+
+  ``Or`` simply returns a :class:`FuncBlock`  created with ``func=any``.
+
+.. class:: Compare(name, *, low, high, **kwargs)
 
   A comparator with hysteresis.
 
@@ -53,7 +72,7 @@ refer to the :ref:`previous chapter <Common features>`.
   and ``False`` in the opposite case.
 
 
-.. class:: Override(*args, null_value=None, **kwargs)
+.. class:: Override(name, *, null_value=None, **kwargs)
 
   Either pass input to output unchanged or override it with a value.
 

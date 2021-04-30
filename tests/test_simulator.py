@@ -111,9 +111,9 @@ async def test_no_new_block(circuit):
 
 async def test_instability_1(circuit):
     """Test an instable circuit."""
-    edzed.Invert('A').connect(
-        edzed.Invert('B').connect(
-            edzed.Invert('C').connect('A')
+    edzed.Not('A').connect(
+        edzed.Not('B').connect(
+            edzed.Not('C').connect('A')
             )
         )
 

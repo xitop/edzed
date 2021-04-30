@@ -1,14 +1,33 @@
 .. currentmodule:: edzed
 
+.. role:: strike
+ :class: strike
+
 =========
 Changelog
 =========
 
 Version numbers are based on the release date (Y.M.D).
 
+
+21.5.1
+======
+It was decided to revoke the "release candidate" status.
+
+- In :class:`OutputAsync`:
+
+  - replace optional parameter *qmode* with mandatory *mode*
+  - add a new operation mode
+  - treat discarded events and cancelled tasks equally
+  - do not prohibit event generation for *stop_data*
+
+- fix an error handling issue concerning async block init and async block stop
+- add :func:`And` and :func:`Or` blocks, rename ``Invert`` to :class:`Not`
+- add :meth:`DataEdit.add_output`
+
 21.4.22
 =======
-**stable release candidate**
+:strike:`stable release candidate`
 
 - add :class:`IfOutput` event filter
 - rewrite and document the :ref:`name to block resolver<Name to block resolver>`

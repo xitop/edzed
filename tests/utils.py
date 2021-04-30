@@ -71,7 +71,9 @@ def compare_logs(tlog, slog, delta_abs=10, delta_rel=0.15):
 
 
 DEFAULT_SELECT = lambda data: data.get('value')
-class TimeLogger(edzed.SBlock):
+# inheriting from AddonAsync in order to get the stop mark
+# timestamp right (shutdown async before sync rule)
+class TimeLogger(edzed.AddonAsync, edzed.SBlock):
     """
     Maintain a log with relative timestamps in milliseconds since start.
 
@@ -84,7 +86,7 @@ class TimeLogger(edzed.SBlock):
         self._select = select
         self._mstart = mstart
         self._mstop = mstop
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, stop_timeout=0.1, **kwargs)
 
     def _append(self, data):
         self.tlog.append((int(1000 * (time.monotonic() - self._ts) + 0.5), data))
@@ -106,6 +108,9 @@ class TimeLogger(edzed.SBlock):
         if self._mstop:
             self._append('--stop--')
         super().stop()
+
+    async def stop_async(self):
+        pass
 
     def compare(self, slog, **kwargs):
         """Compare the log with an expected standard."""

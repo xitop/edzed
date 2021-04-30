@@ -14,7 +14,7 @@ import edzed
 from .utils import *
 
 def test_invert(circuit):
-    """Shortcut '_not_blk' creates an Invert block connected to blk."""
+    """Shortcut '_not_blk' creates an inverter block connected to blk."""
     src = edzed.Input('src', allowed=(True, False), initdef=False)
     id1 = edzed.FuncBlock('identity1', func=lambda x: x).connect('src')
     id2 = edzed.FuncBlock('identity2', func=lambda x: x).connect('_not_src')
@@ -42,7 +42,7 @@ def test_invert(circuit):
 
 def test_no_invert_invert(circuit):
     """_not__not_name has no special meaning."""
-    edzed.Invert('src').connect(edzed.Const(True))
+    edzed.Not('src').connect(edzed.Const(True))
     edzed.FuncBlock('F', func=lambda x: x).connect('_not_src')
     edzed.FuncBlock('T', func=lambda x: x).connect('_not__not_src')
     with pytest.raises(Exception, match="not found"):

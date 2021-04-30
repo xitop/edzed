@@ -56,7 +56,7 @@ The completed circuit may be explicitly finalized.
   Process and validate interconnection data (see :meth:`CBlock.connect`):
 
   - resolve temporary references by name
-  - create :class:`Invert` blocks for ``"_not_NAME"`` shortcuts
+  - create :class:`Not` blocks for ``"_not_NAME"`` shortcuts
 
   and initialize related attributes:
 

@@ -10,6 +10,7 @@ import asyncio
 import collections.abc as cabc
 import concurrent.futures
 import itertools
+import weakref
 
 from .. import addons
 from .. import block
@@ -147,9 +148,10 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
 
     def __init__(
             self, *args,
-            coro, f_args=('value',), f_kwargs=(),
+            coro, mode,
+            f_args=('value',), f_kwargs=(),
             guard_time=0.0,
-            qmode=False, on_success=None, on_cancel=None, on_error,
+            on_success=None, on_cancel=None, on_error,
             stop_data=None,
             **kwargs):
         _check_arg('f_args', f_args)
@@ -158,12 +160,22 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
         self._on_cancel = block.event_tuple(on_cancel)
         self._on_error = block.event_tuple(on_error)
         self._coro = coro
+        if mode == 'c':
+            self._ctrl_coro = self._ctrl_cancel
+        elif mode == 'w':
+            self._ctrl_coro = self._ctrl_wait
+        elif mode == 's':
+            self._ctrl_coro = self._ctrl_start
+            if guard_time > 0.0:
+                self.log_warning("using guard_time in 's' mode is ineffective!")
+        else:
+            raise ValueError(
+                f"Argument 'mode' must be one of 'c', 's', 'w', but got {mode!r}")
         self._f_args = f_args
         self._f_kwargs = f_kwargs
         self._guard_time = guard_time
-        self._qmode = bool(qmode)
         self._stop_data = stop_data
-        self._ctask = None
+        self._ctrl_task = None
         self._queue = None
         super().__init__(*args, **kwargs)
         if guard_time > self.stop_timeout:
@@ -173,17 +185,12 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
 
     def _event_put(self, **data):
         self._queue.put_nowait(data)
-        self.set_output(True)
 
-    async def _output_task_wrapper(self, data):
+    async def _output_coro(self, data):
         args = tuple(data[k] for k in self._f_args)
         kwargs = {k: data[k] for k in self._f_kwargs}
         if self.debug:
             self.log_debug("output task started; args: %s", _args_as_string(args, kwargs))
-        if self._qmode:
-            qsize = self._queue.qsize()
-            if qsize > 0:
-                self.log_info("%d value(s) waiting in output queue", qsize)
         try:
             retval = await self._coro(*args, **kwargs)
         except asyncio.CancelledError:
@@ -200,8 +207,6 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
             self.log_debug("output task returned value %r", retval)
             for ev in self._on_success:
                 ev.send(self, trigger='success', value=retval, put=data)
-        if self._queue.empty():
-            self.set_output(False)
         if self._guard_time > 0.0:
             try:
                 await utils.shield_cancel(asyncio.sleep(self._guard_time))
@@ -209,7 +214,16 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
                 # shield_cancel re-reaises any CancelledError when it stops shielding
                 pass
 
-    async def _control_noqmode(self):
+    async def _output_coro_wrapper(self, data):
+        """Count the active tasks."""
+        self.set_output(self.output + 1)
+        try:
+            await self._output_coro(data)
+        finally:
+            self.set_output(self.output - 1)
+
+
+    async def _ctrl_cancel(self):
         """
         Start an output task for data from the queue.
 
@@ -229,60 +243,83 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
             if task and not task.done():
                 if not stop:
                     task.cancel()
-                # do not use try/await task/except here, because the _output_task_wrapper
+                # do not use try/await task/except here, because the _output_coro
                 # catches all exceptions from user-supplied 'coro'
                 await task
             if stop:
                 break
             while not queue.empty():
                 new_data = queue.get_nowait()
-                self.log_info("Dropping %r from queue", data)
                 if new_data is None:
                     stop = True
                     break
+                self.log_debug("Discarding: %r", data)
+                for ev in self._on_cancel:
+                    ev.send(self, trigger='cancel', put=data)
                 data = new_data
             # we are already running as monitored task
-            task = asyncio.create_task(self._output_task_wrapper(data))
+            task = asyncio.create_task(self._output_coro_wrapper(data))
 
-    async def _control_qmode(self):
+    async def _ctrl_wait(self):
         """
         Start an output task for values from the queue.
 
         Only one task may be running at a time. New values wait
         in the queue.
 
-        Stop serving after receiving the _STOP_CMD sentinel value.
+        Stop serving after receiving the None sentinel value.
         """
+        while True:
+            data = await self._queue.get()
+            if self.debug:
+                qsize = self._queue.qsize()
+                if qsize > 0:
+                    self.log_debug("%d value(s) waiting in output queue", qsize)
+            if data is None:
+                break
+            await self._output_coro_wrapper(data)
+
+    async def _ctrl_start(self):
+        """
+        Start an output task for values from the queue asap.
+
+        Stop serving after receiving the None sentinel value.
+        """
+        tasks = weakref.WeakSet()
         while True:
             data = await self._queue.get()
             if data is None:
                 break
-            await self._output_task_wrapper(data)
+            tasks.add(asyncio.create_task(self._output_coro_wrapper(data)))
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     def start(self):
         super().start()
         self._queue = asyncio.Queue()
-        cfunc = self._control_qmode if self._qmode else self._control_noqmode
-        self._ctask = self._create_monitored_task(cfunc())
+        self._ctrl_task = self._create_monitored_task(self._ctrl_coro())
 
     def init_regular(self):
-        self.set_output(False)
+        self.set_output(0)
 
     def stop(self):
-        if self._stop_data is not None:
-            # prohibit output events, because other blocks could be already stopped
-            self._on_success = self._on_cancel = self._on_error = ()
+        # do not compare self._ctrl_coro using "is" (descriptors are in play)
+        if self._stop_data is not None and self._ctrl_coro != self._ctrl_start:
+            # stop_data processing in start mode moved to stop_async, because
+            # that mode does not guarantee that stop_data will be processed last
             self._event_put(**self._stop_data)
-        self._queue.put_nowait(None)   # STOP will not cancel a running output task
+        self._queue.put_nowait(None)    # stop serving
         super().stop()
 
     async def stop_async(self):
         try:
-            await self._ctask
+            await self._ctrl_task
         except asyncio.CancelledError:
             pass
         finally:
-            self._ctask = None
+            self._ctrl_task = None
+        if self._stop_data is not None and self._ctrl_coro == self._ctrl_start:
+            await self._output_coro_wrapper(self._stop_data)
         await super().stop_async()
 
 
@@ -347,7 +384,5 @@ class OutputFunc(block.SBlock):
 
     def stop(self):
         if self._stop_data is not None:
-            # prohibit output events, because other blocks could be already stopped
-            self._on_success = self._on_error = ()
             self._event_put(**self._stop_data)
         super().stop()

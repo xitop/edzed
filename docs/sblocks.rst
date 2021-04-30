@@ -6,9 +6,19 @@ List of sequential blocks
 
 This section lists sequential blocks offered by the ``edzed`` library.
 
-Only block specific properties are documented here. For
-a description of common arguments like *initdef* or *persistent*
-please refer to the :ref:`base class<Base class arguments>`.
+Only block specific parameters are listed in the signatures. In detail:
+
+- the mandatory positional argument *name* is documented in the base class :class:`Block`
+
+- common optional keyword arguments *on_output*, *debug*, *comment* and *x_NAME*
+  are shown only as ``**kwargs``, they are documented in the base class :class:`Block`
+
+- if persistent state is supported, only the *persistent* parameter is listed,
+  but *sync_state* and *expiration* are always supported together with *persistent*,
+  refer to :class:`SBlock`
+
+- *initdef*, *init_timeout* and *stop_timeout* are listed in the class signature
+  if and only if supported by the particular block type, refer to :class:`SBlock`
 
 
 Inputs
@@ -21,20 +31,17 @@ Feeding data into the circuit
 
   :meth:`SBlock.event` is the data input entry point.
 
-.. important::
-
   Always check if the circuit is ready before forwarding external
   events to blocks. If not ready, the result is undefined!
   Refer to :meth:`Circuit.is_ready`.
 
-----
-
 Depending on your application's needs, any sequential block
 may serve as a part of the circuit's input interface.
+The most common data entry block is the ``Input``.
 
-The most common data entry block is the :class:`Input`:
+----
 
-.. class:: Input(*args, check=None, allowed=None, schema=None, **kwargs)
+.. class:: Input(name, *, check=None, allowed=None, schema=None, persistent=False, initdef=edzed.UNDEF, **kwargs)
 
   An input block with optional value validation.
 
@@ -82,7 +89,7 @@ The most common data entry block is the :class:`Input`:
   input value.
 
 
-.. class:: InputExp(*args, duration, expired=None, **kwargs)
+.. class:: InputExp(name, *, duration, expired=None, persistent=False, initdef=edzed.UNDEF, **kwargs)
 
   Like :class:`Input`, but after certain time after the ``'put'`` event
   replace the current value with the *expired* value.
@@ -111,7 +118,7 @@ Polling data sources
 
 A specialized block is provided for this task:
 
-.. class:: ValuePoll(*args, func, interval, **kwargs)
+.. class:: ValuePoll(name, *, func, interval, init_timeout=None, initdef=edzed.UNDEF, **kwargs)
 
   A source of measured or computed values.
 
@@ -178,38 +185,41 @@ Output blocks invoke a supplied function to perform an output operation.
 The appropriate block type depends on the output function's type:
 
 - :class:`OutputFunc` - for regular non-blocking functions
-- :class:`OutputAsync` with :class:`InExecutor` - for regular blocking (or possibly blocking) functions::
+- :class:`OutputAsync` with :class:`InExecutor` - for regular blocking functions::
 
     edzed.OutputAsync(..., coro=edzed.InExecutor(blocking_function), ...)
 
 - :class:`OutputAsync` - for coroutine functions
 
 In this context, a *blocking function* is a function that does not
-return in a short time, because it does a CPU intensive computation
+always return in a short time, because it could do a CPU intensive computation
 or slow I/O. Local file access is considered not blocking, but
 any network communication is a typical example of blocking I/O.
 
 ---
 
-.. class:: OutputFunc(*args, func, f_args=['value'], f_kwargs=(), on_success=None, on_error, stop_data=None, **kwargs)
-
-  .. note::
-    Due to a software limitation, the default *f_args*
-    value is shown as a list, but actually it is a tuple.
+.. class:: OutputFunc(name, *, func, f_args=['value'], f_kwargs=(), on_success=None, on_error, stop_data=None, **kwargs)
 
   Call a function when a ``'put'`` event arrives.
 
+  **Output function and its arguments:**
   The function *func* is called with arguments extracted from the event data.
   The default *f_args* and *f_kwargs* values cause the *func* to be called
-  with ``data['value']`` as its sole argument. This covers most use-cases.
-  If you want to change that:
+  with ``data['value']`` as its sole argument. This covers most use-cases,
+  but the argument passing can be easily configured differently by adjusting
+  *f_args*  and *f_kwargs*.
 
-    The keys of values to extract as positional (keyword) arguments
-    are specified with the *f_args* (*f_kwargs*) respectively. Both arguments must be
-    sequences of names. The event data of every received ``'put'`` event must contain
-    the keys listed in *f_args* and *f_kwargs*.
+  The keys of values to be extracted as positional (keyword) arguments
+  are specified with the *f_args* (*f_kwargs*) respectively. Both arguments must be
+  sequences of strings. The event data of every received ``'put'`` event must contain
+  the keys listed in *f_args* and *f_kwargs*.
 
-  Any returned value is considered a success. An exception means an error.
+  (note: due to a software limitation, the default *f_args*
+  value is shown as a list, but it is a tuple.)
+
+  **Generated events:**
+  After calling the output function *func*, any returned value is considered a success.
+  An exception means an error.
 
   On success:
     - *on_success* :ref:`events<Events>` are triggered and the
@@ -221,63 +231,92 @@ any network communication is a typical example of blocking I/O.
       the exception is added to the *on_error* event data as: ``'error'``.
     - the ``'put'`` event returns ``('error', <exception>)``
 
+  **Final state:**
   If the *stop_data* is not ``None``, it is used as the event data of a virtual
   event delivered to the block during the cleanup and processed as the
   last item before stopping. This allows to leave the controlled process
   in a well-defined state. *stop_data* argument must a dict.
 
-  .. important::
-    No events are triggered when the *stop_data* is processed.
+  **Output:** The output of an OutputFunc block is always ``False``.
 
-  The output of an OutputFunc block is always ``False``.
+.. class:: OutputAsync(name, *, coro, mode, f_args=['value'], f_kwargs=(), guard_time=0.0, on_success=None, on_cancel=None, on_error, stop_data=None, stop_timeout=None, **kwargs)
 
-.. class:: OutputAsync(*args, coro, f_args=['value'], f_kwargs=(), qmode=False, guard_time=0.0, on_success=None, on_cancel=None, on_error, stop_data=None, **kwargs)
-
-  Run a coroutine function *coro* as an asycio task when a ``'put'`` event arrives.
+  Run a coroutine function *coro* in an asycio task when a ``'put'`` event arrives.
   The coroutine function is invoked with arguments extracted from the event data.
   The event returns immediately and does not return any result.
 
   Parameters *f_args*, *f_kwargs*, *on_success*, *on_error*, and *stop_data* have
   the same meaning as in :class:`OutputFunc`.
 
-  There are two operation modes: the noqueue mode (*qmode* is ``False``,
-  this is the default) and the queue mode (*qmode* is ``True``). The
-  difference is in the behavior when a new ``'put'`` event arrives before the
-  processing of the previous one has finished:
+  **Operation modes:**
+  There are three operation modes. The difference is in the behavior when
+  a new ``'put'`` event arrives before the processing of the previous one
+  has finished:
 
-  - In the noqueue mode the task processing the previous event will be
-    cancelled and awaited. All unprocessed events except the last one are dropped.
+  - mode='c' (**c** = cancel before start)
 
-  - In the queue mode all events are enqueued and processed one by one
-    in order they have arrived. This may introduce delays. Make sure
+    In this mode the task processing the previous event will be cancelled
+    and awaited. Unprocessed events except the last one are discarded.
+    Discarded events are reported as cancelled, even if their task was never
+    started.
+
+  - mode='w' (**w** = wait before start)
+
+    In this mode the task processing the previous event will be awaited
+    before the next one is started. All events are enqueued and processed
+    one by one in order they have arrived. This may introduce delays. Make sure
     the coroutine can keep up with the rate of incoming events.
 
-  The output of an OutputAsync block is a boolean busy flag:
-  ``True``, when the block is running a task; ``False`` when idle.
+  - mode='s' (**s** = start)
 
+    In this mode a new task is immediately started for each new event
+    regardless of the state of previously started tasks. Unlike other
+    modes, multiple output tasks may be running concurrently. The order
+    of their termination may differ from the order they were started.
+
+  **Output:**
+  The output of an OutputAsync block is the number of active output tasks,
+  a non-negative integer. It can be only 0 (idle) or 1 (active) in the
+  ``'c'`` and ``'w'`` modes. In the ``'s'`` mode the active task count is not limited.
+
+  **Generated events:**
   The block triggers *on_success*, *on_cancel* and *on_error* :ref:`events<Events>`
   depending on the result of the task. A normal termination is considered
   a success and the returned value is added to the *on_success* event data as ``'value'``.
   An exception other than :exc:`asyncio.CancelledError` means an error;
   the raised exception is added to the *on_error* event data as ``'error'``.
-  A cancelled task triggers *on_cancel* events. Note that no tasks are
-  cancelled in the queue mode. In all three cases (success, cancel, error)
+  Cancelled tasks trigger *on_cancel* events. Note that tasks are
+  cancelled only in the ``'c'`` mode. In all three cases (success, cancel, error)
   the original ``'put'`` event data is inserted into the output event data
-  as item ``'put'``. This makes it possible to pair an event and its response.
+  as item ``'put'``. This makes it possible to match an event with its result.
 
+  .. note::
+
+    Due to the asynchronous character of this block, some events may be generated
+    during the simulation shutdown. It those events are sent to other asynchronous
+    blocks, their effect is undefined, because those destination blocks are shutting
+    down as well. Events sent to non-asynchronous blocks will be always processed
+    normally.
+
+  **Final state:**
   If the *stop_data* is defined, it is processed as the last item before stopping.
   As this happen during the stop phase, make sure the *stop_timeout* gives enough
-  time for a successful output task run.
+  time for finishing all work in progress and then a successful output task
+  run with *stop_data*.
 
-  .. important::
-    No events are triggered when the *stop_data* is processed.
-
+  **Guard time:**
   The *guard_time* is the duration of a mandatory and uncancellable sleep
   after each run of the output task. No output activity can
   happen during the sleep. The purpose is to limit the frequency
   of actions, for instance when controlling a hardware switch.
   Default value is 0.0 [seconds], i.e. no guard_time. The *guard_time*
   must not be longer than the *stop_timeout*.
+
+  .. note::
+
+    The *guard_time* should not be used in the ``'s'`` mode
+    which allows multiple output tasks running concurrently
+    defeating the effect of a *guard_time* sleep.
 
 .. class:: InExecutor(func, executor=concurrent.futures.ThreadPoolExecutor)
 
@@ -321,7 +360,7 @@ In all cases extra whitespace around values is allowed.
 Periodic events
 ---------------
 
-.. class:: TimeDate(*args, times=None, dates=None, weekdays=None, utc=False, **kwargs)
+.. class:: TimeDate(name, *, times=None, dates=None, weekdays=None, utc=False, **kwargs)
 
   Block for periodic events occurring daily, weekly or yearly. A combination
   of conditions is possible (e.g. Every Monday morning 6-9 a.m., but only in April)
@@ -456,7 +495,7 @@ though.
 Non-periodic events
 -------------------
 
-.. class:: TimeSpan(*args, span=(), utc=False, **kwargs)
+.. class:: TimeSpan(name, *, span=(), utc=False, **kwargs)
 
   Block for non-periodic events occurring in intervals between start and stop
   defined with full date and time, i.e. year, month, day, hour, minute and second.
@@ -544,7 +583,7 @@ and responds with a dump of the internal scheduling data in the form of a dict:
 Counter
 =======
 
-.. class:: Counter(*args, modulo=None, initdef=0, **kwarg)
+.. class:: Counter(name, *, modulo=None, initdef=0, persistent=False, **kwarg)
 
   A counter.
 
@@ -581,7 +620,7 @@ Counter
 Repeat
 ======
 
-.. class:: Repeat(*args, dest, etype='put', interval, count=None, **kwargs)
+.. class:: Repeat(name, *, dest, etype='put', interval, count=None, **kwargs)
 
   Periodically repeat the last received event.
 
@@ -616,7 +655,7 @@ Repeat
 Timer
 ======
 
-.. class:: Timer(*args, restartable=True, **kwargs)
+.. class:: Timer(name, *, restartable=True, persistent=False, **kwargs)
 
   A timer (:ref:`source <Example (Timer)>`).
 
@@ -664,7 +703,7 @@ Timer
 Simulator control block
 =======================
 
-.. class:: ControlBlock
+.. class:: ControlBlock(name, **kwargs)
 
   The simulator control block accepts two event types:
 

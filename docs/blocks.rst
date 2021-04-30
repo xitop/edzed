@@ -20,7 +20,7 @@ The main differences are:
 Common features
 ===============
 
-.. class:: Block(name: Optional[str], *, comment: str = "", on_output=None, debug: bool = False, **kwargs)
+.. class:: Block(name: Optional[str], *, comment: str = "", on_output=None, debug: bool = False, **x_kwargs)
 
   Create a block and add it to the current circuit.
 
@@ -49,6 +49,8 @@ Common features
   All keyword arguments starting with ``'x_'`` or ``'X_'`` are accepted
   and stored as block's attributes. These names are reserved for storing
   arbitrary application data.
+
+  Keyword arguments other than those mentioned above are not accepted.
 
   ---
 

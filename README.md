@@ -12,8 +12,6 @@ The package contains:
 
 We are preparing to change the status from "beta" to "stable" in May 2021.
 
-21.4.22 is a release candidate.
-
 ## Documentation
 
 Please see the [online documentation](https://edzed.readthedocs.io/en/latest/) for more information.

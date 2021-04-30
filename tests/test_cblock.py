@@ -317,8 +317,8 @@ def test_and_or(circuit):
     """Test unpack=False on AND/OR logical gates."""
     inp0 = edzed.Input('inp0', initdef=False)
     inp1 = edzed.Input('inp1', initdef=False)
-    and_gate = edzed.FuncBlock('AND', func=all, unpack=False).connect(inp0, inp1, True)
-    or_gate = edzed.FuncBlock('OR', func=any, unpack=False).connect(inp0, inp1, False)
+    and_gate = edzed.And('AND').connect(inp0, inp1, True)
+    or_gate = edzed.Or('OR').connect(inp0, inp1, False)
     init(circuit)
     for v0, v1 in ((0, 0), (0, 1), (1, 0), (1, 1)):
         inp0.put(v0)
@@ -331,8 +331,8 @@ def test_and_or(circuit):
 
 def test_and_or_empty(circuit):
     """Test unpack=False with no inputs."""
-    and_gate = edzed.FuncBlock('AND', func=all, unpack=False)
-    or_gate = edzed.FuncBlock('OR', func=any, unpack=False)
+    and_gate = edzed.And('AND')
+    or_gate = edzed.Or('OR')
     init(circuit)
     and_gate.eval_block()
     or_gate.eval_block()
@@ -341,13 +341,13 @@ def test_and_or_empty(circuit):
 
 
 def test_invert(circuit):
-    """Test explicitly created Invert blocks."""
+    """Test explicitly created inverter (Not) blocks."""
     src = edzed.Input('src', allowed=(True, False), initdef=True)
-    notsrc = edzed.Invert('notsrc').connect(src)
-    src2 = edzed.Invert('src2').connect(notsrc)
+    notsrc = edzed.Not('notsrc').connect(src)
+    src2 = edzed.Not('src2').connect(notsrc)
     init(circuit)
 
-    # Invert blocks are a special case in finalize()
+    # inverter blocks are a special case in finalize()
     assert notsrc.iconnections == {src}
     assert notsrc.oconnections == {src2}
     for value in (True, False, True, False):

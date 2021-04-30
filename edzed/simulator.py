@@ -295,7 +295,7 @@ class Circuit:
                     return sblocks1.ControlBlock(
                         blk, comment="Simulation Control Block", _reserved=True)
                 if blk.startswith('_not_') and blk[5:6] != '_':
-                    return cblocks.Invert(
+                    return cblocks.Not(
                         blk, comment=f"Inverted output of {blk}", _reserved=True
                         ).connect(blk[5:])
             return self.findblock(blk)
@@ -311,7 +311,7 @@ class Circuit:
 
         For each block:
           - resolve temporary references by name
-          - create Invert blocks for _not_name shortcuts
+          - create inverter blocks for _not_name shortcuts
           - update connection data
         """
         def validate_output(iblk, oblk):
@@ -323,9 +323,9 @@ class Circuit:
                 err.args = (fmt.format(err.args[0] if err.args else "<NO ARGS>"), *err.args[1:])
                 raise
 
-        for btype in (block.CBlock, cblocks.Invert):
-            # doing two passes because the first one may create new Invert blocks
-            # some Invert blocks may be processed twice, that's acceptable
+        for btype in (block.CBlock, cblocks.Not):
+            # doing two passes because the first one may create new inverter blocks
+            # some inverter blocks may be processed twice, that's acceptable
             for blk in list(self.getblocks(btype)):
                 all_inputs = []
                 for iname, inp in blk.inputs.items():
@@ -367,8 +367,11 @@ class Circuit:
                     await asyncio.wait_for(task, timeout - get_time() + start_time)
                 except asyncio.TimeoutError:
                     errcnt += 1
-                    blk.log_warning("%s timeout, check timeout value (%.1fs)", jobname, timeout)
-            if task.done() and not task.cancelled():
+                    blk.log_warning("%s timeout, check timeout value (%.1f s)", jobname, timeout)
+                except Exception as err:
+                    # will be logged below
+                    pass
+            if not task.cancelled():
                 err = task.exception()
                 if err is not None:
                     errcnt += 1
@@ -458,21 +461,36 @@ class Circuit:
         """
         Stop sequential blocks. Wait until all blocks are stopped.
 
+        Stop blocks with async cleanup first, then all remaining blocks.
+
         Suppress errors.
         """
-        for blk in blocks:
+        async_blocks = {
+            blk for blk in blocks.intersection(self.getblocks(addons.AddonAsync))
+            if blk.has_method('stop_async') and blk.stop_timeout > 0.0}
+        sync_blocks = blocks.difference(async_blocks)
+
+        # 1. async blocks
+        if async_blocks:
+            for blk in async_blocks:
+                try:
+                    blk.stop()
+                except Exception:
+                    _logger.error("%s: ignored error in stop()", blk, exc_info=True)
+
+            await asyncio.sleep(0)
+            wait_tasks = [
+                (blk, asyncio.create_task(blk.stop_async()), blk.stop_timeout)
+                for blk in async_blocks]
+            self.log_debug("Waiting for async cleanup")
+            await self._run_tasks("stop", wait_tasks)
+
+        # 2. sync blocks
+        for blk in sync_blocks:
             try:
                 blk.stop()
             except Exception:
                 _logger.error("%s: ignored error in stop()", blk, exc_info=True)
-        await asyncio.sleep(0)
-        wait_tasks = [
-            (blk, asyncio.create_task(blk.stop_async()), blk.stop_timeout)
-            for blk in blocks.intersection(self.getblocks(addons.AddonAsync))
-            if blk.has_method('stop_async') and blk.stop_timeout > 0.0]
-        if wait_tasks:
-            self.log_debug("Waiting for async cleanup")
-            await self._run_tasks("stop", wait_tasks)
 
     async def _simulate(self):
         """

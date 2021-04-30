@@ -339,7 +339,7 @@ Access to event data
 .. data:: fsm_event_data
 
   Read-only access to the current event data dict is provided through the
-  :data:`fsm_event_data`
+  ``fsm_event_data``
   `context variable <https://docs.python.org/3/library/contextvars.html>`_.
 
   You don't have to be familiar with the context variables, just use this line::
@@ -497,11 +497,17 @@ state and event names.
 - ``on_notrans=events``
     see: :ref:`Generating FSM events`
 
-- ``persistent=boolean``
-    make the internal state persistent
+- ``persistent=boolean`` (and related ``sync_state`` and ``expiration``)
+    make the internal state persistent, refer to :class:`SBlock`
 
 - ``initdef=STATE``
-    initial state, default is the first state listed in :obj:`FSM.STATES`.
+    initial state, default is the first state listed in :obj:`FSM.STATES`
+
+- ``on_output=events``
+- ``debug=boolean``
+- ``comment=str``
+- ``x_NAME=anything``
+    common arguments documented in the base class :class:`Block`
 
 
 Generating FSM events

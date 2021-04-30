@@ -127,7 +127,7 @@ is derived from another block's NAME by prepending a ``'_not_'`` prefix.
 The original NAME must not begin with an underscore.
 
 This is a shortcut for connecting a logically inverted output. A new
-:class:`Invert` block will be created automatically if it does not
+:class:`Not` block will be created automatically if it does not
 exist already::
 
-  edzed.Invert('_not_NAME').connect(NAME)
+  edzed.Not('_not_NAME').connect(NAME)

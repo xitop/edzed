@@ -64,6 +64,26 @@ async def test_shield():
         assert result == 5
 
 
+def test_init_timeout_acceptance(circuit):
+    """Timeouts are valid only with the corresponding method defined."""
+    class Incomplete(edzed.AddonAsync, edzed.SBlock):
+        pass
+
+    class Complete(Incomplete):
+        async def init_async(self):
+            pass
+        async def stop_async(self):
+            pass
+
+    with pytest.raises(TypeError, match="init_async"):
+        Incomplete('test1', init_timeout=3)
+    with pytest.raises(TypeError, match="stop_async"):
+        Incomplete('test2', stop_timeout=3)
+
+    Complete('test3', init_timeout=3)
+    Complete('test4', stop_timeout=3)
+
+
 async def test_maintask(circuit):
     """Test the task monitoring in AddonMainTask (is_service=True)."""
     class Short(edzed.AddonMainTask, edzed.SBlock):

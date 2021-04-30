@@ -131,7 +131,7 @@ class Block:
             on_output: 'EventsArg' = None,
             _reserved: bool = False,
             debug: bool = False,
-            **kwargs):
+            **x_kwargs):
         """
         Create a block. Add it to the circuit.
         """
@@ -147,7 +147,7 @@ class Block:
         if not is_sblock and not is_cblock:
             raise TypeError("Can't instantiate abstract Block class")
         assert not (is_sblock and is_cblock)
-        for key, value in kwargs.items():
+        for key, value in x_kwargs.items():
             if not key.startswith('x_') and not key.startswith('X_'):
                 raise TypeError(
                     f"'{key}' is an invalid keyword argument for {type(self).__name__}()")

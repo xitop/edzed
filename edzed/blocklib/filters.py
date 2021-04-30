@@ -7,6 +7,7 @@ Home: https://github.com/xitop/edzed/
 """
 
 import logging
+import types
 
 from .. import block
 from .. import simulator
@@ -111,8 +112,19 @@ class DataEdit:
     # pylint: disable=bad-classmethod-argument, no-member
     @dualmethod
     def add(self, **kwargs):
-        """Add key=value pairs. Existing values wil be overwritten."""
+        """Add key=value pairs. Existing values will be overwritten."""
         self._editlist.append(lambda data: {**data, **kwargs})
+        return self
+
+    @dualmethod
+    def add_output(self, key, source):
+        """Add key=block's output. Existing value will be overwritten."""
+        # cannot store the 'source' as an instance attribute, because
+        # next 'add_output' call would overwrite it. In order to prevent
+        # that a separate container must be created each time.
+        src = types.SimpleNamespace(block=source)
+        simulator.get_circuit().resolve_name(src, 'block')
+        self._editlist.append(lambda data: {**data, key: src.block.output})
         return self
 
     @dualmethod

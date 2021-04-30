@@ -4,7 +4,7 @@
 List of event filters
 =====================
 
-List of :ref:`event filters<Event filters>`.
+List of :ref:`event filters<Event filters>` bundled with ``edzed``.
 
 .. class:: Edge(rise=False, fall=False, u_rise=None, u_fall=False)
 
@@ -67,7 +67,13 @@ List of :ref:`event filters<Event filters>`.
 
   .. classmethod:: add(key1=value1, key2=value2, ...)
 
-    Add data items, existing values for the same key will be overwritten.
+    Add data items. Existing values for the same key will be overwritten.
+
+  .. classmethod:: add_output(key, source)
+
+    Add one data item with the key *key* and *source* block's current value.
+    Existing value for the same key will be overwritten.
+    The *source* argument may be a block object or block name.
 
   .. classmethod:: copy(srckey, dstkey)
 

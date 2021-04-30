@@ -127,9 +127,7 @@ async def test_stop(circuit):
         (0, 2),
         (50, 1),
         (100, 4),
-        # (100, '--stop--'),
-        # --stop-- mark disabled, because the TimeLogger's stop could happen
-        # before or after the OutputFunc's stop which generates the output 1.
+        (100, '--stop--'),
         (100, 1),
         (100, 'END')
         ]
@@ -137,12 +135,11 @@ async def test_stop(circuit):
         (0, 102),
         (50, 101),
         (100, 104),
-        # (100, 101) <-- no output event for stop_args
         (100, '--stop--'),
+        (100, 101), # output event for stop_args
         ]
     vlog = TimeLogger('vlog', mstop=True)
     await output_func(
         circuit, v2=12, stop_data=dict(value=12), log=LOG,
-        on_success=edzed.Event('vlog'),
-        mstop=False)
+        on_success=edzed.Event('vlog'))
     vlog.compare(VLOG)

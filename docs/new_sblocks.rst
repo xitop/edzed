@@ -435,7 +435,8 @@ Async initialization add-on
   is set from a spawned asyncio task. For this reason it is often used
   together with the :class:`AddonMainTask`.
 
-  Note that blocks with this add-on accept the *init_timeout* argument.
+  The initial value must be set within the time limit specified
+  by the *init_timeout* argument.
 
   :class:`AddonAsyncInit` is a subclass of :class:`AddonAsync`.
 

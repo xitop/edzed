@@ -10,10 +10,10 @@ import inspect
 
 from .. import block
 
-__all__ = ['Invert', 'FuncBlock', 'Compare', 'Override']
+__all__ = ['And', 'Or', 'Not', 'Invert', 'FuncBlock', 'Compare', 'Override']
 
 
-class Invert(block.CBlock):
+class Not(block.CBlock):
     """
     Boolean negation.
     """
@@ -23,6 +23,9 @@ class Invert(block.CBlock):
     def start(self):
         super().start()
         self.check_signature({'_': 1})
+
+
+Invert = Not    # TODO: keep the old name until the stable release
 
 
 class FuncBlock(block.CBlock):
@@ -53,6 +56,14 @@ class FuncBlock(block.CBlock):
         finally:
             self._func = func
         super().start()
+
+
+def And(*args, **kwargs):
+    return FuncBlock(*args, func=all, unpack=False, **kwargs)
+
+
+def Or(*args, **kwargs):
+    return FuncBlock(*args, func=any, unpack=False, **kwargs)
 
 
 class Compare(block.CBlock):

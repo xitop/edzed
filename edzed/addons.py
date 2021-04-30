@@ -140,9 +140,15 @@ class AddonAsync(block.Addon):
         init = self.has_method('init_async')
         if init:
             self.init_timeout = utils.time_period(kwargs.pop('init_timeout', None))
+        elif 'init_timeout' in kwargs:
+            raise TypeError(
+                "'init_timeout' argument rejected, because init_async() method is missing")
         stop = self.has_method('stop_async')
         if stop:
             self.stop_timeout = utils.time_period(kwargs.pop('stop_timeout', None))
+        elif 'stop_timeout' in kwargs:
+            raise TypeError(
+                "'stop_timeout' argument rejected, because stop_async() method is missing")
         super().__init__(*args, **kwargs)
         # cannot use self.log before Block.__init__()
         if init and self.init_timeout is None:

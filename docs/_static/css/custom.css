@@ -3,6 +3,11 @@ a:link {
 }
 
 div.important {
-    background-color: #fcfaf0;
-    border: 1px solid #eee;
+  background-color: #fcfaf0;
+  border: 1px solid #eee;
 }
+
+.strike {
+  text-decoration: line-through;
+}
+
