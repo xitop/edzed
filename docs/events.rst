@@ -220,7 +220,8 @@ of the destination block.
   .. warning::
 
     If an exception (other than an unknown event type or a trivial parameter error)
-    is raised during event handling, the simulation terminates with an error.
+    is raised during event handling, the simulation will be aborted even if
+    the caller catches the exception with a ``try-event()-except`` construct.
 
 .. method:: SBlock.put(value: Any, **data) -> Any
 

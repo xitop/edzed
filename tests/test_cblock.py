@@ -241,19 +241,6 @@ def test_signature_and_get_conf(circuit):
         blk2.check_signature({'inpA': None, '_': [0, 1, 2, 3], 'inpB': 1, 'inpC': 5})
 
 
-def test_eponymous(circuit):
-    """Test name='' shortcut."""
-    edzed.Input('white', initdef='W')
-    edzed.Input('black', initdef='B')
-    combine = edzed.FuncBlock(
-        'combine',
-        func=lambda black, white: black + '&' + white).connect(
-            white='', black='') # i.e. white='white', black='black'
-    init(circuit)
-    combine.eval_block()
-    assert combine.output == 'B&W'
-
-
 def test_override(circuit):
     """Test the override block."""
     SENTINEL = 999

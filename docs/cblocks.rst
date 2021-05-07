@@ -41,19 +41,19 @@ Only block specific parameters are listed in the signatures. In detail:
 
   Logical NOT (Inverter). This block has exactly one unnamed input.
 
-.. function:: And(name, **kwargs)
+.. class:: And(name, **kwargs)
 
   Logical AND with arbitrary number of unnamed inputs.
   The output is ``True`` only if all inputs are true.
 
-  ``And`` simply returns a :class:`FuncBlock` created with ``func=all``.
+  ``And`` is a subclass of the :class:`FuncBlock` with fixed ``func=all``.
 
-.. function:: Or(name, **kwargs)
+.. class:: Or(name, **kwargs)
 
   Logical OR with arbitrary number of unnamed inputs.
   The output is ``True`` only if at least one input is true.
 
-  ``Or`` simply returns a :class:`FuncBlock`  created with ``func=any``.
+  ``Or`` is a subclass of the :class:`FuncBlock`  with fixed ``func=any``.
 
 .. class:: Compare(name, *, low, high, **kwargs)
 

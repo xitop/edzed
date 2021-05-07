@@ -135,8 +135,14 @@ class Block:
         """
         Create a block. Add it to the circuit.
         """
+        self.circuit = simulator.get_circuit()
         if name is None:
-            name = "_@" + hex(id(self))[2:]  # id() is unique
+            # autonamically assign name _TYPE_0, _TYPE_1, _TYPE_2, ...
+            prefix = f"_{type(self).__name__}_"
+            cnt = sum(
+                1 for blk in self.circuit.getblocks(type(self))
+                if blk.name.startswith(prefix))
+            name = prefix + str(cnt)
         else:
             checkname(name, "block name")
             if name.startswith('_') and not _reserved:
@@ -158,7 +164,6 @@ class Block:
         # oconnections will be populated by Circuit._init_connections:
         self.oconnections = set()   # output is connected to these blocks
         self._output = UNDEF
-        self.circuit = simulator.get_circuit()
         self.circuit.addblock(self)
 
     @property
@@ -322,11 +327,7 @@ class CBlock(Block, metaclass=abc.ABCMeta):
                         "(wrap it in Const() if it is a constant)")
             self.inputs['_'] = args
         for iname, inp in kwargs.items():
-            if _is_multiple(inp):
-                inp = tuple(inp)
-            if inp == '':
-                inp = iname
-            self.inputs[iname] = inp
+            self.inputs[iname] = tuple(inp) if _is_multiple(inp) else inp
         return self
 
     def input_signature(self) -> dict:
@@ -556,9 +557,8 @@ class SBlock(Block):
             except EdzedUnknownEvent:
                 raise
             except Exception as err:
-                if not self.circuit.is_current_task() and err.__traceback__.tb_next is not None:
-                    # 1. The raised exception won't be handled by the simulation task.
-                    # 2. The traceback has more than one level only, i.e. the handler function
+                if err.__traceback__.tb_next is not None:
+                    # The traceback has more than just one level, i.e. the handler function
                     # call itself succeded. Errors like missing arguments are thus ruled out
                     # and the error must have occurred inside the handler. The internal state
                     # of the block could have been corrupted. That's a sufficient reason for

@@ -91,10 +91,10 @@ def test_automatic_names(circuit):
     Noop(None)
     Noop(None)
     Noop(None)
-    blocks = list(circuit.getblocks())
-    assert len(blocks) == 3
-    assert all(blk.name.startswith('_@') for blk in blocks)
-    assert blocks[0].name != blocks[1].name != blocks[2].name != blocks[0].name
+    edzed.Not(None)
+    blocks = set(circuit.getblocks())
+    assert len(blocks) == 4
+    assert {b.name for b in blocks} == {'_Noop_0', '_Noop_1', '_Noop_2', '_Not_0'}
 
 
 def test_x_attributes(circuit):

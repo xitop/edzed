@@ -96,8 +96,8 @@ async def test_smode(circuit):
         (120, 'stop i1'),
         (130, '--stop--'),
         (160, 'stop i2'),
-        (180, 'stop i3'),
-        (180, 'END')
+        (200, 'stop i3'),
+        (200, 'END')
         ]
     await output_async(circuit, mode='s', t1=0.04, t2=0.04, log=LOG)
 
@@ -358,17 +358,17 @@ async def test_smode_stop(circuit):
         (120, 'stop i1'),
         (130, '--stop--'),
         (160, 'stop i2'),
-        (180, 'stop i3'),
+        (200, 'stop i3'),
         # stop data is always processed last
-        (180, 'start CLEANUP'),
-        (300, 'stop CLEANUP'),
-        (300, 'END')
+        (200, 'start CLEANUP'),
+        (320, 'stop CLEANUP'),
+        (320, 'END')
         ]
     VLOG = [
         (120, 'ok i1'),
         (160, 'ok i2'),
-        (180, 'ok i3'),
-        (300, 'ok CLEANUP'),
+        (200, 'ok i3'),
+        (320, 'ok CLEANUP'),
         ]
 
     vlog = TimeLogger('vlog')
@@ -380,8 +380,9 @@ async def test_smode_stop(circuit):
 
 async def test_executor(circuit):
     """Test execution of blocking output functions in threads."""
-    THREADS = 10
-    LOG = [(10 + 20*i, i) for i in range(THREADS)] + [(250, '--stop--')]
+    THREADS = 8
+    # add 1 ms for large overhead (10->11)
+    LOG = [(11 + 20*i, i) for i in range(THREADS)] + [(210, '--stop--')]
 
     def blocking(v):
         time.sleep(0.01 + 0.015*v)
@@ -398,6 +399,6 @@ async def test_executor(circuit):
     for i, blk in enumerate(blocks):
         blk.put(i)
         await asyncio.sleep(0.005)
-    await asyncio.sleep(0.2)
+    await asyncio.sleep(0.17)
     await circuit.shutdown()
     log.compare(LOG)

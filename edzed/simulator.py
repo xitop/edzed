@@ -654,7 +654,8 @@ class Circuit:
         The start will then fail.
         """
         if self._error is not None:
-            if not isinstance(exc, asyncio.CancelledError):
+            if exc != self._error and exc != self._error.__cause__ \
+                    and not isinstance(exc, asyncio.CancelledError):
                 _logger.warning("subsequent error: abort(%s)", exc)
             return
         if not isinstance(exc, BaseException):

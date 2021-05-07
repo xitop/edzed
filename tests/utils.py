@@ -63,10 +63,10 @@ def compare_logs(tlog, slog, delta_abs=10, delta_rel=0.15):
         if sts is None or sts == 0:
             continue
         if (tts - delta_abs)/sts > 1.0 + delta_rel:
-            assert False, f"timestamps: {tts} is way above expected {sts} " \
+            assert False, f"timestamps: {tts} is way above expected {sts}\n" \
             "(please repeat; timing tests may produce a false negative under high load!)"
         if (tts + delta_abs/10)/sts < 1.0 - delta_rel/10:
-            assert False, f"timestamps: {tts} is way below expected {sts} " \
+            assert False, f"timestamps: {tts} is way below expected {sts}\n" \
             "(please repeat; timing tests may produce a false negative under high load!)"
 
 

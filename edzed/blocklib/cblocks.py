@@ -52,18 +52,21 @@ class FuncBlock(block.CBlock):
             self.calc_output()
         except TypeError as err:
             raise TypeError(
-                f"function {func.__qualname__} does not match the connected inputs: {err}")
+                f"function {func.__qualname__} does not match the connected inputs: {err}"
+                ) from None
         finally:
             self._func = func
         super().start()
 
 
-def And(*args, **kwargs):
-    return FuncBlock(*args, func=all, unpack=False, **kwargs)
+class And(FuncBlock):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, func=all, unpack=False, **kwargs)
 
 
-def Or(*args, **kwargs):
-    return FuncBlock(*args, func=any, unpack=False, **kwargs)
+class Or(FuncBlock):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, func=any, unpack=False, **kwargs)
 
 
 class Compare(block.CBlock):

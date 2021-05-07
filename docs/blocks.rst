@@ -180,15 +180,12 @@ The output of a combinational block depends only on its present input values.
 
     To connect a single named input, add a keyword argument::
 
-      name=<single_input>  # see below
-
-    An empty name is a shortcut for connecting an eponymous block:
-    ``foo=''`` is equivalent to ``foo='foo'`` (connect output of ``foo``
-    to the input named ``foo``).
+      name=<single_input>  # defined below
 
     To connect a group::
 
-      name=<multiple_inputs>  # any sequence (tuple, list, ...), or iterator of single inputs
+      name=<multiple_inputs>  # any sequence (tuple, list, ...)
+                              # or an iterator of single inputs
 
     A single input could be connected:
 

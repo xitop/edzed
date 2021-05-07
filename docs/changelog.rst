@@ -10,6 +10,16 @@ Changelog
 Version numbers are based on the release date (Y.M.D).
 
 
+21.5.8
+======
+**stable release candidate**
+
+- make the automatically created block names more descriptive
+- convert :class:`And` and :func:`Or` to classes for better type indentification
+- in :meth:`CBlock.connect` remove the shortcut feature, i.e.
+  ``name='name'`` must be written in full
+- increase the reliability of "flaky" timing tests
+
 21.5.1
 ======
 It was decided to revoke the "release candidate" status.
@@ -22,7 +32,7 @@ It was decided to revoke the "release candidate" status.
   - do not prohibit event generation for *stop_data*
 
 - fix an error handling issue concerning async block init and async block stop
-- add :func:`And` and :func:`Or` blocks, rename ``Invert`` to :class:`Not`
+- add :class:`And` and :class:`Or` blocks, rename ``Invert`` to :class:`Not`
 - add :meth:`DataEdit.add_output`
 
 21.4.22

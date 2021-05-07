@@ -1,9 +1,11 @@
 import asyncio
+import gc
 
 import pytest
 
 @pytest.fixture(scope='module', autouse=True)
 def _teardown():
+    gc.disable()    # do not interfere with timing tests
     yield None
-    # prevent ResourceWarning (in devel mode)
-    asyncio.get_event_loop().close()
+    gc.enable()
+    gc.collect()
