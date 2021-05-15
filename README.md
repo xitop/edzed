@@ -10,7 +10,7 @@ The package contains:
 
 ## Project status
 
-We are preparing to change the status from "beta" to "stable" in May 2021.
+Version 21.5.15 is the first production/stable release.
 
 ## Documentation
 

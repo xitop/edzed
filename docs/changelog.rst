@@ -9,6 +9,11 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+21.5.15
+=======
+**first production/stable release**
+
+- no significant changes
 
 21.5.8
 ======
@@ -99,23 +104,6 @@ It was decided to revoke the "release candidate" status.
 - simulator debug messages are controlled with :attr:`Circuit.debug`
 - block debug messages are logged at the ``DEBUG`` level
 - old block logging methods were replaced by :meth:`Block.log_msg` and its wrappers
-
-21.2.24
-=======
-- :class:`SBlock` :ref:`initialization rules <Initialization>` were modified
-- auxiliary event data in :class:`Repeat` were slightly changed
-- the default :ref:`output<Output>` value of an FSM was changed
-
-21.2.20
-=======
-- expiration of saved :ref:`persistent state<Persistent state add-on>` was implemented
-- helper function :func:`utils.timeunits.time_period` was added
-- an issue with SBlocks initialized by an event was fixed
-- :class:`SBlock`\'s arguments *init_timeout* and *stop_timeout* may be now written
-  also as strings
-- :class:`SBlock` :ref:`initialization order <Initialization>` was modified
-- :func:`CBlock._eval` was renamed to :func:`CBlock.calc_output` (incompatible change)
-- :func:`FSM._eval` was renamed to :func:`FSM.calc_output` (incompatible change)
 
 
 .. note:: See the git repository for older releases.

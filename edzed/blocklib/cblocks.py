@@ -10,7 +10,7 @@ import inspect
 
 from .. import block
 
-__all__ = ['And', 'Or', 'Not', 'Invert', 'FuncBlock', 'Compare', 'Override']
+__all__ = ['And', 'Or', 'Not', 'FuncBlock', 'Compare', 'Override']
 
 
 class Not(block.CBlock):
@@ -23,9 +23,6 @@ class Not(block.CBlock):
     def start(self):
         super().start()
         self.check_signature({'_': 1})
-
-
-Invert = Not    # TODO: keep the old name until the stable release
 
 
 class FuncBlock(block.CBlock):
