@@ -18,7 +18,7 @@ from .. import fsm
 from .. import utils
 
 
-__all__ = ['Input', 'InputExp', 'InExecutor', 'OutputAsync', 'OutputFunc']
+__all__ = ['InitAsync', 'Input', 'InputExp', 'InExecutor', 'OutputAsync', 'OutputFunc']
 
 
 class _Validation:
@@ -160,17 +160,18 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
         self._on_cancel = block.event_tuple(on_cancel)
         self._on_error = block.event_tuple(on_error)
         self._coro = coro
-        if mode == 'c':
+        if mode == 'c' or mode == "cancel":
             self._ctrl_coro = self._ctrl_cancel
-        elif mode == 'w':
+        elif mode == 'w' or mode == "wait":
             self._ctrl_coro = self._ctrl_wait
-        elif mode == 's':
+        elif mode == 's' or mode == "start":
             self._ctrl_coro = self._ctrl_start
             if guard_time > 0.0:
-                self.log_warning("using guard_time in 's' mode is ineffective!")
+                self.log_warning("using guard_time in 'start' mode is ineffective!")
         else:
             raise ValueError(
-                f"Argument 'mode' must be one of 'c', 's', 'w', but got {mode!r}")
+                "Argument 'mode' must be one of: 'cancel', 'start', 'wait' "
+                f"(may be abbreviated to 'c', 's', or 'w'), but got {mode!r}")
         self._f_args = f_args
         self._f_kwargs = f_kwargs
         self._guard_time = guard_time
@@ -386,3 +387,34 @@ class OutputFunc(block.SBlock):
         if self._stop_data is not None:
             self._event_put(**self._stop_data)
         super().stop()
+
+
+class InitAsync(addons.AddonAsync, block.SBlock):
+    """
+    Run a coroutine once during the circuit initialization.
+    """
+
+    def __init__(self, *args, init_coro: list, **kwargs):
+        if not isinstance(init_coro, cabc.Sequence):
+            raise TypeError(
+                "Parameter 'init_coro' must be a sequence (list, tuple, ...), "
+                f"but got {init_coro!r}")
+        if not init_coro:
+            raise ValueError("Parameter 'init_coro' cannot be empty.")
+        self._init_coro = init_coro
+        super().__init__(*args, **kwargs)
+
+    def init_regular(self):
+        if self.is_initialized() or self.initdef is not block.UNDEF:
+            return      # is initialized or will be initialized
+        # initialize only to prevent a startup failure
+        self._output_events = ()    # do not send output events
+        self.set_output(None)
+
+    def init_from_value(self, value):
+        self.set_output(value)
+
+    async def init_async(self):
+        coro, *args = self._init_coro
+        result = await coro(*args)
+        self.set_output(result)

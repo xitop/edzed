@@ -35,7 +35,7 @@ Common features
   Use this feature only for auxiliary blocks that you will not need
   to reference by name.
 
-  The optional *comment* can be any arbitrary text and is not used internally.
+  The optional *comment* may be any arbitrary text and is not used internally.
 
     .. versionchanged:: 21.3.16
       the *comment* parameter and the corresponding ``comment`` attribute were formerly
@@ -131,7 +131,7 @@ Common features
 .. data:: UNDEF
 
   A constant representing an undefined output. All other output values
-  are valid, including ``None``. It is an error, if ``edzed.UNDEF``
+  are valid, including ``None``. It is an error when ``edzed.UNDEF``
   value appears on block's output after the circuit initialization.
 
 
@@ -258,7 +258,7 @@ Base class arguments
 
       - *expiration*:
           Expiration time measured since the program stop. An expired
-          state is disregarded. Expiration value can be ``None``,
+          state is disregarded. Expiration value may be ``None``,
           number of seconds, or
           a :ref:`string with time units<Time intervals with units>`.
 
@@ -268,7 +268,7 @@ Base class arguments
       The :ref:`persistent data storage<Storage for persistent state>`
       must be provided by the circuit.
 
-  - Timeout for asynchronous initialization and cleanup:
+  - Timeouts for asynchronous initialization and cleanup:
       Some blocks perform asynchronous operations. These
       arguments control the timeouts:
 

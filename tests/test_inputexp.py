@@ -57,6 +57,7 @@ async def ptest(circuit, delay, slog):
     state = {}
     circuit.set_persistent_data(state)
     asyncio.create_task(circuit.run_forever())
+    await circuit.wait_init()
     await asyncio.sleep(0.1)
     await circuit.shutdown()
     assert ie1.key in state
@@ -71,10 +72,12 @@ async def ptest(circuit, delay, slog):
         'ie', duration=0.25, expired="exp", initdef="ok2", persistent=True,
         on_output=edzed.Event(logger))
     asyncio.create_task(circuit.run_forever())
+    await circuit.wait_init()
     await asyncio.sleep(0.30)
     await circuit.shutdown()
 
     logger.compare(slog)
+
 
 async def test_persistent_state(circuit):
     """Test the state persistence."""

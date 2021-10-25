@@ -60,6 +60,26 @@ List of :ref:`event filters<Event filters>` bundled with ``edzed``.
   see also: :ref:`logically inverted output<Inverted output>`.
 
 
+.. class:: NotIfInitialized(control_block: [str, SBlock])
+
+  Enable or disable events depending on *control_block*\'s initialization state.
+
+  .. note::
+
+    This filter was designed for use in the :class:`InitAsync` block.
+    The *control_block* is the block receiving the initialization event
+    from an ``InitAsync``. The block may be specified by name.
+
+  If a block configured to be initialized with the help of :class:`InitAsync`
+  is also receiving update events from an external system a race condition might occur
+  when the update happens to arrive before the initialization event.
+
+  In such case we want to disallow the initialization event to overwrite
+  the state already set by the latest update event. This is the purpose of this filter.
+  It allows the initialization event to pass through only if the *control_block*
+  has not been initialized in the meantime.
+
+
 .. class:: DataEdit
 
   This class provides a set of simple data modifiers. Multiple modifiers

@@ -80,7 +80,7 @@ Only block specific parameters are listed in the signatures. In detail:
 
   This block has two named inputs. Usage::
 
-    edzed.Override(NAME).connect(input=<block1>, override=<block2>)
+    edzed.Override(NAME).connect(input=block1, override=block2)
 
   - pass mode (output = value from block ``input``):
       when ``override`` is equal to *null_value*.

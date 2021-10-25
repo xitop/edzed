@@ -5,12 +5,6 @@ Creating sequential blocks
 ==========================
 
 
-Feel free to skip this chapter or some of its sections.
-Perfect ``edzed`` based applications can be written just with
-the blocks already defined.
-
-----
-
 Topics to be considered during the planning phase:
 
 - what fully defines the internal state?

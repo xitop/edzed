@@ -119,8 +119,8 @@ async def test_cmode_wmode_output(circuit):
         await asyncio.sleep(0.05)
 
 
-    ctest = edzed.OutputAsync('ctest', mode='c', coro=otest, on_error=None)
-    wtest = edzed.OutputAsync('wtest', mode='w', coro=otest, on_error=None)
+    ctest = edzed.OutputAsync('ctest', mode='cancel', coro=otest, on_error=None)
+    wtest = edzed.OutputAsync('wtest', mode='wait', coro=otest, on_error=None)
 
     asyncio.create_task(circuit.run_forever())
     await circuit.wait_init()
@@ -154,7 +154,7 @@ async def test_smode_output(circuit):
         logger.put(f"{n} stop {stest.output}")
 
     logger = TimeLogger('logger', mstop=True)
-    stest = edzed.OutputAsync('stest', mode='s', coro=otest, on_error=None)
+    stest = edzed.OutputAsync('stest', mode='start', coro=otest, on_error=None)
 
     asyncio.create_task(circuit.run_forever())
     await circuit.wait_init()

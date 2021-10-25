@@ -62,7 +62,7 @@ Event objects
   The *dest* argument may be a sequential block object or its name.
 
   :ref:`Event filters` are functions (*callables* to be exact) documented below.
-  The *efilter* argument can be:
+  The *efilter* argument may be:
 
   - ``None`` meaning no filters (an empty list or tuple has the same effect), or
   - a single function, or

@@ -78,8 +78,8 @@ and one to events.
     times, the circuit is deemed unstable.
 
 - Recursive events
-    A sequential block handling an event may send one or more events to other
-    blocks. The recipient blocks may respond by generating events too. This is okay
+    A sequential block handling an event can send one or more events to other
+    blocks. The recipient blocks may respond by generating events too. This is allowed
     unless there is a loop resulting in an event being sent to the block which
     is not ready to handle it, because it did not finish the handling of the
     current event.

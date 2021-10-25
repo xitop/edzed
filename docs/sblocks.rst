@@ -89,7 +89,7 @@ The most common data entry block is the ``Input``.
   input value.
 
 
-.. class:: InputExp(name, *, duration, expired=None, persistent=False, initdef=edzed.UNDEF, **kwargs)
+.. class:: InputExp(name, *, duration, expired=None, check=None, allowed=None, schema=None, persistent=False, initdef=edzed.UNDEF, **kwargs)
 
   Like :class:`Input`, but after certain time after the ``'put'`` event
   replace the current value with the *expired* value.
@@ -100,7 +100,7 @@ The most common data entry block is the ``Input``.
   :param duration:
     The default duration in seconds before a value expires.
     May be overridden on a per-event basis. The argument
-    can be:
+    may be:
 
       - a numeric value, or
       - a :ref:`string with time units<Time intervals with units>`, or
@@ -253,21 +253,21 @@ any network communication is a typical example of blocking I/O.
   a new ``'put'`` event arrives before the processing of the previous one
   has finished:
 
-  - mode='c' (**c** = cancel before start)
+  - mode='cancel' or just 'c' (**c**\ancel before start)
 
     In this mode the task processing the previous event will be cancelled
     and awaited. Unprocessed events except the last one are discarded.
     Discarded events are reported as cancelled, even if their task was never
     started.
 
-  - mode='w' (**w** = wait before start)
+  - mode='wait' or just 'w' (**w**\ait before start)
 
     In this mode the task processing the previous event will be awaited
     before the next one is started. All events are enqueued and processed
     one by one in order they have arrived. This may introduce delays. Make sure
     the coroutine can keep up with the rate of incoming events.
 
-  - mode='s' (**s** = start)
+  - mode='start' or 's' (**s**\tart immediately)
 
     In this mode a new task is immediately started for each new event
     regardless of the state of previously started tasks. Unlike other
@@ -277,7 +277,8 @@ any network communication is a typical example of blocking I/O.
   **Output:**
   The output of an OutputAsync block is the number of active output tasks,
   a non-negative integer. It can be only 0 (idle) or 1 (active) in the
-  ``'c'`` and ``'w'`` modes. In the ``'s'`` mode the active task count is not limited.
+  ``'cancel'`` and ``'wait'`` modes. In the ``'start'`` mode the active
+  task count is not limited.
 
   **Generated events:**
   The block triggers *on_success*, *on_cancel* and *on_error* :ref:`events<Events>`
@@ -286,7 +287,7 @@ any network communication is a typical example of blocking I/O.
   An exception other than :exc:`asyncio.CancelledError` means an error;
   the raised exception is added to the *on_error* event data as ``'error'``.
   Cancelled tasks trigger *on_cancel* events. Note that tasks are
-  cancelled only in the ``'c'`` mode. In all three cases (success, cancel, error)
+  cancelled only in the ``'cancel'`` mode. In all three cases (success, cancel, error)
   the original ``'put'`` event data is inserted into the output event data
   as item ``'put'``. This makes it possible to match an event with its result.
 
@@ -314,7 +315,7 @@ any network communication is a typical example of blocking I/O.
 
   .. note::
 
-    The *guard_time* should not be used in the ``'s'`` mode
+    The *guard_time* should not be used in the ``'start'`` mode
     which allows multiple output tasks running concurrently
     defeating the effect of a *guard_time* sleep.
 
@@ -327,6 +328,49 @@ any network communication is a typical example of blocking I/O.
 
   ``InExecutor`` is a thin wrapper around the asyncio's
   `run_in_executor <https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.run_in_executor>`_.
+
+
+Initialization helper
+=====================
+
+.. class:: InitAsync(name, *, init_coro: Sequence, **kwargs)
+
+  Run a coroutine once during the circuit initialization.
+
+  This block usually initializes other blocks lacking an async support
+  by sending an output event. For example it can obtain a value from
+  an external command and send it to an :class:`Input` block in a
+  ``'put'`` event.
+
+  :param init_coro:
+    a sequence (list, tuple, ...) containing the coroutine function
+    (i.e. defined with ``async def``) to be awaited followed by its arguments.
+
+  In order to fully utilize this block, you might want to specify additional
+  parameters. Refer to the base class :class:`SBlock`.
+
+  :param init_timeout:
+    the coroutine timeout
+  
+  :param initdef:
+    a default value for the case the coroutine fails
+
+  :param on_output:
+    event to be sent with the block to be initialized being the event recipient
+
+  If the coroutine finishes successfully, the block's output is set to
+  the returned value. That generates an output event.
+
+  If the coroutine fails (timeout, exception), the problem is logged
+  and the output is set to the ``initdef`` value if it is defined.
+  That generates an output event too.
+
+  If the coroutine fails and the ``initdef`` value is not set, then
+  *no output events* are generated. The output is set to ``None`` only to
+  prevent a circuit failure. The block listed as the event recipient
+  must initialize to its default value.
+
+  .. seealso:: :class:`NotIfInitialized` event filter
 
 
 Time and date
@@ -499,7 +543,7 @@ Non-periodic events
 
   Block for non-periodic events occurring in intervals between start and stop
   defined with full date and time, i.e. year, month, day, hour, minute and second.
-  Any number of intervals can be specified, including zero.
+  Any number of intervals may be specified, including zero.
 
   If *utc* is ``False`` (which is the default), times are in the local timezone.
   If *utc* is ``True`` times are in UTC.
@@ -712,7 +756,7 @@ Simulator control block
 
   - ``'abort'``
     Abort the simulation due to an error. An ``'error'`` item
-    is expected to be included in the event data. Its value can be
+    is expected to be included in the event data. Its value may be
     an :exc:`Exception` object or just an error message.
 
   A ControlBlock named ``'_ctrl'`` will be automatically created if

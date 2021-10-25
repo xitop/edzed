@@ -31,7 +31,7 @@ Directions for creating a new CBlock:
   An input value can be retrieved using the input name as a key ``self._in['myinput']``
   or as an attribute ``self._in.myinput``.
 
-  The result is a single value or a tuple of values, if the input is a group.
+  The result is a single value or a tuple of values if the input is a group.
 
 .. method:: CBlock.start() -> None
 
@@ -41,6 +41,8 @@ Directions for creating a new CBlock:
 
   By definition CBlocks do not require any preparations.
   ``start()`` typically just checks the :ref:`input signature <Input signatures>`.
+  A signature check is optional, but recommended, because it catches
+  possible errors early and gives clear problem descriptions.
 
   .. important::
 
@@ -67,15 +69,15 @@ Directions for creating a new CBlock:
 Input signatures
 ================
 
-An input signature is a dict with the following structure:
+An input signature is a dict with the following key:value structure:
 
-- key: the input name (string)
+- key = the input name (string)
     The reserved group name ``'_'`` represents the group of unnamed inputs, if any.
 
-- value: ``None`` or integer:
+- value = ``None`` or integer:
 
-  - ``None``, if the input is a single input
-  - the number of inputs in a group, if the input is a group
+  - ``None`` - if the input is a single input
+  - the number of inputs in a group - if the input is a group
 
 .. method:: CBlock.input_signature() -> dict
 
@@ -101,9 +103,9 @@ An input signature is a dict with the following structure:
   for probably mistyped names.
 
   In order to support variable input group sizes, the expected
-  size can be given also as a range of valid values using
+  size may be given also as a range of valid values using
   a sequence of two values ``[min, max]`` where ``max`` may be ``None``
-  for no maximum. ``min`` can be also ``None`` for no minimum, but
+  for no maximum. ``min`` may be also ``None`` for no minimum, but
   zero - the lowest possible input count - has the same effect.
 
   Examples of *esig* items::

@@ -110,10 +110,10 @@ def _is_multiple(arg):
     they can be iterated over only once.
 
     The str type arg is considered as a single name and not as a string
-    of multiple characters. That's why the return value is False.
+    of multiple characters; the return value is False.
 
     A set is unordered and thus not recognized as multiple items by
-    this function. Return value is False.
+    this function; the return value is False.
 
     """
     return not isinstance(arg, str) and isinstance(arg, (cabc.Sequence, cabc.Iterator))
@@ -123,11 +123,11 @@ class Block:
     """
     Base class for a circuit building block.
     """
+
     def __init__(
             self,
             name: Optional[str], *,
             comment: str = "",
-            desc: str = "",     # DEPRECATED
             on_output: 'EventsArg' = None,
             _reserved: bool = False,
             debug: bool = False,
@@ -158,18 +158,13 @@ class Block:
                 raise TypeError(
                     f"'{key}' is an invalid keyword argument for {type(self).__name__}()")
             setattr(self, key, value)
-        self.comment = comment or desc
+        self.comment = comment
         self.debug = bool(debug)
         self._output_events = event_tuple(on_output)
         # oconnections will be populated by Circuit._init_connections:
         self.oconnections = set()   # output is connected to these blocks
         self._output = UNDEF
         self.circuit.addblock(self)
-
-    @property
-    def desc(self):
-        """Transition from .desc to .comment - at least untill 15-JUN-2021."""
-        return self.comment
 
     def is_initialized(self) -> bool:
         """Return True if the output has been initialized."""
@@ -239,7 +234,6 @@ class Block:
         return {
             'class': type(self).__name__,
             'debug': self.debug,
-            'desc': self.comment,
             'comment': self.comment,
             'name': self.name,
             }

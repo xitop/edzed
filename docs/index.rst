@@ -13,8 +13,8 @@ The package contains:
 - methods for building a circuit by connecting the blocks
 - a simple event-driven zero-delay digital circuit simulator
 
-Contents
-========
+Creating edzed applications
+===========================
 
 .. toctree::
   :maxdepth: 4
@@ -30,9 +30,19 @@ Contents
   FSM
   simulation
   errors
+
+Creating new block types
+========================
+
+For developers of edzed itself or edzed extensions only. Great 
+applications can be written using just the built-in blocks.
+
+.. toctree::
+  :maxdepth: 2
+
   new_cblocks
   new_sblocks
-  license
+
 
 Appendices
 ==========
@@ -40,6 +50,7 @@ Appendices
 .. toctree::
   :maxdepth: 1
 
+  license
   changelog
   notes
 

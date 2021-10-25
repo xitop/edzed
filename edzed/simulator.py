@@ -57,7 +57,7 @@ def reset_circuit() -> None:
 
 
 class _BlockResolver:
-    """     # export to API
+    """
     A helper allowing to reference a block by name.
 
     Objects with a reference to be resolved must register themselves.
@@ -367,8 +367,9 @@ class Circuit:
                     await asyncio.wait_for(task, timeout - get_time() + start_time)
                 except asyncio.TimeoutError:
                     errcnt += 1
-                    blk.log_warning("%s timeout, check timeout value (%.1f s)", jobname, timeout)
-                except Exception as err:
+                    blk.log_warning(
+                        "%s timeout, check timeout value (%.1f s)", jobname, timeout)
+                except Exception:
                     # will be logged below
                     pass
             if not task.cancelled():

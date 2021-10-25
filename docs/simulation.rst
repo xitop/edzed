@@ -86,7 +86,7 @@ Skip this step if this feature is not required.
   Setup the persistent state data storage.
 
   The argument should be a dictionary-like object backed by
-  a disk file or similar persistent storage. It can be also
+  a disk file or similar persistent storage. It may be also
   ``None`` to leave the feature disabled.
 
   The Python standard library offers the `shelve module <https://docs.python.org/3/library/shelve.html>`_

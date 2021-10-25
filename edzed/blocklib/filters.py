@@ -13,7 +13,7 @@ from .. import block
 from .. import simulator
 
 
-__all__ = ['not_from_undef', 'Edge', 'Delta', 'DataEdit', 'IfOutput']
+__all__ = ['not_from_undef', 'Edge', 'Delta', 'DataEdit', 'IfOutput', 'IfNotIitialized']
 
 _logger = logging.getLogger(__package__)
 
@@ -70,16 +70,28 @@ class Delta:
 
 class IfOutput:
     """
-    Enable/disable events depending on block output.
+    Enable/disable events depending on block's output.
     """
 
-    # pylint: disable=redefined-outer-name
     def __init__(self, control_block: [str, block.Block]):
         self._ctrl_blk = control_block
         simulator.get_circuit().resolve_name(self, '_ctrl_blk')
 
     def __call__(self, data):
         return data if self._ctrl_blk.output else None
+
+
+class IfNotIitialized:
+    """
+    Enable/disable events depending on block's init state.
+    """
+
+    def __init__(self, control_block: [str, block.SBlock]):
+        self._ctrl_blk = control_block
+        simulator.get_circuit().resolve_name(self, '_ctrl_blk', block_type=block.SBlock)
+
+    def __call__(self, data):
+        return None if self._ctrl_blk.is_initialized() else data
 
 
 class dualmethod(classmethod):
@@ -92,6 +104,7 @@ class dualmethod(classmethod):
     When called as an instance method, proceed normally,
     i.e. as if not decorated.
     """
+
     def __get__(self, instance, cls):
         if instance is None:
             instance = cls()

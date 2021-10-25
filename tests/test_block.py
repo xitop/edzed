@@ -71,9 +71,9 @@ def test_name(circuit):
     blk1 = Noop('test1', comment='with comment')
     blk2 = Noop('test2')
     assert blk1.name == 'test1'
-    assert blk1.desc == blk1.comment == "with comment"
+    assert blk1.comment == "with comment"
     assert blk2.name == 'test2'
-    assert blk2.desc == blk2.comment == ""
+    assert blk2.comment == ""
 
 
 def test_reserved_names(circuit):

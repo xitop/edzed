@@ -2,16 +2,17 @@
 
 A library for building small automated systems.
 
-The package contains:
+What is in the package:
 
 - classes for creating combinational and sequential blocks
 - methods for building a circuit by connecting the blocks
 - a simple event-driven zero-delay digital circuit simulator
 
-## Project status
+What is not included:
 
-Version 21.5.15 is the first production/stable release.
+The application code must connect the circuit's inputs
+and outputs with the outside world.
 
 ## Documentation
 
-Please see the [online documentation](https://edzed.readthedocs.io/en/latest/) for more information.
+Please read the [online documentation](https://edzed.readthedocs.io/en/latest/) for more information.
