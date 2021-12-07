@@ -33,11 +33,7 @@ async def test_poll(circuit):
         func=acq,
         interval='0m0.05s',
         on_output=edzed.Event(logger))
-    timelimit(0.34, error=False)
-    try:
-        await circuit.run_forever()
-    except asyncio.CancelledError:
-        pass
+    await edzed.run(asyncio.sleep(0.34))
 
     LOG = [
         (0, 1),
@@ -62,11 +58,7 @@ async def test_async(circuit):
         func=q.get,
         interval='0m0.05s',
         on_output=edzed.Event(logger))
-    timelimit(0.2, error=False)
-    try:
-        await circuit.run_forever()
-    except asyncio.CancelledError:
-        pass
+    await edzed.run(asyncio.sleep(0.2))
 
     LOG = [
         (0, 'A'),
@@ -99,10 +91,7 @@ async def test_undef(circuit):
     # --- time 0.260:
     # timelimit stops the circuit
 
-    try:
-        await circuit.run_forever()
-    except asyncio.CancelledError:
-        pass
+    await edzed.run()
 
     LOG = [
         # (0, 1) missing, initialization not finished
@@ -127,10 +116,7 @@ async def test_init_timeout(circuit):
         init_timeout=0.12,
         on_output=edzed.Event(logger),
         initdef='DEFAULT')
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    await circuit.shutdown()
-
+    await edzed.run(circuit.wait_init())
     logger.compare([(120, 'DEFAULT')])
 
 
@@ -143,7 +129,7 @@ async def test_init_failure(circuit):
         interval=10,                # don't care
         init_timeout=0.04)          # no initdef
     with pytest.raises(Exception, match="not initialized"):
-        await circuit.run_forever()
+        await edzed.run()
     logger.compare([(40, '--stop--')])
 
 
@@ -160,10 +146,7 @@ async def test_async_init_timeout(circuit):
         init_timeout=0.2,
         on_output=edzed.Event(logger),
         initdef='DEFAULT')
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    await circuit.shutdown()
-
+    await edzed.run(circuit.wait_init())
     logger.compare([(100, 3)])
 
 
@@ -180,8 +163,5 @@ async def test_async_init_timeout_failure(circuit):
         init_timeout=0.05,
         on_output=edzed.Event(logger),
         initdef='DEFAULT')
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    await circuit.shutdown()
-
+    await edzed.run(circuit.wait_init())
     logger.compare([(50, 'DEFAULT')])

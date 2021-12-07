@@ -79,6 +79,8 @@ List of :ref:`event filters<Event filters>` bundled with ``edzed``.
   It allows the initialization event to pass through only if the *control_block*
   has not been initialized in the meantime.
 
+  .. versionadded:: 21.10.27
+
 
 .. class:: DataEdit
 

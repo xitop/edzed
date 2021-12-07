@@ -416,7 +416,10 @@ to hold the timestamp necessary for the calculation::
           return self.state != 'off'
 
 
-  AfterRun('afterrun', x_percentage=50)
+  AfterRun('ar', x_percentage=50)
+
+A complete ``afterrun.py`` demo program can be found in the
+`examples directory <https://github.com/xitop/edzed/tree/master/examples>`_ on github.
 
 
 Output

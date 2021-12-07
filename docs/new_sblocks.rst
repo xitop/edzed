@@ -9,7 +9,7 @@ Topics to be considered during the planning phase:
 
 - what fully defines the internal state?
 - how will be the internal state initialized?
-- what determines the output?
+- how to calculate the output from the internal state?
 - what events will be accepted?
 - what data is expected for particular events?
 
@@ -19,7 +19,7 @@ Checklist for creating a new SBlock:
 - define :ref:`Initialization <SBlock initialization>` and other state related methods
 - define :ref:`event handlers <Event handlers>`
 - define :ref:`start and stop methods <Start and stop>`
-- implement :ref:`event generation <Sending events>` (rarely needed)
+- implement :ref:`event generation <Generating events>` (rarely needed)
 
 
 SBlock initialization
@@ -167,8 +167,8 @@ state and the output value. The output setter is:
   the first :meth:`set_output` call.
 
 
-Sending events
-==============
+Generating events
+=================
 
 The recommended way to implement events to be sent when some trigger
 has fired is to add an *on_TRIGGER* keyword argument::
@@ -321,7 +321,7 @@ Persistent state add-on
   :type: str
 
   The persistent dict key associated with this block. It equals the string representation
-  ``str(self)`` - see :meth:`Block.__str__` - but this may change in the future.
+  ``str(self)``, but this is an implementation detail that may change in the future.
 
 
 Async add-on
@@ -331,6 +331,11 @@ Async add-on
 
   Inheriting from this class adds asynchronous support, in particular
   asynchronous initialization and asynchronous cleanup.
+
+  .. note::
+
+    If the only function to be implemented is an async initialization,
+    consider using an :class:`InitAsync` helper block instead.
 
   This class also implements a helper for general use:
 
@@ -392,7 +397,7 @@ Async add-on
 
   .. tip::
 
-    Use :func:`utils.shield_cancel.shield_cancel` to protect small
+    Use :func:`utils.shield_cancel` to protect small
     critical task sections from immediate cancellation.
 
 
@@ -424,15 +429,13 @@ Async initialization add-on
 
 .. class:: AddonAsyncInit
 
-  This add-on adds a :meth:`SBlock.init_async` implementation that ensures
-  proper interfacing with the simulator in the case the initial block output
-  is set from a spawned asyncio task. For this reason it is often used
-  together with the :class:`AddonMainTask`.
+  There are blocks like the :class:`ValuePoll` lacking any initialization code,
+  because they are collecting data as their main job and the first value they
+  obtain automatically becomes the initialization value.
 
-  The initial value must be set within the time limit specified
-  by the *init_timeout* argument.
-
-  :class:`AddonAsyncInit` is a subclass of :class:`AddonAsync`.
+  This tiny add-on adds a :meth:`SBlock.init_async` implementation that ensures
+  proper interfacing with the simulator in such cases. Its only function is
+  to inform the simulator that the initialization took place.
 
 
 Helper methods

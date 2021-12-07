@@ -11,14 +11,15 @@ Only block specific parameters are listed in the signatures. In detail:
 - the mandatory positional argument *name* is documented in the base class :class:`Block`
 
 - common optional keyword arguments *on_output*, *debug*, *comment* and *x_NAME*
-  are shown only as ``**kwargs``, they are documented in the base class :class:`Block`
+  are shown only as ``**block_kwargs``, they are documented in the base class :class:`Block`
 
 - if persistent state is supported, only the *persistent* parameter is listed,
   but *sync_state* and *expiration* are always supported together with *persistent*,
   refer to :class:`SBlock`
 
 - *initdef*, *init_timeout* and *stop_timeout* are listed in the class signature
-  if and only if supported by the particular block type, refer to :class:`SBlock`
+  only if supported by the particular block type. Their descriptions are not repeated
+  here, refer to :class:`SBlock`
 
 
 Inputs
@@ -41,7 +42,7 @@ The most common data entry block is the ``Input``.
 
 ----
 
-.. class:: Input(name, *, check=None, allowed=None, schema=None, persistent=False, initdef=edzed.UNDEF, **kwargs)
+.. class:: Input(name, *, check=None, allowed=None, schema=None, persistent=False, initdef=edzed.UNDEF, **block_kwargs)
 
   An input block with optional value validation.
 
@@ -89,7 +90,7 @@ The most common data entry block is the ``Input``.
   input value.
 
 
-.. class:: InputExp(name, *, duration, expired=None, check=None, allowed=None, schema=None, persistent=False, initdef=edzed.UNDEF, **kwargs)
+.. class:: InputExp(name, *, duration, expired=None, check=None, allowed=None, schema=None, persistent=False, initdef=edzed.UNDEF, **block_kwargs)
 
   Like :class:`Input`, but after certain time after the ``'put'`` event
   replace the current value with the *expired* value.
@@ -118,7 +119,7 @@ Polling data sources
 
 A specialized block is provided for this task:
 
-.. class:: ValuePoll(name, *, func, interval, init_timeout=None, initdef=edzed.UNDEF, **kwargs)
+.. class:: ValuePoll(name, *, func, interval, init_timeout=None, initdef=edzed.UNDEF, **block_kwargs)
 
   A source of measured or computed values.
 
@@ -198,7 +199,7 @@ any network communication is a typical example of blocking I/O.
 
 ---
 
-.. class:: OutputFunc(name, *, func, f_args=['value'], f_kwargs=(), on_success=None, on_error, stop_data=None, **kwargs)
+.. class:: OutputFunc(name, *, func, f_args=['value'], f_kwargs=(), on_success=None, on_error, stop_data=None, **block_kwargs)
 
   Call a function when a ``'put'`` event arrives.
 
@@ -239,7 +240,7 @@ any network communication is a typical example of blocking I/O.
 
   **Output:** The output of an OutputFunc block is always ``False``.
 
-.. class:: OutputAsync(name, *, coro, mode, f_args=['value'], f_kwargs=(), guard_time=0.0, on_success=None, on_cancel=None, on_error, stop_data=None, stop_timeout=None, **kwargs)
+.. class:: OutputAsync(name, *, coro, mode, f_args=['value'], f_kwargs=(), guard_time=0.0, on_success=None, on_cancel=None, on_error, stop_data=None, stop_timeout=None, **block_kwargs)
 
   Run a coroutine function *coro* in an asycio task when a ``'put'`` event arrives.
   The coroutine function is invoked with arguments extracted from the event data.
@@ -333,7 +334,7 @@ any network communication is a typical example of blocking I/O.
 Initialization helper
 =====================
 
-.. class:: InitAsync(name, *, init_coro: Sequence, **kwargs)
+.. class:: InitAsync(name, *, init_coro: Sequence, **block_kwargs)
 
   Run a coroutine once during the circuit initialization.
 
@@ -346,7 +347,7 @@ Initialization helper
     a sequence (list, tuple, ...) containing the coroutine function
     (i.e. defined with ``async def``) to be awaited followed by its arguments.
 
-  In order to fully utilize this block, you might want to specify additional
+  In order to fully utilize this block, you might need to specify additional
   parameters. Refer to the base class :class:`SBlock`.
 
   :param init_timeout:
@@ -356,7 +357,7 @@ Initialization helper
     a default value for the case the coroutine fails
 
   :param on_output:
-    event to be sent with the block to be initialized being the event recipient
+    an output event addressed to the block to be initialized
 
   If the coroutine finishes successfully, the block's output is set to
   the returned value. That generates an output event.
@@ -368,9 +369,11 @@ Initialization helper
   If the coroutine fails and the ``initdef`` value is not set, then
   *no output events* are generated. The output is set to ``None`` only to
   prevent a circuit failure. The block listed as the event recipient
-  must initialize to its default value.
+  must initialize by itself.
 
   .. seealso:: :class:`NotIfInitialized` event filter
+
+  .. versionadded:: 21.10.27
 
 
 Time and date
@@ -404,7 +407,7 @@ In all cases extra whitespace around values is allowed.
 Periodic events
 ---------------
 
-.. class:: TimeDate(name, *, times=None, dates=None, weekdays=None, utc=False, **kwargs)
+.. class:: TimeDate(name, *, times=None, dates=None, weekdays=None, utc=False, **block_kwargs)
 
   Block for periodic events occurring daily, weekly or yearly. A combination
   of conditions is possible (e.g. Every Monday morning 6-9 a.m., but only in April)
@@ -497,10 +500,15 @@ Periodic events
 
   .. note::
 
-      Unused arguments are given as ``None``. This is different
-      than an empty string or an empty sequence. An empty value is
-      a valid argument meaning no time or no date or no weekday and
-      such block always outputs ``False``.
+      Unused arguments *times*, *dates*, or *weekdays* are given as ``None``.
+      This is different than an empty string or an empty sequence.
+
+      - ``None`` means we don't care which time, date or weekday respectively.
+        **Exception**: if all three parameters are ``None``, the block is disabled.
+
+      - An empty value is a valid argument meaning no matching time or
+        date or weekday. A ``TimeDate`` block with an empty parameter
+        always outputs ``False``.
 
   The numeric form of parameters is used internally. Strings are converted
   to numbers before use. The internal parser is available should the need arise:
@@ -539,7 +547,7 @@ though.
 Non-periodic events
 -------------------
 
-.. class:: TimeSpan(name, *, span=(), utc=False, **kwargs)
+.. class:: TimeSpan(name, *, span=(), utc=False, **block_kwargs)
 
   Block for non-periodic events occurring in intervals between start and stop
   defined with full date and time, i.e. year, month, day, hour, minute and second.
@@ -664,7 +672,7 @@ Counter
 Repeat
 ======
 
-.. class:: Repeat(name, *, dest, etype='put', interval, count=None, **kwargs)
+.. class:: Repeat(name, *, dest, etype='put', interval, count=None, **block_kwargs)
 
   Periodically repeat the last received event.
 
@@ -699,7 +707,7 @@ Repeat
 Timer
 ======
 
-.. class:: Timer(name, *, restartable=True, persistent=False, **kwargs)
+.. class:: Timer(name, *, restartable=True, persistent=False, **block_kwargs)
 
   A timer (:ref:`source <Example (Timer)>`).
 
@@ -747,7 +755,7 @@ Timer
 Simulator control block
 =======================
 
-.. class:: ControlBlock(name, **kwargs)
+.. class:: ControlBlock(name, **block_kwargs)
 
   The simulator control block accepts two event types:
 

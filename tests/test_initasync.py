@@ -29,11 +29,11 @@ async def run_test1(circuit, expected, **init_kwargs):
     ainit = edzed.InitAsync('init', **init_kwargs, on_output=edzed.Event('inp'))
     timelimit(1, error=True)
 
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    assert ainit.output == expected[0]
-    assert inp.output == expected[1]
-    await circuit.shutdown()
+    async def tester():
+        await circuit.wait_init()
+        assert ainit.output == expected[0]
+        assert inp.output == expected[1]
+    await edzed.run(tester())
 
 
 async def test_init(circuit):
@@ -74,10 +74,10 @@ async def run_test2(circuit, expected, flt):
         on_output=edzed.Event('inp', efilter=edzed.IfNotIitialized(inp) if flt else None))
     timelimit(1, error=True)
 
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    assert inp.output == expected
-    await circuit.shutdown()
+    async def tester():
+        await circuit.wait_init()
+        assert inp.output == expected
+    await edzed.run(tester())
 
 
 async def test_filter1(circuit):

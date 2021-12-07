@@ -23,19 +23,23 @@ pytest_plugins = ('pytest_asyncio',)
 
 @pytest.mark.asyncio
 async def test_null(circuit):
+    """Test a disabled block and an empty schedule."""
     null = edzed.TimeDate('null')
     empty = edzed.TimeDate('empty', dates=' ', times='', weekdays=[])
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    assert not null.output
-    assert null.get_state() == {'dates': None, 'times': None, 'weekdays': None}
-    assert not empty.output
-    assert empty.get_state() == {'dates': [], 'times': [], 'weekdays': []}
-    await circuit.shutdown()
+
+    async def tester():
+        await circuit.wait_init()
+        assert not null.output
+        assert null.get_state() == {'dates': None, 'times': None, 'weekdays': None}
+        assert not empty.output
+        assert empty.get_state() == {'dates': [], 'times': [], 'weekdays': []}
+
+    await edzed.run(tester())
 
 
 @pytest.mark.asyncio
 async def test_args(circuit):
+    """Test the equivalence of string and numeric formats."""
     kwargs = {
         'dates': [[[6,21], [12,20]]],
         'times': [[[1,30,0], [2,45,0]], [[17,1,10], [17,59,10]]],
@@ -45,24 +49,27 @@ async def test_args(circuit):
         'str_args', dates='21.jun-20.dec', times='1:30-2:45, 17:01:10-17:59:10', weekdays='15')
     td_num = edzed.TimeDate(
         'num_args', **kwargs)
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    assert td_str.get_state() == td_num.get_state() == kwargs
-    await circuit.shutdown()
+
+    async def tester():
+        await circuit.wait_init()
+        assert td_str.get_state() == td_num.get_state() == kwargs
+
+    await edzed.run(tester())
 
 
 async def _test6(circuit, *p6):
     yes1, yes2, no1, no2, ying, yang = \
         [edzed.TimeDate(f"tmp_{i}", **kw) for i, kw in enumerate(p6)]
 
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    assert yes1.output      # always on
-    assert yes2.output      # always on
-    assert not no1.output   # always off
-    assert not no2.output   # always off
-    assert ying.output != yang.output   # either a or b
-    await circuit.shutdown()
+    async def tester():
+        await circuit.wait_init()
+        assert yes1.output      # always on
+        assert yes2.output      # always on
+        assert not no1.output   # always off
+        assert not no2.output   # always off
+        assert ying.output != yang.output   # either a or b
+
+    await edzed.run(tester())
 
 
 @pytest.mark.asyncio
@@ -126,12 +133,14 @@ async def t1sec(circuit, dynamic):
             edzed.Event('_ctrl', 'shutdown', efilter=edzed.Edge(fall=True))
             )
         )
-    simtask = asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    if dynamic:
-        s1.event('reconfig', times=targ)
-    with pytest.raises(asyncio.CancelledError):
-        await simtask
+
+    async def tester():
+        if dynamic:
+            await circuit.wait_init()
+            s1.event('reconfig', times=targ)
+        await asyncio.sleep(9)  # cancellation expected
+
+    await edzed.run(tester())
 
     LOG = [
         (0, False),
@@ -169,30 +178,30 @@ async def test_cron(circuit):
     stdu = str(tdu)
     cronu = circuit.findblock('_cron_utc')
 
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
+    async def tester():
+        await circuit.wait_init()
+        tinit = {'times': targ, 'dates': [[[4,1], [4,1]]], 'weekdays': None}
+        assert td.get_state() == td.initdef == tinit
 
-    tinit = {'times': targ, 'dates': [[[4,1], [4,1]]], 'weekdays': None}
-    assert td.get_state() == td.initdef == tinit
+        assert cron.event('get_schedule') == {
+            '00:00:00': ['local', 'local2'], '01:02:03': ['local'], '02:03:04': ['local']}
+        assert cronu.event('get_schedule') == {
+            '00:00:00': ['utc'], '10:11:12': ['utc'], '13:14:15': ['utc'],
+            '14:15:00': ['utc'], '16:17:00': ['utc']}
 
-    assert cron.event('get_schedule') == {
-        '00:00:00': ['local', 'local2'], '01:02:03': ['local'], '02:03:04': ['local']}
-    assert cronu.event('get_schedule') == {
-        '00:00:00': ['utc'], '10:11:12': ['utc'], '13:14:15': ['utc'],
-        '14:15:00': ['utc'], '16:17:00': ['utc']}
+        td.event('reconfig')
+        assert cron.event('get_schedule') == {'00:00:00': ['local', 'local2']}
+        assert td.get_state() == {'times': None, 'dates': None, 'weekdays': None}
+        assert td.initdef == tinit
 
-    td.event('reconfig')
-    assert cron.event('get_schedule') == {'00:00:00': ['local', 'local2']}
-    assert td.get_state() == {'times': None, 'dates': None, 'weekdays': None}
-    assert td.initdef == tinit
+        conf = {'times': [[[20,20,0], [8,30,0]]], 'dates': None, 'weekdays': [4]}
+        tdu.event('reconfig', **conf)
+        assert cronu.event('get_schedule') == {
+            '00:00:00': ['utc'], '08:30:00': ['utc'], '20:20:00': ['utc']}
+        assert tdu.get_state() == conf
 
-    conf = {'times': [[[20,20,0], [8,30,0]]], 'dates': None, 'weekdays': [4]}
-    tdu.event('reconfig', **conf)
-    assert cronu.event('get_schedule') == {
-        '00:00:00': ['utc'], '08:30:00': ['utc'], '20:20:00': ['utc']}
-    assert tdu.get_state() == conf
+    await edzed.run(tester())
 
-    await circuit.shutdown()
 
 def test_parse():
     parse = edzed.TimeDate.parse
@@ -209,21 +218,27 @@ async def test_persistent(circuit):
     td = edzed.TimeDate("pers", persistent=True)
     storage = {}
     circuit.set_persistent_data(storage)
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    assert td.get_state() == {'times': None, 'dates': None, 'weekdays': None}
-    conf = edzed.TimeDate.parse("1:0-2:0", None, "7")
-    td.event('reconfig', **conf)
-    assert td.get_state() == conf
-    await circuit.shutdown()
+    conf = None
+
+    async def tester1():
+        nonlocal conf
+        await circuit.wait_init()
+        assert td.get_state() == {'times': None, 'dates': None, 'weekdays': None}
+        conf = edzed.TimeDate.parse("1:0-2:0", None, "7")
+        td.event('reconfig', **conf)
+        assert td.get_state() == conf
+
+    await edzed.run(tester1())
     assert storage[td.key] == conf
 
     edzed.reset_circuit()
     td = edzed.TimeDate("pers", persistent=True)
     circuit = edzed.get_circuit()
     circuit.set_persistent_data(storage)
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    assert td.get_state() == conf
-    await circuit.shutdown()
+
+    async def tester2():
+        await circuit.wait_init()
+        assert td.get_state() == conf
+
+    await edzed.run(tester2())
     assert storage[td.key] == conf

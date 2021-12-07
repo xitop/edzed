@@ -53,13 +53,14 @@ async def test_duration(circuit):
         'vclock', comment="25Hz variable duty cycle (pulse width modulation",
         initdef='on_0', on_output=edzed.Event(logger))
 
-    asyncio.create_task(circuit.run_forever())
-    await asyncio.sleep(0.115)      # 3 periods 20:20 ms
-    freq.event('setdc', dc=0.25)
-    await asyncio.sleep(0.120)      # 3 periods 10:30
-    freq.event('setdc', dc=1.0)
-    await asyncio.sleep(0.115)      # 40:0 = permanetly on
-    await circuit.shutdown()
+    async def tester():
+        await asyncio.sleep(0.115)      # 3 periods 20:20 ms
+        freq.event('setdc', dc=0.25)
+        await asyncio.sleep(0.120)      # 3 periods 10:30
+        freq.event('setdc', dc=1.0)
+        await asyncio.sleep(0.115)      # 40:0 = permanetly on
+
+    await edzed.run(tester())
     LOG = [
         # 20:20
         (0, True), (20, False),

@@ -82,13 +82,6 @@ Common features
 
     The assigned block's name.
 
-  .. attribute:: oconnections
-    :type: set
-
-    Set of all blocks where the output is connected to.
-    Undefined before the circuit finalization.
-    (see :meth:`Circuit.finalize`)
-
   .. attribute:: output
 
     Block's output value, a read-only property.
@@ -123,11 +116,6 @@ Common features
     New items may be added in future releases.
     Note that items like *name* or *comment* can be accessed also as block attributes.
 
-  .. method:: __str__
-
-    The string representation of a block is ``"<Type 'name'>"``.
-
-
 .. data:: UNDEF
 
   A constant representing an undefined output. All other output values
@@ -159,7 +147,7 @@ Combinational blocks
 
 The output of a combinational block depends only on its present input values.
 
-.. class:: CBlock(*args, **kwargs)
+.. class:: CBlock(name: Optional[str], **block_kwargs)
 
   The base class for combinational blocks does not
   add any new arguments compared to :class:`Block`.
@@ -220,16 +208,16 @@ Sequential blocks
 Base class arguments
 --------------------
 
-.. class:: SBlock(*args, initdef=edzed.UNDEF, persistent=False, sync_state=True, expiration=None, init_timeout=None, stop_timeout=None, **kwargs)
+.. class:: SBlock(name: Optional[str], *, initdef=edzed.UNDEF, persistent=False, sync_state=True, expiration=None, init_timeout=None, stop_timeout=None, **block_kwargs)
 
   .. important::
+    Not all parameters are accepted by concrete sequential block types!
 
-    Each sequential block type accepts only certain parameters.
-    Refer to descriptions of individual blocks for details
-    which parameters are appropriate for the given block.
+  Refer to descriptions of individual blocks for details
+  which parameters are appropriate for the given block.
 
   - Setting the initial state:
-      Argument *initdef* specifies the initial internal state.
+      Argument *initdef* specifies the initial or the default internal state.
       Its precise meaning varies depending on the block:
 
       - *initdef* is not accepted, because the internal state
@@ -246,6 +234,9 @@ Base class arguments
   - Enabling persistent state:
       Persistent state means that the internal state is saved (most likely
       to a file) when the application stops and is restored on the next start.
+      The data persistence is only possible in a circuit having a proper
+      :ref:`persistent storage<Storage for persistent state>`. The settings
+      below will have no effect without the storage.
 
       If a block supports this feature, it is controlled by these
       parameters:
@@ -265,8 +256,6 @@ Base class arguments
           The *expiration* value defaults to ``None`` which means
           that the saved state never expires.
 
-      The :ref:`persistent data storage<Storage for persistent state>`
-      must be provided by the circuit.
 
   - Timeouts for asynchronous initialization and cleanup:
       Some blocks perform asynchronous operations. These

@@ -27,7 +27,7 @@ Exceptions
 .. exception:: EdzedUnknownEvent
 
   This specific exception is raised when :meth:`SBlock.event` is called
-  with an event type that the block does not support.
+  with an event type that the block does not accept.
 
 Error checking in asyncio
 =========================
@@ -53,10 +53,12 @@ There are several options (and combinations):
 - use wrappers around the services. When the code
   after a ``try / await service() / except`` block is reached,
   you know that the service coroutine has terminated.
-  (``edzed`` uses this approach internally.)
+  ``edzed`` follows this approach in some of its async sequential blocks
+  using a helper :meth:`AddonAsync._create_monitored_task`.
 - do not treat any task as a "background task". Organize
   your application in a way that spawning of new tasks and
   their awaiting forms a single code block.
+  The :func:`run` function is based on this principle.
 - customize the global event loop's error handler,
   see :meth:`loop.set_exception_handler` in asyncio.
 

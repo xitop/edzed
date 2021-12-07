@@ -45,14 +45,10 @@ def test_static(circuit):
 @pytest.mark.asyncio
 async def test_clock(circuit):
     """Test a trivial clock signal generator."""
-    timelimit(0.8, error=False)
     logger = TimeLogger('logger')
     clock = edzed.Timer('timer', t_on=0.05, t_off=0.1, on_output=edzed.Event(logger))
 
-    try:
-        await circuit.run_forever()
-    except asyncio.CancelledError:
-        pass
+    await edzed.run(asyncio.sleep(0.8))
     LOG = [
         (0, False), (100, True),
         (150, False), (250, True),
@@ -71,21 +67,22 @@ async def test_restartable(circuit):
     nlogger = TimeLogger('nlogger')
     nmono = edzed.Timer('ntimer', t_on=0.12, on_output=edzed.Event(nlogger), restartable=False)
 
-    asyncio.create_task(circuit.run_forever())
-    await asyncio.sleep(0.05)
-    assert rmono.event('start')         # start OK
-    assert nmono.event('start')         # start OK
-    await asyncio.sleep(0.05)
-    assert rmono.event('start')         # re-start OK
-    assert not nmono.event('start')     # re-start not ok!
-    await asyncio.sleep(0.1)
-    assert rmono.event('start')         # re-start OK
-    assert nmono.event('start')         # start OK
-    await asyncio.sleep(0.05)
-    rmono.event('start')
-    nmono.event('start')
-    await asyncio.sleep(0.25)
-    await circuit.shutdown()
+    async def tester():
+        await asyncio.sleep(0.05)
+        assert rmono.event('start')         # start OK
+        assert nmono.event('start')         # start OK
+        await asyncio.sleep(0.05)
+        assert rmono.event('start')         # re-start OK
+        assert not nmono.event('start')     # re-start not ok!
+        await asyncio.sleep(0.1)
+        assert rmono.event('start')         # re-start OK
+        assert nmono.event('start')         # start OK
+        await asyncio.sleep(0.05)
+        rmono.event('start')
+        nmono.event('start')
+        await asyncio.sleep(0.25)
+
+    await edzed.run(tester())
 
     RLOG = [
         (0, False),
@@ -107,15 +104,15 @@ async def test_duration(circuit):
     logger = TimeLogger('logger')
     mono = edzed.Timer('timer', t_on=0.2, on_output=edzed.Event(logger))
 
-    asyncio.create_task(circuit.run_forever())
-    await asyncio.sleep(0.0)
-    mono.event('start')
-    await asyncio.sleep(0.25)
-    mono.event('start', duration=0.05)
-    await asyncio.sleep(0.1)
-    mono.event('start', duration=None)
-    await asyncio.sleep(0.25)
-    await circuit.shutdown()
+    async def tester():
+        mono.event('start')
+        await asyncio.sleep(0.25)
+        mono.event('start', duration=0.05)
+        await asyncio.sleep(0.1)
+        mono.event('start', duration=None)
+        await asyncio.sleep(0.25)
+
+    await edzed.run(tester())
     LOG = [
         (0, True), (200, False),    # 200 ms
         (250, True), (300, False),  # 50 ms
@@ -134,13 +131,13 @@ async def test_output(circuit):
     testfunc = edzed.OutputFunc('testfunc', func=test_timer, on_error=None)
     timer = edzed.Timer('timer', on_output=edzed.Event(testfunc))
 
-    asyncio.create_task(circuit.run_forever())
-    await asyncio.sleep(0.0)
-    timer.event('start')
-    timer.event('stop')
-    timer.event('start')
-    timer.event('stop')
-    await circuit.shutdown()
+    async def tester():
+        timer.event('start')
+        timer.event('stop')
+        timer.event('start')
+        timer.event('stop')
+
+    await edzed.run(tester())
 
 
 @pytest.mark.asyncio
@@ -149,4 +146,4 @@ async def test_no_busy_loop(circuit):
     timer = edzed.Timer('timer', t_on=0, t_off=0)
 
     with pytest.raises(edzed.EdzedCircuitError, match="infinite loop?"):
-        await circuit.run_forever()
+        await edzed.run()

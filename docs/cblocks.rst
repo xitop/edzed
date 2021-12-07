@@ -11,11 +11,11 @@ Only block specific parameters are listed in the signatures. In detail:
 - the mandatory positional argument *name* is documented in the base class :class:`Block`
 
 - common optional keyword arguments *on_output*, *debug*, *comment* and *x_NAME*
-  are shown only as ``**kwargs``, they are documented in the base class :class:`Block`
+  are shown only as ``**block_kwargs``, they are documented in the base class :class:`Block`
 
 ----
 
-.. class:: FuncBlock(name, *, func, unpack: bool = True, **kwargs)
+.. class:: FuncBlock(name, *, func, unpack: bool = True, **block_kwargs)
 
   Create a circuit block from a regular Python function *func*.
 
@@ -37,25 +37,25 @@ Only block specific parameters are listed in the signatures. In detail:
   In Python, it represents the difference between ``func(*args)`` when
   unpack is ``True`` (default) and ``func(args)`` when *unpack* is ``False``.
 
-.. class:: Not(name, **kwargs)
+.. class:: Not(name, **block_kwargs)
 
   Logical NOT (Inverter). This block has exactly one unnamed input.
 
-.. class:: And(name, **kwargs)
+.. class:: And(name, **block_kwargs)
 
   Logical AND with arbitrary number of unnamed inputs.
   The output is ``True`` only if all inputs are true.
 
   ``And`` is a subclass of the :class:`FuncBlock` with fixed ``func=all``.
 
-.. class:: Or(name, **kwargs)
+.. class:: Or(name, **block_kwargs)
 
   Logical OR with arbitrary number of unnamed inputs.
   The output is ``True`` only if at least one input is true.
 
   ``Or`` is a subclass of the :class:`FuncBlock`  with fixed ``func=any``.
 
-.. class:: Compare(name, *, low, high, **kwargs)
+.. class:: Compare(name, *, low, high, **block_kwargs)
 
   A comparator with hysteresis.
 
@@ -72,7 +72,7 @@ Only block specific parameters are listed in the signatures. In detail:
   and ``False`` in the opposite case.
 
 
-.. class:: Override(name, *, null_value=None, **kwargs)
+.. class:: Override(name, *, null_value=None, **block_kwargs)
 
   Either pass input to output unchanged or override it with a value.
 

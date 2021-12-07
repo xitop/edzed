@@ -34,17 +34,18 @@ async def output_func(circuit, *, log, v2=2, on_error=None, mstop=True, **kwargs
         logger.put(v)
         return 100+v
 
-    try:
-        inp = edzed.Input('inp', initdef=6, on_output=edzed.Event('echo'))
-        logger = TimeLogger('logger', mstop=mstop)
-        edzed.OutputFunc('echo', func=worker, on_error=on_error, **kwargs)
-        asyncio.create_task(circuit.run_forever())
+    inp = edzed.Input('inp', initdef=6, on_output=edzed.Event('echo'))
+    logger = TimeLogger('logger', mstop=mstop)
+    edzed.OutputFunc('echo', func=worker, on_error=on_error, **kwargs)
+
+    async def tester():     # will be cancelled on simulation error
         await asyncio.sleep(0.05)
         inp.put(v2)
-        if circuit.is_ready():  # skip after an error,
-            await asyncio.sleep(0.05)
-            inp.put(3)
-        await circuit.shutdown()
+        await asyncio.sleep(0.05)
+        inp.put(3)
+
+    try:
+        await edzed.run(tester())
         logger.put("END")
     finally:
         logger.compare(log)

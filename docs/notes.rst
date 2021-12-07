@@ -14,7 +14,7 @@ The project:
 The development:
 
 - We may make backward incompatible changes, but we will provide a transitory period
-  of three months if possible.
+  of at least three months if possible.
 - We will reject requests to add new blocks except for really useful general purpose blocks
   with functionality not easily obtainable with existing blocks.
   If you have created a special purpose block or block collection, please

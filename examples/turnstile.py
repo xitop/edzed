@@ -1,7 +1,9 @@
 import asyncio
-from edzed import FSM, demo
+import logging
+import edzed
+from edzed.demo import cli_repl
 
-class Turnstile(FSM):
+class Turnstile(edzed.FSM):
     STATES = ['locked', 'unlocked']
     EVENTS = [
         ['coin', ['locked'], 'unlocked'],
@@ -11,4 +13,12 @@ class Turnstile(FSM):
 Turnstile('ts', comment="example turnstile")
 
 if __name__ == '__main__':
-    asyncio.run(demo.run_demo())
+    print("""\
+https://edzed.readthedocs.io/en/latest/intro.html#cli-demo-tool
+
+To send a 'push' or 'coin' event to the turnstile 'ts',
+use the e[vent] command:
+    e ts push
+    e ts coin
+""")
+    asyncio.run(edzed.run(cli_repl()))

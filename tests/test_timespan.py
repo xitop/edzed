@@ -24,13 +24,15 @@ pytest_plugins = ('pytest_asyncio',)
 async def test_null(circuit):
     null = edzed.TimeSpan('null')
     empty = edzed.TimeSpan('empty', span=' ')
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    assert not null.output
-    assert null.get_state() == []
-    assert not empty.output
-    assert empty.get_state() == []
-    await circuit.shutdown()
+
+    async def tester():
+        await circuit.wait_init()
+        assert not null.output
+        assert null.get_state() == []
+        assert not empty.output
+        assert empty.get_state() == []
+
+    await edzed.run(tester())
 
 
 @pytest.mark.asyncio
@@ -44,10 +46,12 @@ async def test_args(circuit):
         span="2020 March 1 12:00 - 2020 March 7 18:30, 10:30 Oct. 10 2020 - 22:00 Oct.10 2020")
     td_num = edzed.TimeSpan('num_args', span=arg)
     arg[0][0].append(0)     # extend to 6 items
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    assert td_str.get_state() == td_num.get_state() == arg
-    await circuit.shutdown()
+
+    async def tester():
+        await circuit.wait_init()
+        assert td_str.get_state() == td_num.get_state() == arg
+
+    await edzed.run(tester())
 
 
 @pytest.mark.asyncio
@@ -56,12 +60,13 @@ async def test_yesno(circuit):
     no1 = edzed.TimeSpan("no1", span="Jan 1. 1970 0:0 - Dec.31 1987 0:0")   # in the past
     no2 = edzed.TimeSpan("no2", span="Feb 1. 2500 0:0 - Feb.1 1990 0:0")    # backwards!
 
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    assert yes1.output      # always on
-    assert not no1.output   # always off
-    assert not no2.output   # always off
-    await circuit.shutdown()
+    async def tester():
+        await circuit.wait_init()
+        assert yes1.output      # always on
+        assert not no1.output   # always off
+        assert not no2.output   # always off
+
+    await edzed.run(tester())
 
 
 async def t1sec(circuit, dynamic):
@@ -83,12 +88,14 @@ async def t1sec(circuit, dynamic):
             edzed.Event('_ctrl', 'shutdown', efilter=edzed.Edge(fall=True))
             )
         )
-    simtask = asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    if dynamic:
-        s1.event('reconfig', span=sarg)
-    with pytest.raises(asyncio.CancelledError):
-        await simtask
+
+    async def tester():
+        if dynamic:
+            await circuit.wait_init()
+            s1.event('reconfig', span=sarg)
+        await asyncio.sleep(9)
+
+    await edzed.run(tester())
 
     LOG = [
         (0, False),
@@ -119,22 +126,22 @@ async def test_state(circuit):
     td = edzed.TimeSpan("local", span=sarg)
     tdu = edzed.TimeSpan("utc", utc=True, span="2001 June 30. 1:2:3 - 31.may 2048 1:59:59")
 
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
+    async def tester():
+        await circuit.wait_init()
 
-    assert td.get_state() == td.initdef == sarg
-    assert tdu.get_state() == tdu.initdef == sarg
+        assert td.get_state() == td.initdef == sarg
+        assert tdu.get_state() == tdu.initdef == sarg
 
-    td.event('reconfig')
-    assert td.get_state() == []
-    assert td.initdef == sarg
+        td.event('reconfig')
+        assert td.get_state() == []
+        assert td.initdef == sarg
 
-    conf = [[[2020,1,2,3,4,5], [2030,8,9,10,11,12]], [[2015,5,4,3,2,1], [2035,9,8,7,6,5]]]
-    tdu.event('reconfig', span=conf)
-    assert tdu.get_state() == conf
-    assert tdu.initdef == sarg
+        conf = [[[2020,1,2,3,4,5], [2030,8,9,10,11,12]], [[2015,5,4,3,2,1], [2035,9,8,7,6,5]]]
+        tdu.event('reconfig', span=conf)
+        assert tdu.get_state() == conf
+        assert tdu.initdef == sarg
 
-    await circuit.shutdown()
+    await edzed.run(tester())
 
 
 def test_parse():
@@ -149,22 +156,28 @@ async def test_persistent(circuit):
     td = edzed.TimeSpan("pers", persistent=True)
     storage = {}
     circuit.set_persistent_data(storage)
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    assert td.get_state() == []
-    conf = edzed.TimeSpan.parse(
-        "2001August31.23:2:3-31.may2008 0:0,2011August31.1:2:3-31.may2018 1:59")
-    td.event('reconfig', span=conf)
-    assert td.get_state() == conf
-    await circuit.shutdown()
+    conf = None
+
+    async def tester1():
+        nonlocal conf
+        await circuit.wait_init()
+        assert td.get_state() == []
+        conf = edzed.TimeSpan.parse(
+            "2001August31.23:2:3-31.may2008 0:0,2011August31.1:2:3-31.may2018 1:59")
+        td.event('reconfig', span=conf)
+        assert td.get_state() == conf
+
+    await edzed.run(tester1())
     assert storage[td.key] == conf
 
     edzed.reset_circuit()
     td = edzed.TimeSpan("pers", persistent=True)
     circuit = edzed.get_circuit()
     circuit.set_persistent_data(storage)
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    assert td.get_state() == conf
-    await circuit.shutdown()
+
+    async def tester2():
+        await circuit.wait_init()
+        assert td.get_state() == conf
+
+    await edzed.run(tester2())
     assert storage[td.key] == conf

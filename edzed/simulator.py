@@ -10,8 +10,9 @@ import asyncio
 import fnmatch
 import logging
 import operator
+import signal
 import time
-from typing import Any, Iterator, Mapping, Optional
+from typing import Any, Coroutine, Iterator, Mapping, Optional
 
 from . import addons
 from . import block
@@ -20,7 +21,7 @@ from .blocklib import sblocks1
 from .exceptions import *   # pylint: disable=wildcard-import
 
 
-__all__ = ['get_circuit', 'reset_circuit']
+__all__ = ['get_circuit', 'reset_circuit', 'run']
 
 # limit for oscillation/instability detection:
 _MAX_EVALS_PER_BLOCK = 3
@@ -348,7 +349,8 @@ class Circuit:
             self._finalize()
             self._finalized = True
 
-    async def _run_tasks(self, jobname, btt_list):
+    @staticmethod
+    async def _run_tasks(jobname, btt_list):
         """
         Run multiple tasks concurrently. Log errors.
 
@@ -678,3 +680,71 @@ class Circuit:
             await self._simtask
         except asyncio.CancelledError:
             pass
+
+
+def _install_sigterm_handler():
+    old_handler = signal.getsignal(signal.SIGTERM)
+    def handler(signum, frame):
+        # using the _threadsafe variant because we need also to wake up the event loop
+        call_soon = asyncio.get_running_loop().call_soon_threadsafe
+        call_soon(_logger.warning, "SIGTERM caught")
+        call_soon(get_circuit().abort, asyncio.CancelledError("SIGTERM caught"))
+        if callable(old_handler):
+            old_handler(signum, frame)
+    signal.signal(signal.SIGTERM, handler)
+
+
+async def run(*coroutines: Coroutine, catch_sigterm: bool = True) -> None:
+    """
+    Run Circuit.run_forever() and supporting coroutines as tasks.
+
+    If any of the tasks exits, cancel all remaining tasks.
+
+    Return None if all tasks exited normally or were cancelled.
+    If the simulator raises, re-raise. If any of the supporting
+    tasks raises, raise RuntimeError.
+    """
+    if catch_sigterm:
+        # the signal handlers are chained, we will left the handler installed
+        _install_sigterm_handler()
+
+    circuit = get_circuit()
+    if not coroutines:
+        # do not create a needless task for this trivial case
+        try:
+            await circuit.run_forever()
+        except asyncio.CancelledError:
+            pass
+        return
+
+    simtask = asyncio.create_task(circuit.run_forever())
+    tasks =  [asyncio.create_task(coro) for coro in coroutines] + [simtask]
+    try:
+        await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+    except asyncio.CancelledError:
+        pass
+    for task in tasks:
+        if not task.done():
+            if task is simtask:
+                # a direct simtask cancel could abort the cleanup
+                circuit.abort(asyncio.CancelledError("shutdown"))
+            else:
+                task.cancel()
+    sim_error = error_data = None
+    for tnum, task in enumerate(tasks):
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        except Exception as err:
+            _logger.error("Error in task %s: %r", task, err)
+            if task is simtask:
+                sim_error = err
+            else:
+                error_data = (err, coroutines[tnum].__name__)
+
+    if sim_error is not None:
+        raise sim_error
+    if error_data is not None:
+        error, name = error_data
+        raise RuntimeError(f"Supporting coroutine '{name}' in edzed.run() failed") from error

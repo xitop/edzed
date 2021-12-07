@@ -93,11 +93,10 @@ async def test_maintask(circuit):
             self.set_output(False)
 
     Short('short')
-    timelimit(1, error=False)
     logger = TimeLogger('logger', mstop=True)
 
     with pytest.raises(edzed.EdzedCircuitError, match="task termination"):
-        await circuit.run_forever()
+        await edzed.run(asyncio.sleep(1))
 
     logger.compare([(170, '--stop--')])
 
@@ -124,7 +123,7 @@ async def test_task_monitoring(circuit):
     logger = TimeLogger('logger', mstop=True)
 
     with pytest.raises(RuntimeError, match="#999"):
-        await circuit.run_forever()
+        await edzed.run()
     LOG = [
         (0, 'start 1'),
         (0, 'start 2'),

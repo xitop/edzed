@@ -2,9 +2,9 @@
 Edzed
 =====
 
-Welcome to edzed's documentation.
-The intended audience are Python developers.
-Edzed is a Python library for building small automated systems.
+Welcome to edzed's documentation.  The intended audience are Python developers.
+Edzed is a Python library for building small automated systems, i.e. systems
+that control outputs according to input values, system’s internal state, date and time.
 It is free and open-source.
 
 The package contains:
@@ -17,10 +17,17 @@ Creating edzed applications
 ===========================
 
 .. toctree::
-  :maxdepth: 4
+  :maxdepth: 2
 
   software
   intro
+
+Building a circuit
+------------------
+
+.. toctree::
+  :maxdepth: 4
+
   blocks
   events
   cblocks
@@ -28,6 +35,13 @@ Creating edzed applications
   filters
   utils
   FSM
+
+Running a simulation
+--------------------
+
+.. toctree::
+  :maxdepth: 3
+
   simulation
   errors
 

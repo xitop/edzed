@@ -24,11 +24,12 @@ async def test_etype(circuit):
     mem = EventMemory('mem')
     rpt = edzed.Repeat('repeat', dest=mem, etype='put', interval=0.05)
 
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    for etype in ('get', 'set', 'stop', 'start', 'PUT', 'putx', 'xput'):
-        rpt.event(etype)
-    await circuit.shutdown()
+    async def tester():
+        await circuit.wait_init()
+        for etype in ('get', 'set', 'stop', 'start', 'PUT', 'putx', 'xput'):
+            rpt.event(etype)
+
+    await edzed.run(tester())
     assert mem.output is None
 
 
@@ -37,18 +38,19 @@ async def test_repeat(circuit):
     logger = TimeLogger('logger', select=lambda data: (data['repeat'], data['value']))
     rpt = edzed.Repeat('repeat', dest=logger, interval=0.05)
 
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    await asyncio.sleep(0.1)
-    assert rpt.output == 0
-    rpt.put('A')
-    await asyncio.sleep(0.18)
-    assert rpt.output == 3
-    rpt.put('B')
-    assert rpt.output == 0
-    await asyncio.sleep(0.12)
-    assert rpt.output == 2
-    await circuit.shutdown()
+    async def tester():
+        await circuit.wait_init()
+        await asyncio.sleep(0.1)
+        assert rpt.output == 0
+        rpt.put('A')
+        await asyncio.sleep(0.18)
+        assert rpt.output == 3
+        rpt.put('B')
+        assert rpt.output == 0
+        await asyncio.sleep(0.12)
+        assert rpt.output == 2
+
+    await edzed.run(tester())
 
     LOG = [
         (100, (0, 'A')),
@@ -67,17 +69,18 @@ async def test_count(circuit):
     logger = TimeLogger('logger', select=lambda data: (data['repeat'], data['value']))
     rpt = edzed.Repeat('repeat', dest=logger, interval=0.02, count=3)
 
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    await asyncio.sleep(0.1)
-    assert rpt.output == 0
-    rpt.put('A')
-    await asyncio.sleep(0.16)
-    assert rpt.output == 3
-    rpt.put('B')
-    await asyncio.sleep(0.16)
-    assert rpt.output == 3
-    await circuit.shutdown()
+    async def tester():
+        await circuit.wait_init()
+        await asyncio.sleep(0.1)
+        assert rpt.output == 0
+        rpt.put('A')
+        await asyncio.sleep(0.16)
+        assert rpt.output == 3
+        rpt.put('B')
+        await asyncio.sleep(0.16)
+        assert rpt.output == 3
+
+    await edzed.run(tester())
 
     LOG = [
         (100, (0, 'A')),
@@ -98,12 +101,13 @@ async def test_auto_repeat(circuit):
     logger = TimeLogger('logger', select=lambda data: (data['repeat'], data['value']))
     rpt = next(circuit.getblocks(edzed.Repeat)) # there's only one
 
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    assert rpt.output == 0
-    await asyncio.sleep(0.23)
-    assert rpt.output == 4
-    await circuit.shutdown()
+    async def tester():
+        await circuit.wait_init()
+        assert rpt.output == 0
+        await asyncio.sleep(0.23)
+        assert rpt.output == 4
+
+    await edzed.run(tester())
 
     LOG = [
         (  0, (0, 7)),
@@ -129,11 +133,12 @@ async def test_output(circuit):
 
     rpt = edzed.Repeat('repeat0', etype='EV', dest=Check('check'), interval=0.05)
 
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    assert rpt.output == 0
-    rpt.event('EV', twelve=12, source='fake')
-    await asyncio.sleep(0.16)
-    rpt.event('EV', twelve=12, source='fake')
-    await asyncio.sleep(0.11)
-    await circuit.shutdown()
+    async def tester():
+        await circuit.wait_init()
+        assert rpt.output == 0
+        rpt.event('EV', twelve=12, source='fake')
+        await asyncio.sleep(0.16)
+        rpt.event('EV', twelve=12, source='fake')
+        await asyncio.sleep(0.11)
+
+    await edzed.run(tester())

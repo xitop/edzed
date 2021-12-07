@@ -1,7 +1,9 @@
 import asyncio
+import logging
 import time
 
-import edzed, edzed.demo
+import edzed
+from edzed.demo import cli_repl
 
 class AfterRun(edzed.FSM):
     STATES = ['off', 'on', 'prepare_afterrun', 'afterrun']
@@ -24,8 +26,19 @@ class AfterRun(edzed.FSM):
         return self.state != 'off'
 
 
-ar = AfterRun('ar', x_percentage=50, debug=True)
+AfterRun('ar', x_percentage=50, debug=True)
 
 if __name__ == '__main__':
-    print('Press ctrl-C to stop\n')
-    asyncio.run(edzed.demo.run_demo())
+    print("""\
+An after-run FSM demo.
+
+1. start with: e ar start
+   the output goes from False to True
+2. wait few seconds (runtime T)
+3. stop with: e ar stop
+   the output remains True
+4. observe that after 50% of time T
+   the output automatically returns to False
+""")
+    logging.basicConfig(level=logging.DEBUG)
+    asyncio.run(edzed.run(cli_repl()))

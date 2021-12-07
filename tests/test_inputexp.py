@@ -25,17 +25,18 @@ async def test_expiration(circuit):
         'ie', duration=0.2, expired=-1, initdef=99,
         on_output=edzed.Event(logger))
 
-    asyncio.create_task(circuit.run_forever())
-    await asyncio.sleep(0.25)
-    assert inpexp.state == 'expired'
-    inpexp.put(77)
-    assert inpexp.state == 'valid'
-    await asyncio.sleep(0.1)
-    inpexp.put(55)
-    await asyncio.sleep(0.25)
-    inpexp.put(33, duration="0.08s")    # override
-    await asyncio.sleep(0.2)
-    await circuit.shutdown()
+    async def tester():
+        await asyncio.sleep(0.25)
+        assert inpexp.state == 'expired'
+        inpexp.put(77)
+        assert inpexp.state == 'valid'
+        await asyncio.sleep(0.1)
+        inpexp.put(55)
+        await asyncio.sleep(0.25)
+        inpexp.put(33, duration="0.08s")    # override
+        await asyncio.sleep(0.2)
+
+    await edzed.run(tester())
     LOG = [
         (0, 99),
         (200, -1),
@@ -51,15 +52,16 @@ async def test_expiration(circuit):
 
 async def ptest(circuit, delay, slog):
 
-    ie1 = edzed.InputExp(
-        'ie', duration=0.25, expired="exp", initdef="ok1", persistent=True)
+    async def test_sleep(sleeptime):
+        await edzed.get_circuit().wait_init()
+        await asyncio.sleep(sleeptime)
 
     state = {}
+    # circuit 1
     circuit.set_persistent_data(state)
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    await asyncio.sleep(0.1)
-    await circuit.shutdown()
+    ie1 = edzed.InputExp(
+        'ie', duration=0.25, expired="exp", initdef="ok1", persistent=True)
+    await edzed.run(test_sleep(0.1))
     assert ie1.key in state
 
     # circuit 2
@@ -71,11 +73,7 @@ async def ptest(circuit, delay, slog):
     ie2 = edzed.InputExp(
         'ie', duration=0.25, expired="exp", initdef="ok2", persistent=True,
         on_output=edzed.Event(logger))
-    asyncio.create_task(circuit.run_forever())
-    await circuit.wait_init()
-    await asyncio.sleep(0.30)
-    await circuit.shutdown()
-
+    await edzed.run(test_sleep(0.3))
     logger.compare(slog)
 
 

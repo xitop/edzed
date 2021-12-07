@@ -45,7 +45,6 @@ A circuit
 ---------
 
 Of course, a valid circuit (i.e. set of interconnected blocks) is needed.
-How to design one is beyond he scope of this document.
 
 The completed circuit may be explicitly finalized.
 
@@ -103,14 +102,40 @@ Skip this step if this feature is not required.
 Starting a simulation
 =====================
 
+There are two equally valid entry points. Recommended is the higher-level :func:`edzed.run`,
+but some applications might prefer the lower-level :meth:`Circuit.run_forever`.
+
+.. function:: run(*coroutines: Coroutine, catch_sigterm: bool = True) -> None
+  :async:
+
+  The main entry point. Run the :meth:`Circuit.run_forever` (documented below)
+  and all supporting *coroutines* as separate tasks. If any of them exits,
+  cancel and await all remaining tasks.
+
+  A supporting coroutine is any coroutine intended to run concurrently with
+  the simulator, mainly a coroutine listening for external events or requests,
+  monitoring the circuit or controlling the simulator. The :ref:`CLI demo tool`
+  is an example of a supporting coroutine.
+
+  Unless *catch_sigterm* is false, install a signal handler that cancels the
+  simulation upon ``SIGTERM`` delivery. This allows for a graceful exit.
+
+  Normally return ``None`` (in contrast to :meth:`Circuit.run_forever`), but raise
+  an exception if any of the tasks exits due to an exception other than
+  the :exc:`asyncio.CancelledError`. In detail, if the simulation task raises,
+  re-raise the exception. If any of the supporting tasks raises, raise :exc:`RuntimeError`.
+
+  .. versionadded:: 21.12.8
+
+
 .. method:: Circuit.run_forever()
   :async:
 
-  Run the circuit simulation in an infinite loop, i.e. until cancelled or until
-  an exception is raised. Note that technically cancellation equals to a raised
-  exception too.
+  Lower-level entry point. Run the circuit simulation in an infinite loop, i.e. until
+  cancelled or until an exception is raised. Note that technically cancellation equals
+  to a raised exception too.
 
-  The asyncio task that runs :meth:`run_forever` is called a *simulation task*.
+  The asyncio task that runs ``run_forever`` is called a *simulation task*.
 
   When started, the coroutine follows these instructions:
 
@@ -121,7 +146,7 @@ Starting a simulation
      :meth:`is_ready` can be used to check if this state was reached.
 
   #. Initialize all blocks. Asynchronous block initialization routines
-     (if any) are invoked in parallel. After the initialization all
+     (if any) are invoked concurrently. After the initialization all
      blocks have a valid output, i.e any value except :const:`UNDEF`.
      If you need to synchronize with this stage, use :meth:`wait_init`.
 
@@ -135,7 +160,6 @@ Starting a simulation
 
     When :meth:`run_forever` terminates, it cannot be invoked again.
 
-  .. seealso:: :ref:`CLI demo tool`
 
 .. method:: Circuit.is_ready() -> bool
 
@@ -174,54 +198,53 @@ Starting a simulation
 Stopping the simulation
 =======================
 
-A running simulation can be stopped only by cancellation of the simulation task:
+A running simulation can be stopped only by cancellation of the simulation task, i.e.
+the task that runs :meth:`Circuit.run_forever`.
 
-1. based on the circuit activity:
+1. Based on the circuit activity:
 
   Program the circuit to send a ``'shutdown'`` event to the
   :ref:`simulator control block<Simulator control block>` when a condition is met.
 
-2. from the application code:
+2. From the application code:
 
-  To stop the simulation await :meth:`Circuit.shutdown`.
+  It is assumed that the function wanting to stop the simulation is running inside
+  a supporting coroutine started with :func:`run` as this is the intended way
+  to run any code controlling the simulation. There are two options:
 
-  .. method:: Circuit.shutdown() -> None
-    :async:
+  - either await :meth:`Circuit.shutdown`
 
-    If the simulation task is still running, cancel the task and wait until
-    it finishes. The wait could take time up to the largest of all *stop_timeout*
-    values (plus some small overhead).
+  - or simply terminate the own supporting task, :func:`run` will detect it.
+    The simulation is cancelled when any of the supporting tasks terminates.
 
-    Return normally when the task was cancelled.
-    Otherwise the exception that stopped the simulation is raised.
+3. From another process:
 
-    It is an error to await :meth:`shutdown`:
+  By default, sending a ``SIGTERM`` signal will stop the simulation
+  with a proper cleanup, of course only if it is running.
 
-    - if the simulator task was not started
-    - from within the simulator task itself
+  The corresponding signal handler is installed when :func:`run` is started.
 
-  Of course, you could cancel the simulation task directly like in
-  this simplified example::
+----
 
-    # start
-    circuit = edzed.get_circuit()
-    simtask = asyncio.create_task(circuit.run_forever())
+.. method:: Circuit.shutdown() -> None
+  :async:
 
-    ... some application code runs here ...
+  If the simulation task is running, cancel the task and wait until
+  it finishes. The wait could take time up to the largest of all *stop_timeout*
+  values (plus some small overhead).
 
-    # shutdown
-    simtask.cancel()
-    try:
-        await simtask   # cleanup
-    except asyncio.CancelledError:
-        pass            # normal exit
-    except Exception as err:
-        print(f"simulation error {err}")
+  Return normally when the task was cancelled.
+  Otherwise the exception that stopped the simulation is raised.
+
+  It is an error to await :meth:`shutdown`:
+
+  - if the simulation task was not started
+  - from within the simulation task itself
 
 .. attribute:: Circuit.error
 
   The exception that stopped the simulation or ``None`` if the simulation
-  wasn't stopped. This is a read-only attribute.
+  wasn't stopped yet. This is a read-only attribute.
 
 
 Multiple circuits
@@ -350,8 +373,17 @@ Finding blocks
 Inspecting blocks
 -----------------
 
-For features common to all blocks refer to the base class :class:`Block`.
+This section summarizes attributes and methods providing various block
+information. The application code should not modify any attributes
+liste here.
 
+.. attribute:: Block.oconnections
+  :type: set
+
+  Set of all blocks where the output is connected to. Undefined before
+  the circuit finalization - see :meth:`Circuit.finalize`.
+
+For other attributes common to all blocks refer to the base class :class:`Block`.
 
 Inspecting SBlocks
 ^^^^^^^^^^^^^^^^^^
@@ -359,8 +391,8 @@ Inspecting SBlocks
 .. method:: SBlock.get_state() -> Any
 
   Return the :ref:`internal state<Internal state>`.
-  Undefined before a successful block initialization.
-  (see :meth:`Circuit.wait_init`)
+  Undefined before a successful block initialization - see
+  :meth:`Block.is_initialized` below and :meth:`Circuit.wait_init`
 
   The format and semantics of returned data depends on the block type.
 
@@ -368,18 +400,20 @@ Inspecting SBlocks
 
   Return ``True`` only if the block has been initialized.
 
-  This method simply checks if the output is not :const:`UNDEF`.
+  This method simply checks if the output is not :const:`UNDEF`
+  relying on the fact that sequential block's output is determined
+  by its internal state.
 
   .. note::
 
-    this method is defined for all blocks, but the test
-    is helpful for sequential blocks only
+    This method is defined for all blocks, but the test
+    is helpful for sequential blocks only.
 
 .. attribute:: SBlock.initdef
 
   Saved value of the *initdef* argument or :const:`UNDEF`,
   if the argument was not given. Only present if the block
-  accepts this argument. See: :ref:`Base class arguments`.
+  accepts this argument - see: :ref:`Base class arguments`.
 
 
 Inspecting CBlocks
@@ -388,9 +422,8 @@ Inspecting CBlocks
 .. attribute:: CBlock.iconnections
   :type: set
 
-  A set of all blocks connected to inputs.
-  Undefined before the circuit finalization.
-  (see :meth:`Circuit.finalize`)
+  A set of all blocks connected to inputs. Undefined before the circuit
+  finalization - see :meth:`Circuit.finalize`.
 
 .. attribute:: CBlock.inputs
   :type: dict
@@ -404,7 +437,7 @@ Inspecting CBlocks
   can be obtained with :meth:`Block.get_conf`; extract
   the ``'inputs'`` value from the result.
 
-  Not defined before the circuit finalization.
-  (see :meth:`Circuit.finalize`)
+  Not defined before the circuit finalization - see
+  :meth:`Circuit.finalize`.
 
 .. seealso:: :ref:`Input signatures`
