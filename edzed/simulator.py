@@ -646,8 +646,7 @@ class Circuit:
         Abort the circuit simulation due to an exception.
 
         abort() is necessary only when an ordinary exception wouldn't
-        be propagated to the simulator. This is the case in asyncio
-        tasks NOT started with the AddonAsync._create_monitored_task helper.
+        be propagated to the simulator.
 
         The first error stops the simulation, that's why abort()
         delivers the exception only if the simulation hasn't received

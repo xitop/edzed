@@ -348,8 +348,8 @@ Example: debug all blocks except Inputs::
    circuit.set_debug(False, edzed.Input)
 
 
-Circuit monitoring
-==================
+Circuit examination
+===================
 
 Finding blocks
 --------------

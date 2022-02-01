@@ -7,7 +7,7 @@ The edzed package contains:
  - a simple event-driven zero-delay digital circuit simulator
 
 - - - - - -
-Copyright (c) 2019-2021 Vlado Potisk <edzed@poti.sk>.
+Copyright (c) 2019-2022 Vlado Potisk <edzed@poti.sk>.
 
 Released under the MIT License.
 

@@ -10,6 +10,13 @@ Changelog
 Version numbers are based on the release date (Y.M.D).
 
 
+22.2.1
+======
+
+- add documentation for the :meth:`Circuit.abort`
+
+There was no code change; not exported to the PyPi.
+
 21.12.8
 =======
 

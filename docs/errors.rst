@@ -32,12 +32,8 @@ Exceptions
 Error checking in asyncio
 =========================
 
-.. note::
-
-  This section is not specific to ``edzed``.
-
 A non-trivial `asyncio <https://docs.python.org/3/library/asyncio.html>`_
-application may need several long-running tasks. Let's call them *services*.
+application may need several long-running tasks.
 Even if the code was written in agreement with the
 *"Errors should never pass silently"* guideline, tasks in asyncio
 are *"fire and forget"*. When a task crashes, the rest of the program
@@ -50,9 +46,9 @@ continues to run. The application could become unresponsive or ill-behaving.
 
 There are several options (and combinations):
 
-- use wrappers around the services. When the code
-  after a ``try / await service() / except`` block is reached,
-  you know that the service coroutine has terminated.
+- use wrappers around the task coroutines. When the code
+  after a ``try / await task_coro() / except`` block is reached,
+  you know that the task coroutine has terminated.
   ``edzed`` follows this approach in some of its async sequential blocks
   using a helper :meth:`AddonAsync._create_monitored_task`.
 - do not treat any task as a "background task". Organize
@@ -63,6 +59,39 @@ There are several options (and combinations):
   see :meth:`loop.set_exception_handler` in asyncio.
 
 And, of course, check the results of terminated tasks.
+
+
+Reporting errors to the simulator
+=================================
+
+When a fatal error occurs in an ``edzed`` related function,
+the simulation can be aborted with the :meth:`Circuit.abort` method.
+
+In most cases it is sufficient to simply raise an exception as usual,
+because the simulator will receive the exception. In reaction it will
+abort the simulation unless the error is deliberately ignored.
+All such cases are properly documented.
+
+However - as explained in the previous section - exceptions raised
+in asynchronous tasks affect only the task itself. If a simulation
+abort is desired by an independent task, :meth:`Circuit.abort` must
+be called explicitly.
+
+.. method:: Circuit.abort(exc: Exception) -> None
+
+  Abort the circuit simulation due to an exception.
+
+  ``abort()`` is necessary only when an exception wouldn't
+  be propagated to the simulator. This is the case in asyncio
+  tasks neither started with the :meth:`AddonAsync._create_monitored_task` helper,
+  nor started as supporting tasks in :meth:`run`.
+
+  The first error stops the simulation, that's why ``abort()``
+  delivers the exception only if the simulation hasn't received
+  another exception already.
+
+  ``abort()`` may be called even before the simulation begins.
+  The start will then fail.
 
 
 Detection of erroneous circuit activity
