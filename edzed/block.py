@@ -6,12 +6,14 @@ Docs: https://edzed.readthedocs.io/en/latest/
 Project home: https://github.com/xitop/edzed/
 """
 
+from __future__ import annotations
+
 import abc
-import collections.abc as cabc
+from collections.abc import Callable, Iterator, Mapping, MutableMapping, Sequence, Set
 from dataclasses import dataclass
 import difflib
 import logging
-from typing import Any, Callable, Iterable, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Optional
 import weakref
 
 from .exceptions import *   # pylint: disable=wildcard-import
@@ -21,6 +23,14 @@ __all__ = [
     'UNDEF', 'Const', 'Block', 'CBlock', 'SBlock',
     'Event', 'EventType', 'EventCond', 'event_tuple', 'checkname',
     ]
+
+try:
+    # Python >= 3.9
+    EFilter = Callable[[MutableMapping], Any]
+except TypeError:
+    # Python <= 3.8
+    from typing import Callable     # pylint: disable=reimported, ungrouped-imports
+    EFilter = Callable[[MutableMapping], Any]
 
 _logger = logging.getLogger(__package__)
 
@@ -61,9 +71,9 @@ class Const:
         name -- automatically created from the value
         output -- constant value
     """
-    _instances = weakref.WeakValueDictionary()
+    _instances: MutableMapping[Any, Const] = weakref.WeakValueDictionary()
 
-    def __new__(cls, const):
+    def __new__(cls, const: Any):
         try:
             return cls._instances[const]
             # __init__ will be invoked anyway
@@ -91,7 +101,7 @@ class Const:
         return f"<{type(self).__name__} {self.output!r}>"
 
 
-def checkname(name, nametype):
+def checkname(name: Any, nametype: str) -> None:
     """Raise if name is not valid."""
     if not isinstance(name, str):
         raise TypeError(f"{nametype} must be a string, but got {name!r}")
@@ -99,15 +109,15 @@ def checkname(name, nametype):
         raise ValueError(f"{nametype} must be a non-empty string")
 
 
-def _is_multiple(arg):
+def _is_multiple(arg: Any) -> bool:
     """
     Check if arg specifies multiple ordered items (inputs, events, etc.)
 
     The check is based on the type. The actual item count does not
     matter and can be any value including zero or one.
 
-    Iterators are also considered to be multiple items. Remember that
-    they can be iterated over only once.
+    Iterators are also considered to be multiple items with defined
+    order. Remember that they can be iterated over only once.
 
     The str type arg is considered as a single name and not as a string
     of multiple characters; the return value is False.
@@ -116,7 +126,7 @@ def _is_multiple(arg):
     this function; the return value is False.
 
     """
-    return not isinstance(arg, str) and isinstance(arg, (cabc.Sequence, cabc.Iterator))
+    return not isinstance(arg, str) and isinstance(arg, (Sequence, Iterator))
 
 
 class Block:
@@ -126,15 +136,14 @@ class Block:
 
     def __init__(
             self,
-            name: Optional[str], *,
+            name: Optional[str],
+            *,
             comment: str = "",
-            on_output: 'EventsArg' = None,
+            on_output: Optional[Event|Iterator[Event]|Sequence[Event]] = None,
             _reserved: bool = False,
             debug: bool = False,
             **x_kwargs):
-        """
-        Create a block. Add it to the circuit.
-        """
+        """Create new block. Add it to the circuit."""
         self.circuit = simulator.get_circuit()
         if name is None:
             # autonamically assign name _TYPE_0, _TYPE_1, _TYPE_2, ...
@@ -161,9 +170,9 @@ class Block:
         self.comment = comment
         self.debug = bool(debug)
         self._output_events = event_tuple(on_output)
-        # oconnections will be populated by Circuit._init_connections:
-        self.oconnections = set()   # output is connected to these blocks
-        self._output = UNDEF
+        # oconnections will be populated by Circuit._finalize():
+        self.oconnections: set[CBlock] = set()  # output is connected to these blocks
+        self._output: Any = UNDEF
         self.circuit.addblock(self)
 
     def is_initialized(self) -> bool:
@@ -229,7 +238,7 @@ class Block:
     async def dummy_async_method(self, *args, **kwargs):
         """A dummy async method, see dummy_method."""
 
-    def get_conf(self) -> Mapping[str, Any]:
+    def get_conf(self) -> dict[str, Any]:
         """Return static block information as a dict."""
         return {
             'class': type(self).__name__,
@@ -262,16 +271,16 @@ class CBlock(Block, metaclass=abc.ABCMeta):
         or as an attribute.
         """
 
-        def __init__(self, blk):
+        def __init__(self, blk: CBlock):
             self._blk = blk
 
-        def __getitem__(self, name):
+        def __getitem__(self, name: str) -> Any:
             iblk = self._blk.inputs[name]
             if isinstance(iblk, tuple):
                 return tuple(b.output for b in iblk)
             return iblk.output
 
-        def __getattr__(self, name):
+        def __getattr__(self, name: str):
             try:
                 return self[name]
             except KeyError:
@@ -287,23 +296,26 @@ class CBlock(Block, metaclass=abc.ABCMeta):
         super().__init_subclass__(*args, **kwargs)
 
     def __init__(self, *args, **kwargs):
-        self.iconnections = set()   # will be populated by Circuit._init_connections()
-        self.inputs = {}    # {"name": input(s)} where input is either:
-                            #   - a block providing the input value, or
-                            #   - a tuple of blocks in case of an input group
-                            # When building a circuit, input blocks may be
-                            # temporarily represented by their names
+        self.iconnections: set[Block] = set()   # will be populated by Circuit._finalize()
+        self.inputs: dict[str, Any] = {}
+            # {"name": input(s)} where input is either:
+            #   - a block providing the input value, or
+            #   - a Const object providing the input value, or
+            #   - a tuple of blocks or Consts in case of an input group
+            # When building a circuit, i.e. before finalizing it:
+            #   - input blocks may be temporarily represented by their names
+            #   - Const pseudo-blocks may be temporarily represented by their values
         self._in = self.InputGetter(self)   # _in.name and _in[name] are two ways of getting
                                             # the value of the input or input group 'name'
         super().__init__(*args, **kwargs)
 
-    def connect(self, *args, **kwargs):
+    def connect(self, *args, **kwargs) -> CBlock:
         """
-        Connect inputs and input groups.
+        Connect inputs and input groups. Return self.
 
         connect() only saves the block's input connections data.
         The circuit-wide processing of interconnections will take place
-        in Circuit._init_connections().
+        in Circuit.finalize().
         """
         self.circuit.check_not_finalized()
         if self.inputs:
@@ -312,7 +324,7 @@ class CBlock(Block, metaclass=abc.ABCMeta):
             raise ValueError("No inputs to connect were given")
         if '_' in kwargs:
             raise ValueError("Input name '_' is reserved")
-        # save the data for later processing by Circuit._init_connections
+        # save the data for later processing by Circuit.finalize
         if args:
             for inp in args:
                 if _is_multiple(inp):
@@ -324,7 +336,7 @@ class CBlock(Block, metaclass=abc.ABCMeta):
             self.inputs[iname] = tuple(inp) if _is_multiple(inp) else inp
         return self
 
-    def input_signature(self) -> dict:
+    def input_signature(self) -> dict[str, None|int]:
         """
         Return a dict with so called input signature.
 
@@ -339,11 +351,11 @@ class CBlock(Block, metaclass=abc.ABCMeta):
             iname: len(ival) if isinstance(ival, tuple) else None
             for iname, ival in self.inputs.items()}
 
-    def check_signature(self, esig: Mapping) -> dict:
+    def check_signature(self, esig: Mapping[str, None|int|Sequence[int]]) -> dict:
         """
         Check an expected signature 'esig' with the actual one.
         """
-        def setdiff_msg(actual, expected):
+        def setdiff_msg(actual: Set[str], expected: Set[str]) -> str:
             """Return a message describing a diff of two sets of names."""
             unexpected = actual - expected
             missing = expected - actual
@@ -362,7 +374,11 @@ class CBlock(Block, metaclass=abc.ABCMeta):
                 msgparts.append("missing: " + ', '.join(repr(name) for name in missing))
             return ", ".join(msgparts)
 
-        def valuediff_msg(name, value, expected):
+        def valuediff_msg(
+                name: str,
+                value: None|int,
+                expected: None|int|Sequence[None|int]
+                ) -> Optional[str]:
             """Return a message describing a diff in signature items."""
             if expected is None:
                 if value is not None:
@@ -389,7 +405,7 @@ class CBlock(Block, metaclass=abc.ABCMeta):
         if bsig != esig:
             if bsig.keys() != esig.keys():
                 # names differ
-                errmsg = setdiff_msg(set(bsig), set(esig))
+                errmsg = setdiff_msg(bsig.keys(), esig.keys())
                 raise ValueError(f"Not connected correctly: {errmsg}")
             # if names are OK, values must differ
             errors = [
@@ -421,7 +437,7 @@ class CBlock(Block, metaclass=abc.ABCMeta):
             event.send(self, trigger='output', previous=previous, value=value)
         return True
 
-    def get_conf(self) -> Mapping[str, Any]:
+    def get_conf(self) -> dict[str, Any]:
         conf = super().get_conf()
         conf['type'] = 'combinational'
         if self.circuit.is_finalized():
@@ -464,7 +480,10 @@ class SBlock(Block):
                             cls._ct_handlers[etype] = method
         assert sblock_seen
 
-    def __init__(self, *args, on_every_output: 'EventsArg' = None, **kwargs):
+    def __init__(
+            self, *args,
+            on_every_output: Optional[Event|Iterator[Event]|Sequence[Event]] = None,
+            **kwargs):
         if self.has_method('init_from_value'):
             self.initdef = kwargs.pop('initdef', UNDEF)
         self._event_active = False      # guard against event recursion
@@ -491,17 +510,20 @@ class SBlock(Block):
         for event in self._every_output_events:
             event.send(self, trigger='output', previous=previous, value=value)
 
-    def _event(self, etype, data):  # pylint: disable=unused-argument, no-self-use
+    # pylint: disable=unused-argument, no-self-use
+    def _event(self, etype: str|EventType, data: Mapping[str, Any]) -> Any:
         """
         Handle an event.
+
+        This is the default handler.
         """
         raise EdzedUnknownEvent(f"{self}: Unknown event type {etype!r}")
 
     # TODO: There is an issue fixed in Python3.8+ by PEP570, but
     # we want to support Python 3.7, so a workaround must be used.
     #
-    # Python 3.8 function definition will be:
-    #   def event(self, etype: Union[str, EventType], /, **data) -> Any:
+    # Python 3.8+ function definition will be:
+    #   def event(self, etype: str|EventType, /, **data) -> Any:
     #
     # The problem with:
     #   def event(self, etype, **data):     # type hints removed
@@ -579,7 +601,7 @@ class SBlock(Block):
                 self.event(...) # without _enable_event this would
                                 # raise "Forbidden recursive event()"
         """
-        def __init__(self, block: 'SBlock'):
+        def __init__(self, block: SBlock):
             self._block = block
             self._event_saved = None
 
@@ -616,7 +638,7 @@ class SBlock(Block):
     stop_async = Block.dummy_async_method
     init_from_value = Block.dummy_method
 
-    def get_conf(self) -> Mapping[str, Any]:
+    def get_conf(self) -> dict[str, Any]:
         conf = super().get_conf()
         conf['type'] = 'sequential'
         return conf
@@ -626,6 +648,7 @@ class Addon:
     """
     Base class for all SBlock add-ons.
     """
+
 
 class EventType:
     """
@@ -648,13 +671,8 @@ class EventCond(EventType):
     None value means no event.
     """
     __slots__ = ['etrue', 'efalse']
-    etrue: Union[None, str, EventType]
-    efalse: Union[None, str, EventType]
-
-
-EFilter = Callable[[Mapping], Any]
-EventsArg = Union[None, 'Event', Iterable['Event'], Sequence['Event']]
-EFiltersArg = Union[None, EFilter, Iterable[EFilter], Sequence[EFilter]]
+    etrue: Optional[str|EventType]
+    efalse: Optional[str|EventType]
 
 
 class Event:
@@ -664,10 +682,12 @@ class Event:
 
     def __init__(
             self,
-            dest: Union[str, 'SBlock'],
-            etype: Union[str, EventType] = 'put',
-            *, efilter: EFiltersArg = None,
-            repeat=None, count=None):
+            dest: str|SBlock,
+            etype: str|EventType = 'put',
+            *,
+            efilter: Optional[EFilter|Iterator[EFilter]|Sequence[EFilter]] = None,
+            repeat: Optional[int|float|str] = None,
+            count: Optional[int] = None):
         if repeat is not None:
             destname = dest if isinstance(dest, str) else dest.name
             dest = sblocks1.Repeat(
@@ -683,11 +703,11 @@ class Event:
         simulator.get_circuit().resolve_name(self, 'dest', SBlock)
 
     @classmethod
-    def abort(cls):
+    def abort(cls) -> Event:
         return cls('_ctrl', 'abort')
 
     @staticmethod
-    def typecheck(etype):
+    def typecheck(etype: Any) -> None:
         """Raise if etype is not a valid event type value."""
         if isinstance(etype, str):
             if not etype:
@@ -735,7 +755,7 @@ class Event:
         return f"<{type(self).__name__} dest='{dest_name}', event='{self.etype}'>"
 
 
-def _to_tuple(args, validator):
+def _to_tuple(args: Any, validator: Callable[[Any], Any]) -> tuple:
     """
     Transform 'args' to a tuple of items. Validate each item.
 
@@ -754,7 +774,7 @@ def _to_tuple(args, validator):
     return args
 
 
-def event_tuple(events: EventsArg) -> Tuple[Event, ...]:
+def event_tuple(events: Optional[Event|Iterator[Event]|Sequence[Event]]) -> tuple[Event, ...]:
     """
     Transform the argument to a tuple of events.
 
@@ -767,7 +787,8 @@ def event_tuple(events: EventsArg) -> Tuple[Event, ...]:
     return _to_tuple(events, validator)
 
 
-def efilter_tuple(efilters: EFiltersArg) -> Tuple[EFilter, ...]:
+def efilter_tuple(
+        efilters: Optional[EFilter|Iterator[EFilter]|Sequence[EFilter]]) -> tuple[EFilter, ...]:
     """
     Transform the argument to a tuple of event filters.
 

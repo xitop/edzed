@@ -5,8 +5,11 @@ Sequential blocks for general use.
 Docs: https://edzed.readthedocs.io/en/latest/
 Home: https://github.com/xitop/edzed/
 """
+from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
+from typing import Any, NoReturn, Optional
 
 from .. import addons
 from .. import block
@@ -22,17 +25,24 @@ class ControlBlock(block.SBlock):
     Simulator control block.
     """
 
-    def _event_shutdown(self, *, source='<no-source-data>', **_data):
+    def _event_shutdown(
+            self, *,
+            source: str = '<no-source-data>',
+            **_data) -> None:
         exc = asyncio.CancelledError(f"{self}: shutdown requested by '{source}'")
         self.circuit.abort(exc)
 
-    def _event_abort(self, *, source='<no-source-data>', error='<no-error-data>', **_data):
+    def _event_abort(
+            self, *,
+            source: str = '<no-source-data>',
+            error: BaseException|str = '<no-error-data>',
+            **_data) -> None:
         exc = EdzedCircuitError(f"{self}: error reported by '{source}': {error!r}")
         if isinstance(error, Exception):
             exc.__cause__ = error
         self.circuit.abort(exc)
 
-    def init_regular(self):
+    def init_regular(self) -> None:
         self.set_output(None)
 
 
@@ -41,7 +51,11 @@ class Counter(addons.AddonPersistence, block.SBlock):
     Counter. If modulo is set to a number M, count modulo M.
     """
 
-    def __init__(self, *args, modulo=None, initdef=0, **kwargs):
+    def __init__(
+            self, *args,
+            modulo: Optional[int|float] = None,
+            initdef: int|float = 0,
+            **kwargs):
         """
         Set the optional modulo and the initial counter value (default = 0).
         """
@@ -50,21 +64,21 @@ class Counter(addons.AddonPersistence, block.SBlock):
         self._mod = modulo
         super().__init__(*args, initdef=initdef, **kwargs)
 
-    def _setmod(self, value):
+    def _setmod(self, value: int|float) -> int|float:
         output = value if self._mod is None else value % self._mod
         self.set_output(output)
         return output
 
-    def _event_inc(self, *, amount=1, **_data):
+    def _event_inc(self, *, amount: int|float = 1, **_data) -> int|float:
         return self._setmod(self._output + amount)
 
-    def _event_dec(self, *, amount=1, **_data):
+    def _event_dec(self, *, amount: int|float = 1, **_data) -> int|float:
         return self._setmod(self._output - amount)
 
-    def _event_put(self, *, value, **_data):
+    def _event_put(self, *, value: int|float, **_data) -> int|float:
         return self._setmod(value)
 
-    def _event_reset(self, **_data):
+    def _event_reset(self, **_data) -> int|float:
         return self._setmod(self.initdef)
 
     init_from_value = _setmod
@@ -76,12 +90,17 @@ class Repeat(addons.AddonMainTask, block.SBlock):
     Periodically repeat the last received event.
     """
 
-    def __init__(self, *args, dest, etype='put', interval, count=None, **kwargs):
+    def __init__(
+            self, *args,
+            dest: str|block.SBlock,
+            etype: str = 'put',
+            interval: int|float|str,
+            count: Optional[int] = None,
+            **kwargs):
         self._repeated_event = block.Event(dest, etype)
-        interval = utils.time_period(interval)
-        if interval is None or interval <= 0.0:
+        self._interval = utils.time_period(interval)
+        if self._interval is None or self._interval <= 0.0:
             raise ValueError("interval must be positive")
-        self._interval = interval
         self._queue = None
         self._count = count
         if count is not None and count < 0:
@@ -89,10 +108,10 @@ class Repeat(addons.AddonMainTask, block.SBlock):
             raise ValueError("argument 'count' must not be negative")
         super().__init__(*args, **kwargs)
 
-    def init_regular(self):
+    def init_regular(self) -> None:
         self.set_output(0)
 
-    async def _maintask(self):
+    async def _maintask(self) -> NoReturn:
         repeating = False
         while True:
             if repeating:
@@ -111,7 +130,7 @@ class Repeat(addons.AddonMainTask, block.SBlock):
                 self._repeated_event.send(self, **data, repeat=repeat)
             repeating = self._count is None or repeat < self._count
 
-    def _event(self, etype, data):
+    def _event(self, etype: str|block.EventType, data) -> None:
         if etype == self._repeated_event.etype:
             # send the original event synchronously in order
             # not to conceal a possible forbidden loop
@@ -120,7 +139,7 @@ class Repeat(addons.AddonMainTask, block.SBlock):
             self._repeated_event.send(self, **data, repeat=0)
             self._queue.put_nowait(data)
 
-    def start(self):
+    def start(self) -> None:
         super().start()
         self._queue = asyncio.Queue()
 
@@ -130,12 +149,14 @@ class ValuePoll(addons.AddonMainTask, addons.AddonAsyncInit, block.SBlock):
     A source of measured or computed values.
     """
 
-    def __init__(self, *args, func, interval, **kwargs):
+    def __init__(self, *args, func: Callable[[], Any], interval: int|float|str, **kwargs):
         self._func = func
         self._interval = utils.time_period(interval)
+        if self._interval is None or self._interval <= 0.0:
+            raise ValueError("interval must be positive")
         super().__init__(*args, **kwargs)
 
-    async def _maintask(self):
+    async def _maintask(self) -> NoReturn:
         """Data acquisition task: repeatedly obtain a value."""
         while True:
             value = self._func()
@@ -145,5 +166,5 @@ class ValuePoll(addons.AddonMainTask, addons.AddonAsyncInit, block.SBlock):
                 self.set_output(value)
             await asyncio.sleep(self._interval)
 
-    def init_from_value(self, value):
+    def init_from_value(self, value: Any) -> None:
         self.set_output(value)

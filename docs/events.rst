@@ -23,7 +23,10 @@ situations have names starting with an ``"on_"`` prefix and they accept:
 
 - ``None`` meaning no events (an empty list or tuple has the same effect), or
 -  a single :class:`Event` object, or
--  multiple (zero or more) :class:`Event` objects given as a tuple, list or other sequence.
+-  multiple (zero or more) :class:`Event` objects given as a sequence (tuple, list, ...)
+   or as an iterator of single events.
+
+Hence, the type annotation is: ``None | Event | Sequence[Event] | Iterator[Event]``.
 
 The :class:`Event` instance sets the destination and the event type. New data
 is added each time the event is sent.
@@ -50,7 +53,7 @@ values for ``'previous'`` and ``'value'`` items.
 Event objects
 =============
 
-.. class:: Event(dest: Union[str, Block], etype: Union[str, EventType] = 'put', efilter=None, repeat=None, count=None)
+.. class:: Event(dest: str|Block, etype: str|EventType = 'put', efilter=None, repeat=None, count=None)
 
   Create an object with event settings. Mandatory settings are
   the :ref:`type<Event types>` *etype* and the destination block *dest*.
@@ -110,10 +113,14 @@ Occasionally a string is not suitable to fully identify
 more complex events. For those few cases we use event type objects
 instead of names.
 
+.. class:: EventType
+
+  The base class for all special events.
+
 There is only one such event type for general use.
 It's the conditional event simplifying the block-to-block event delivery:
 
-.. class:: EventCond(etrue, efalse)
+.. class:: EventCond(etrue: str|EventType|None, efalse: str|EventType|None)
 
   A conditional event type, roughly equivalent to::
 
@@ -121,7 +128,6 @@ It's the conditional event simplifying the block-to-block event delivery:
 
   where the ``value`` is taken from the event data item ``'value'``.
   Missing ``value`` is evaluated as ``False``, i.e. ``efalse`` is selected.
-
   ``None`` as *etrue* or *efalse* means no event in that case.
 
 
@@ -140,11 +146,11 @@ Event filters
 Event filters serve two purposes. As the name suggests, they can filter out
 an event, i.e. cancel its delivery. The second use is to modify the filter data.
 
-An event filter function is called with the event data
-as its sole argument (i.e. as a dict).
+An event filter function is called with the event data as a single dictionary
+as its sole argument.
 
-- If it returns a dict, the event is accepted and the returned
-  dict becomes the new event data.
+- If it returns a :class:`dict` (precisely a :class:`MutableMapping`), the event is
+  accepted and the returned dict becomes the new event data.
 
 - If the function returns anything else than a dict instance,
   the event will be accepted or rejected depending on the boolean value
@@ -175,14 +181,14 @@ sequential blocks only.
 
   Similar to *on_output*, but events are triggered each time the output is set,
   even if the new value is the same as the previous one.
-  This is useful if the destination block should not to miss a value (e.g. a measurement)
+  This is useful if the destination block should not miss a value (e.g. a measurement)
   just because it happens to be the same as the previous one.
 
 In both cases the generated events are sent with these data items:
 
 - ``'previous'``: previous value (:const:`UNDEF` on first change after initialization)
 - ``'value'``: current output value
-- ``'source'``: sender's block name (added automatically)
+- ``'source'``: sender's block name (string, added automatically)
 - ``'trigger'``: ``'output'`` (corresponds with ``'on_output'``)
 
 
@@ -195,7 +201,7 @@ events which the circuit receives. Internal events originate from other circuit 
 In both cases events are delivered by calling the :meth:`SBlock.event` method
 of the destination block.
 
-.. method:: SBlock.event(etype: Union[str, EventType], /, **data) -> Any
+.. method:: SBlock.event(etype: str|EventType, /, **data) -> Any
 
   Handle the event of :ref:`type<Event types>` *etype* with attached *data*.
   Raise :exc:`EdzedUnknownEvent` if the *etype* is not supported.

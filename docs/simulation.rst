@@ -1,5 +1,8 @@
 .. currentmodule:: edzed
 
+.. role:: strike
+  :class: strike
+
 ==================
 Circuit simulation
 ==================
@@ -27,7 +30,7 @@ Applications are supposed to build and simulate only one circuit.
 
   The Circuit class should not to be instantiated directly;
   always call :func:`get_circuit`.
-  The class is not even exported to edzed's API (there is no :class:`edzed.Circuit`).
+  The class is not even exported to edzed's API (there is no :strike:`edzed.Circuit`).
 
 .. function:: get_circuit() -> Circuit
 
@@ -80,7 +83,7 @@ Storage for persistent state
 
 Skip this step if this feature is not required.
 
-.. method:: Circuit.set_persistent_data(persistent_dict: Optional[Mapping[str, Any]]) -> None
+.. method:: Circuit.set_persistent_data(persistent_dict: Optional[MutableMapping[str, Any]]) -> None
 
   Setup the persistent state data storage.
 
@@ -128,7 +131,7 @@ but some applications might prefer the lower-level :meth:`Circuit.run_forever`.
   .. versionadded:: 21.12.8
 
 
-.. method:: Circuit.run_forever()
+.. method:: Circuit.run_forever() -> NoReturn
   :async:
 
   Lower-level entry point. Run the circuit simulation in an infinite loop, i.e. until
@@ -242,6 +245,7 @@ the task that runs :meth:`Circuit.run_forever`.
   - from within the simulation task itself
 
 .. attribute:: Circuit.error
+  :type: Optional[BaseException]
 
   The exception that stopped the simulation or ``None`` if the simulation
   wasn't stopped yet. This is a read-only attribute.
@@ -254,7 +258,7 @@ Multiple circuits
 
 There cannot be multiple circuit simulations in parallel,
 but it is possible to remove the current circuit and start over with
-building of a new one.
+building of a new one. We use this feature in unit tests.
 
 .. function:: reset_circuit() -> None
 
@@ -325,7 +329,7 @@ For a single block just do::
 
 For multiple blocks there is a tool:
 
-.. method:: Circuit.set_debug(value: bool, *args) -> int
+.. method:: Circuit.set_debug(value: bool, *args: str|Block|type[Block|Addon]) -> int
 
   Set the debug flag to given *value* (``True`` or ``False``) for selected blocks.
 
@@ -354,7 +358,7 @@ Circuit examination
 Finding blocks
 --------------
 
-.. method:: Circuit.getblocks(btype: Optional[Block] = None) -> Iterator
+.. method:: Circuit.getblocks(btype: Optional[type[Block|Addon]] = None) -> Iterator
 
   Return an iterator of all blocks or *btype* blocks only.
 
@@ -378,7 +382,7 @@ information. The application code should not modify any attributes
 liste here.
 
 .. attribute:: Block.oconnections
-  :type: set
+  :type: set[CBlock]
 
   Set of all blocks where the output is connected to. Undefined before
   the circuit finalization - see :meth:`Circuit.finalize`.
@@ -410,6 +414,7 @@ Inspecting SBlocks
     is helpful for sequential blocks only.
 
 .. attribute:: SBlock.initdef
+  :type: Any
 
   Saved value of the *initdef* argument or :const:`UNDEF`,
   if the argument was not given. Only present if the block
@@ -420,24 +425,28 @@ Inspecting CBlocks
 ^^^^^^^^^^^^^^^^^^
 
 .. attribute:: CBlock.iconnections
-  :type: set
+  :type: set[Block]
 
   A set of all blocks connected to inputs. Undefined before the circuit
   finalization - see :meth:`Circuit.finalize`.
 
 .. attribute:: CBlock.inputs
-  :type: dict
+  :type: dict[str, Block|Const|tuple[Block|Const, ...]]
 
   Block's input connections as a dict, where keys
-  are input names and values are either single blocks or tuples
-  of blocks for input groups. The structure directly corresponds
+  are input names and values are:
+
+  - either a single :class:`Block` or a :class:`Const`,
+  - or tuples of blocks or Consts for input groups.
+
+  The structure directly corresponds
   to parameters given to :meth:`CBlock.connect`.
 
   The same data, but with block names instead of block objects,
   can be obtained with :meth:`Block.get_conf`; extract
   the ``'inputs'`` value from the result.
 
-  Not defined before the circuit finalization - see
+  The contents is undefined before the circuit finalization - see
   :meth:`Circuit.finalize`.
 
 .. seealso:: :ref:`Input signatures`

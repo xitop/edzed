@@ -79,7 +79,7 @@ An input signature is a dict with the following key:value structure:
   - ``None`` - if the input is a single input
   - the number of inputs in a group - if the input is a group
 
-.. method:: CBlock.input_signature() -> dict
+.. method:: CBlock.input_signature() -> dict[str, None|int]
 
   Return the input signature. The data is available after
   connecting the inputs with :meth:`CBlock.connect`.
@@ -87,7 +87,7 @@ An input signature is a dict with the following key:value structure:
   An :exc:`EdzedInvalidState` is raised when called before
   connecting the inputs.
 
-.. method:: CBlock.check_signature(esig: Mapping) -> dict
+.. method:: CBlock.check_signature(esig: Mapping[str, None|int|Sequence[int]]) -> dict
 
   Compare the expected signature *esig* with the actual one.
 

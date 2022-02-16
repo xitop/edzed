@@ -64,7 +64,7 @@ async def test_shield():
         assert result == 5
 
 
-def test_init_timeout_acceptance(circuit):
+async def test_init_timeout_acceptance(circuit):
     """Timeouts are valid only with the corresponding method defined."""
     class Incomplete(edzed.AddonAsync, edzed.SBlock):
         pass

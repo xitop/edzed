@@ -68,7 +68,7 @@ appropriate to its functionality.
 
   Define only if the block can be initialized this way.
 
-.. method:: SBlock.init_from_value(value) -> None
+.. method:: SBlock.init_from_value(value: Any) -> None
 
   Initialize the internal state from the given *value*
   and set the output.
@@ -86,7 +86,7 @@ There are two ways to handle :ref:`events <Events>`:
 
 1. Add specialized event handlers.
 
-  .. method:: SBlock._event_ETYPE(**data) -> Any
+  .. method:: SBlock._event_ETYPE(**data: Any) -> Any
 
     If a method with matching event type ``'ETYPE'`` is defined,
     it will be called to handle that event type.
@@ -112,7 +112,7 @@ There are two ways to handle :ref:`events <Events>`:
 
 2. Utilize the default event handler.
 
-  .. method:: SBlock._event(etype, data) -> Any
+  .. method:: SBlock._event(etype: str|EventType, data: Mapping[str, Any]) -> Any
 
     :meth:`_event` will be called for events without a specialized event handler.
 
@@ -184,11 +184,11 @@ has fired is to add an *on_TRIGGER* keyword argument::
             for event in self._bang_events:
                 event.send(self, trigger='bang')  # add event data as needed
 
-.. function:: event_tuple(arg) -> tuple[Event]
+.. function:: event_tuple(arg: Optional[Event|Iterator[Event]|Sequence[Event]]) -> tuple[Event, ...]
 
   A helper supporting multiple ways to specify event(s).
 
-  Convert ``None``, a single :class:`Event` object or a sequence of :class:`Event`
+  Convert ``None``, a single :class:`Event` object or a sequence/iterator of :class:`Event`
   objects to a tuple with zero, one or more events.
 
 .. method:: Event.send(source: Block, /, **data) -> bool
@@ -302,13 +302,13 @@ Persistent state add-on
   then it checks the expiration time and unless the state has expired,
   it is passed to :meth:`_restore_state`.
 
-.. method:: SBlock.save_persistent_state()
+.. method:: SBlock.save_persistent_state() -> None
 
   Save the internal state to persistent storage.
 
   This method is usually called by the simulator.
 
-.. method:: SBlock._restore_state(state: Any)
+.. method:: SBlock._restore_state(state: Any) -> None
   :abstractmethod:
 
   Initialize by restoring the *state* (presumably created by :meth:`get_state`)
@@ -353,7 +353,7 @@ Async add-on
 
     Cancellation is not considered an error, of course.
 
-.. method:: SBlock.init_async()
+.. method:: SBlock.init_async() -> None
   :async:
 
   Optional async initialization coroutine, define only when needed.
@@ -381,7 +381,7 @@ Async add-on
     it should check whether the block is still uninitialized before applying
     the value.
 
-.. method:: SBlock.stop_async()
+.. method:: SBlock.stop_async() -> None
   :async:
 
   Optional async cleanup coroutine, define only when needed.

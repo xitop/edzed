@@ -8,10 +8,12 @@ This module defines:
       Intervals support the operation "value in interval".
 """
 
-import collections.abc as cabc
+from __future__ import annotations
+
+from collections.abc import Generator, Sequence
 import re
 import time
-from typing import Generator, Sequence, Union
+from typing import Optional
 
 from ..utils.tconst import *   # pylint: disable=wildcard-import
 
@@ -24,7 +26,7 @@ RE_TIME = re.compile(r'\s*(\d{1,2}\s*:\s*\d{1,2}(\s*:\s*\d{1,2})?)\s*', flags=re
 RE_DAY = re.compile(r'\s*(\d{1,2})\.?\s*', flags=re.ASCII)
 
 
-def _cut(match):
+def _cut(match: re.Match) -> str:
     """
     Cut matched characters from the searched string.
     Join the remaining pieces with a space.
@@ -38,20 +40,21 @@ def _cut(match):
 
 
 # pylint: disable=invalid-name
-def _ydt_convert(string, y=False, d=False, t=False):
+def _ydt_convert(string: str, y:bool=False, d:bool=False, t:bool=False) -> tuple[int|None, ...]:
     """
     Convert string to year (if y), month, day (if d), hour, minute, second (if t).
 
-    The result is not fully validated.
+    Return (year, month, day, hour, min, sec) with integer values or
+    None for not-converted values. The result is not fully validated.
     """
 
     year = month = day = None
-    hms = (None, None, None)
+    hms = [None, None, None]
     if t:
         match = RE_TIME.search(string)
         if not match:
             raise ValueError("missing time (H:M or H:M:S)")
-        hms = [int(x) for x in match.group(1).split(':')]
+        hms = _to_intlist(match.group(1).split(':'))
         if len(hms) == 2:
             hms.append(0)
         string = _cut(match)
@@ -66,8 +69,9 @@ def _ydt_convert(string, y=False, d=False, t=False):
         if not match:
             raise ValueError("missing month")
         name = match.group(1).capitalize()
-        for i in range(1, 13):
-            if MONTH_NAMES[i].startswith(name):
+        for i, mname in enumerate(MONTH_NAMES):
+            # real start at index 1 = January;
+            if i > 0 and mname.startswith(name):
                 month = i
                 break
         else:
@@ -85,14 +89,19 @@ def _ydt_convert(string, y=False, d=False, t=False):
     return (year, month, day, *hms)
 
 
-def ydt_convert(string, *args, **kwargs):
+def ydt_convert(string: str, *args, **kwargs) -> tuple[int|None, ...]:
     try:
         return _ydt_convert(string, *args, **kwargs)
     except Exception as err:
         raise ValueError(f"Could not convert {string!r}: {err}") from None
 
 
-def _validate(y=None, md=None, hms=None):
+def _validate(
+        y: Optional[int] = None,
+        md: Optional[Sequence[int]] = None,
+        hms: Optional[Sequence[int]] = None
+        ) -> None:
+    """Raise on year/date/time validation error."""
     if y is not None:
         if y < 1970:
             # just a precaution, not a strict requirement
@@ -109,13 +118,13 @@ def _validate(y=None, md=None, hms=None):
             raise ValueError(f"Time {hms} not between 0:0:0 and 23:59:59")
 
 
-def _to_intlist(seq):
+def _to_intlist(seq: Sequence) -> list[int]:
     try:
         return [int(x) for x in seq]
     except TypeError:
-        raise TypeError(f"Cannot convert this type: {seq!r}")
+        raise TypeError(f"Cannot convert this type: {seq!r}") from None
     except ValueError:
-        raise ValueError(f"Cannot convert this value: {seq!r}")
+        raise ValueError(f"Cannot convert this value: {seq!r}") from None
 
 
 class HMS(tuple):
@@ -131,16 +140,15 @@ class HMS(tuple):
 
     def __new__(
             cls,
-            hms: Union[None, 'HMS', time.struct_time, int, str, Sequence[int]] = None):
+            hms: Optional[HMS|time.struct_time|int|str|Sequence[int]] = None):
         """
         HMS() or HMS(None) = use the current local time of day
         HMS(hms) = return the existing instance
         HMS(time.struct_time) = use the provided time
         HMS(integer) = convert the seconds counted from midnight 00:00:00
         HMS(string) = convert from "HH:MM" or "HH:MM:SS" format
-        HMS(iterable with 2 elements) = use as hour and minute value
-        HMS(iterable with 3 elements) = use as hour, minute, and second
-                                        (avoid unordered iterables)
+        HMS(sequence with 2 elements) = use as hour and minute value
+        HMS(sequence with 3 elements) = use as hour, minute, and second
         """
         if isinstance(hms, cls):
             # OK, it is immutable
@@ -182,7 +190,7 @@ class HMS(tuple):
         """Return seconds counted from 00:00:00."""
         return self[0]*SEC_PER_HOUR + self[1]*SEC_PER_MIN + self[2]
 
-    def seconds_from(self: 'HMS', other: 'HMS') -> int:
+    def seconds_from(self: HMS, other: HMS) -> int:
         """
         Return seconds from other HMS to this HMS.
 
@@ -213,14 +221,13 @@ class MD(tuple):
     Individual fields are accessible as day and month attributes.
     """
 
-    def __new__(cls, md: Union[None, 'MD', time.struct_time, str, Sequence[int]] = None):
+    def __new__(cls, md: Optional[MD|time.struct_time|str|Sequence[int]] = None):
         """
         MD() or MD(None) = use the current local date
         MD(md) = return the existing instance
         MD(time.struct_time) = use the provided date
         MD(string) = convert from a string
-        MD(iterable with 2 elements) = use as day and month numeric values
-                                       (avoid unordered iterables)
+        MD(sequence with 2 elements) = use as day and month numeric values
 
         When building from a string, the month must be written as a three
         letter English acronym in order to avoid ambiguities. The rules:
@@ -279,15 +286,14 @@ class YDT(tuple):
     Individual fields are accessible as attributes.
     """
 
-    def __new__(cls, ydt: Union[None, 'YDT', time.struct_time, str, Sequence[int]] = None):
+    def __new__(cls, ydt: Optional[YDT|time.struct_time|str|Sequence[int]] = None):
         """
         YDT() or YDT(None) = use the current local date and time
         YDT(ydt) = return the existing instance
         YDT(time.struct_time) = use the provided time
         YDT(string) = convert from a string
-        YDT(iterable with 5 elements) = use as year, month, day, hour and minute value
-        YDT(iterable with 6 elements) = use as year, ... second
-                                        (avoid unordered iterables)
+        YDT(sequence with 5 elements) = use as year, month, day, hour and minute value
+        YDT(sequence with 6 elements) = use as year, ... second
         """
         if isinstance(ydt, cls):
             # OK, it is immutable
@@ -347,7 +353,7 @@ class _Interval:
     """
     The common part of TimeInterval and DateInterval.
 
-    Warning: time/date intervals do not follow strict mathematic
+    Warning: time/date intervals do not follow strict mathematical
     interval definition.
     """
 
@@ -356,10 +362,12 @@ class _Interval:
     _RCLOSED_INTERVAL = False # are the subintervals also right-closed?
 
     @staticmethod
-    def _convert(val: Union[str, Sequence]):
+    def _convert(val: str|Sequence):
         """Convert interval endpoint."""
 
-    def __init__(self, ivalue: Union[None, '_Interval', str, Sequence] = None):
+    def __init__(
+            self,
+            ivalue: Optional[_Interval|str|Sequence[Sequence[Sequence[int]]]] = None):
         """
         _Interval() = empty interval
         _Interval(interval) = copy of interval
@@ -398,7 +406,7 @@ class _Interval:
                     high = self._convert(rstr[split_here+1:])
                 self._interval.append((low, high))
             return
-        if isinstance(ivalue, (cabc.Sequence, cabc.Iterator)):
+        if isinstance(ivalue, Sequence):
             self._interval = [(self._convert(low), self._convert(high)) for low, high in ivalue]
             return
         raise TypeError("Invalid interval value")
@@ -410,7 +418,7 @@ class _Interval:
             yield high
 
     @staticmethod
-    def _cmp_open(low, item, high):
+    def _cmp_open(low, item, high) -> bool:
         """
         The ranges are left-closed and right-open intervals, i.e.
         value is in interval if and only if start <= value < stop
@@ -420,7 +428,7 @@ class _Interval:
         return low <= item or item < high   # low <= item < MAX or MIN <= item < high
 
     @staticmethod
-    def _cmp_closed(low, item, high):
+    def _cmp_closed(low, item, high) -> bool:
         """
         The ranges are closed intervals, i.e.
         value is in interval if and only if start <= value <= stop
@@ -429,13 +437,13 @@ class _Interval:
             return low <= item <= high
         return low <= item or item <= high
 
-    def _cmp(self, *args):
+    def _cmp(self, *args) -> bool:
         return (self._cmp_closed if self._RCLOSED_INTERVAL else self._cmp_open)(*args)
 
     def __contains__(self, item):
         return any(self._cmp(low, item, high) for low, high in self._interval)
 
-    def as_list(self):
+    def as_list(self) -> list[list[list[int]]]:
         """
         Return the intervals as a nested list of integers.
 
@@ -465,9 +473,9 @@ class TimeInterval(_Interval):
     """
 
     _RCLOSED_INTERVAL = False
-    def _convert(self, val):
+    def _convert(self, val: Sequence[int]) -> HMS:
         if isinstance(val, int):
-            # HMS can convert int, but in this context it is almost
+            # HMS can convert an int, but in this context it is almost
             # certainly a result of a malformed input. Compare:
             #   incorrect: [[h1,m1],[h2,m2]]
             #   correct:  [[[h1,m1],[h2,m2]]]
@@ -499,6 +507,6 @@ class DateTimeInterval(_Interval):
     _convert = YDT
 
     @staticmethod
-    def _cmp_open(low, item, high):
+    def _cmp_open(low: DateTimeInterval, item: DateTimeInterval, high: DateInterval) -> bool:
         """Compare function for non-repeating intervals."""
         return low <= item < high

@@ -1,13 +1,25 @@
 .. currentmodule:: edzed
 
-.. role:: strike
-  :class: strike
-
 =========
 Changelog
 =========
 
 Version numbers are based on the release date (Y.M.D).
+
+
+22.2.17
+=======
+
+- Switch to postponed evaluation of type hints.
+
+  This should slightly reduce the load time. It also allows to use
+  modern type annotation syntax while maintaining compatibility
+  with older Python versions.
+
+- Add type hints to function parameters and return values.
+
+  Please note that all type hints are provided *only*
+  as a documentation aid.
 
 
 22.2.1

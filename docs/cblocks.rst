@@ -6,16 +6,18 @@ List of combinational blocks
 
 This section lists combinational blocks offered by the ``edzed`` library.
 
+**Conventions used in this chapter:**
+
 Only block specific parameters are listed in the signatures. In detail:
 
 - the mandatory positional argument *name* is documented in the base class :class:`Block`
 
 - common optional keyword arguments *on_output*, *debug*, *comment* and *x_NAME*
-  are shown only as ``**block_kwargs``, they are documented in the base class :class:`Block`
+  are shown only as ``**block_kwargs``, they are documented in the base class :class:`Block` too
 
 ----
 
-.. class:: FuncBlock(name, *, func, unpack: bool = True, **block_kwargs)
+.. class:: FuncBlock(name, *, func: Callable, unpack: bool = True, **block_kwargs)
 
   Create a circuit block from a regular Python function *func*.
 
@@ -72,7 +74,7 @@ Only block specific parameters are listed in the signatures. In detail:
   and ``False`` in the opposite case.
 
 
-.. class:: Override(name, *, null_value=None, **block_kwargs)
+.. class:: Override(name, *, null_value: Any = None, **block_kwargs)
 
   Either pass input to output unchanged or override it with a value.
 

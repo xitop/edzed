@@ -4,15 +4,16 @@ Conversion routines for time spans using multiple units.
 Example: "20h15m10" = 20 hours + 15 minutes + 10 seconds = 72910 seconds
 """
 
+from __future__ import annotations
+
 import re
-from typing import Optional, Union
 
 from .tconst import *   # pylint: disable=wildcard-import, unused-wildcard-import
 
 __all__ = ['timestr', 'convert', 'time_period']
 
 # pylint: disable=invalid-name
-def timestr(seconds: Union[int, float]) -> str:
+def timestr(seconds: int|float) -> str:
     """
     Return seconds as a string using d, h, m and s units.
 
@@ -75,7 +76,7 @@ def convert(tstr: str) -> float:
     return result
 
 
-def time_period(period: Union[None, int, float, str]) -> Optional[float]:
+def time_period(period: None|int|float|str) -> None|float:
     """Convenience wrapper for convert()."""
     if period is None:
         return None

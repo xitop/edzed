@@ -6,14 +6,16 @@ Docs: https://edzed.readthedocs.io/en/latest/
 Home: https://github.com/xitop/edzed/
 """
 
+from __future__ import annotations
+
 import asyncio
 import collections
-import collections.abc as cabc
+from collections.abc import Callable, Iterable, Iterator, Mapping, MutableMapping, Sequence
 import contextvars
 from dataclasses import dataclass
 import time
 import types
-from typing import Optional, Sequence, Tuple, Union
+from typing import Any, Optional
 
 from . import addons
 from . import block
@@ -41,9 +43,9 @@ class FSM(addons.AddonPersistence, block.SBlock):
     """
 
     # subclasses should define:
-    STATES = ()
-    TIMERS = {}
-    EVENTS = ()
+    STATES: Sequence[str] = ()
+    TIMERS: Mapping[str, Sequence] = {}
+    EVENTS: Iterable[Sequence] = ()
 
     @classmethod
     def _check_state(cls, state):
@@ -57,7 +59,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
 
         The original tables are left unchanged.
         """
-        def add_transition(event, from_state, next_state):
+        def add_transition(event: str, from_state: Optional[str], next_state: str) -> None:
             if from_state is not None:
                 cls._check_state(from_state)
             key = (event, from_state)
@@ -69,12 +71,17 @@ class FSM(addons.AddonPersistence, block.SBlock):
 
         # control tables must be created for each subclass
         # '_ct' (control table) prefix chosen to make a name clash unlikely
-        cls._ct_states = set(cls.STATES).union(cls.TIMERS)  # all known states
-        cls._ct_events = set()      # all known events
-        cls._ct_transition = {}     # {(event, state): next_state}
-        cls._ct_default_duration = {}   # {timed_state: duration_in_seconds_or_None}
-        cls._ct_timed_event = {}        # {timed_state: event_on_timer_expiration}
-        cls._ct_methods = {
+        cls._ct_states: set[str] = set(cls.STATES).union(cls.TIMERS)
+            # all known states
+        cls._ct_events: set[str] = set()
+            # all known events
+        cls._ct_transition: dict[tuple[str, str], str] = {}
+            # {(event, state): next_state}
+        cls._ct_default_duration: dict[str, Optional[float]] = {}
+            # {timed_state: duration_in_seconds_or_None}
+        cls._ct_timed_event: dict[str, str] = {}
+            # {timed_state: event_on_timer_expiration}
+        cls._ct_methods: dict[str, dict[str, Callable]] = {
             'enter': {},            # {state: enter_cb}
             'exit': {},             # {state: exit_cb}
             'cond': {},             # {event: cond_cb}
@@ -128,7 +135,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
         for state, (duration, event) in cls.TIMERS.items():
             try:
                 cls._ct_default_duration[state] = utils.time_period(duration)
-            except ValueError as err:
+            except (ValueError, TypeError) as err:
                 raise ValueError(f"TIMERS['{state}']: {err}") from None
             if isinstance(event, Goto):
                 cls._check_state(event.state)
@@ -147,7 +154,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
             if name in valid_names and callable(method):
                 cb_dict[name] = method
 
-    # TODO: https://bugs.python.org/issue38085
+    # TODO: https://bugs.python.org/issue38085
     def __init_subclass__(cls, *args, **kwargs):
         """
         Build control tables.
@@ -163,7 +170,10 @@ class FSM(addons.AddonPersistence, block.SBlock):
             err.args = (fmt.format(err.args[0] if err.args else "<NO ARGS>"), *err.args[1:])
             raise
 
-    def __init__(self, *args, on_notrans=None, **kwargs):
+    def __init__(
+            self, *args,
+            on_notrans: Optional[block.Event|Iterator[block.Event]|Sequence[block.Event]]=None,
+            **kwargs):
         """
         Create FSM.
 
@@ -192,14 +202,11 @@ class FSM(addons.AddonPersistence, block.SBlock):
                 if arg.startswith(prefix):
                     name = arg[length:]  # strip prefix
                     if name not in valid_names:
+                        valid_names_str = ', '.join(
+                            f"'{prefix}{suffix}'" for suffix in valid_names)
                         raise TypeError(
-                            # an f-string did not look well ...
-                            "{!r} is an invalid keyword argument for {}(); accepted are: {}"
-                            .format(
-                                arg,
-                                type(self).__name__,
-                                ', '.join(f"'{prefix}{suffix}'" for suffix in valid_names)
-                               )
+                            f"{arg!r} is an invalid keyword argument for "
+                            f"{type(self).__name__}(); accepted are: {valid_names_str}"
                             )
                     prefixed[prefix].append((name, arg))
         self._duration = self._ct_default_duration
@@ -224,16 +231,16 @@ class FSM(addons.AddonPersistence, block.SBlock):
         self._active_timer = None
         self._fsm_event_active = False
         self._next_event = None     # scheduled event in chained state transition
-        self.sdata = {}
+        self.sdata: dict[str, Any] = {}
         kwargs.setdefault('initdef', self._ct_default_state)
         super().__init__(*args, **kwargs)
 
     @property
-    def state(self) -> str:
+    def state(self) -> str|block._UndefType:
         """Return the FSM state."""
         return self._state
 
-    def get_state(self) -> Tuple[str, Optional[float], dict]:
+    def get_state(self) -> tuple[str, Optional[float], dict[str, Any]]:
         """
         Return the block's internal state.
 
@@ -291,7 +298,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
         self._stop_timer()
         super().stop()
 
-    def _set_duration(self, timed_state: str, value: Union[None, int, float, str]) -> None:
+    def _set_duration(self, timed_state: str, value: Optional[int|float|str]) -> None:
         """
         Set the duration of a timed_state.
 
@@ -317,13 +324,13 @@ class FSM(addons.AddonPersistence, block.SBlock):
         """
         return self._duration.get(timed_state)
 
-    def _set_timer(self, duration, timed_event):
+    def _set_timer(self, duration: float, timed_event: str) -> None:
         """Start the timer (low-level)."""
         self.log_debug("timer: %.3fs before %s", duration, timed_event)
         self._active_timer = asyncio.get_running_loop().call_later(
             duration, self.event, timed_event)
 
-    def _start_timer(self, duration, timed_event):
+    def _start_timer(self, duration: Optional[int|float|str], timed_event: str) -> None:
         """Start the timer."""
         if duration is not None:
             duration = utils.time_period(duration)
@@ -350,7 +357,8 @@ class FSM(addons.AddonPersistence, block.SBlock):
                     self.log_debug("timer: cancelled")
             self._active_timer = None
 
-    def _send_events(self, trigger_type):
+    # TODO: python3.8+: trigger_type: Literal['on_enter', 'on_exit']
+    def _send_events(self, trigger_type: str) -> None:
         """Send events triggered by 'on_enter_STATE' or 'on_exit_STATE'."""
         state_events = self._state_events[trigger_type]
         state = self._state
@@ -367,7 +375,8 @@ class FSM(addons.AddonPersistence, block.SBlock):
                 value=self._output,
                 )
 
-    def _run_cb(self, cb_type, name):
+    # TODO: python3.8+: Literal['cond', 'enter', 'exit']
+    def _run_cb(self, cb_type: str, name: str) -> list[Any]:
         """
         Run methods and callbacks 'cond', 'enter' or 'exit'.
 
@@ -398,7 +407,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
             retvals.append(cb())
         return retvals
 
-    def _event_ctx(self, etype, data):
+    def _event_ctx(self, etype: str, data: Mapping) -> bool:
         """
         Handle event. Check validity and conditions.
 
@@ -410,7 +419,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
                    for execution
             False = transition rejected
         """
-        if isinstance(data, cabc.MutableMapping):
+        if isinstance(data, MutableMapping):
             # make read-only to prevent any ugly hacks
             rodata = types.MappingProxyType(data)
         else:
@@ -492,12 +501,12 @@ class FSM(addons.AddonPersistence, block.SBlock):
             self._fsm_event_active = False
 
 
-    def _event(self, etype, data):
+    def _event(self, etype: str, data: Mapping) -> bool:
         """Wrapper creating a separate context, see _event_ctx for docs."""
         return contextvars.copy_context().run(self._event_ctx, etype, data)
 
 
-    def calc_output(self):    # pylint: disable=no-self-use
+    def calc_output(self) -> Any:   # pylint: disable=no-self-use
         """
         Compute and return the output value.
 

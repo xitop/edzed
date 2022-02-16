@@ -6,21 +6,32 @@ List of sequential blocks
 
 This section lists sequential blocks offered by the ``edzed`` library.
 
-Only block specific parameters are listed in the signatures. In detail:
+**Conventions used in this chapter:**
 
-- the mandatory positional argument *name* is documented in the base class :class:`Block`
+1. Only block specific parameters are listed in the signatures. In detail:
 
-- common optional keyword arguments *on_output*, *debug*, *comment* and *x_NAME*
-  are shown only as ``**block_kwargs``, they are documented in the base class :class:`Block`
+  - the mandatory positional argument *name* is documented in the base class :class:`Block`
 
-- if persistent state is supported, only the *persistent* parameter is listed,
-  but *sync_state* and *expiration* are always supported together with *persistent*,
-  refer to :class:`SBlock`
+  - common optional keyword arguments *on_output*, *debug*, *comment* and *x_NAME*
+    are shown only as ``**block_kwargs``, they are documented in the base class :class:`Block`
 
-- *initdef*, *init_timeout* and *stop_timeout* are listed in the class signature
-  only if supported by the particular block type. Their descriptions are not repeated
-  here, refer to :class:`SBlock`
+  - if persistent state is supported, only the *persistent* parameter is listed,
+    but *sync_state* and *expiration* are always supported together with *persistent*,
+    refer to :class:`SBlock`
 
+  - *initdef*, *init_timeout* and *stop_timeout* are listed in the class signature
+    only if supported by the particular block type. Their descriptions are not repeated
+    here, refer to :class:`SBlock`
+
+2. all time duration values (timeouts, intervals, etc.) can be given as a number
+   of seconds or as a :ref:`string with time units<Time intervals with units>`
+   The corresponding type is ``int or float or str`` with ``... or None`` added
+   if optional.
+
+3. all *on_something* parameters expect zero, one or more :ref:`events<Events>`.
+   The corresponding type is
+   ``None or edzed.Event or Iterator[edzed.Event] or Sequence[edzed.Event]``
+   and we omit this long annotation for brevity.
 
 Inputs
 ======
@@ -30,7 +41,7 @@ Feeding data into the circuit
 
 .. important::
 
-  :meth:`SBlock.event` is the data input entry point.
+  The data input entry point is :meth:`SBlock.event`.
 
   Always check if the circuit is ready before forwarding external
   events to blocks. If not ready, the result is undefined!
@@ -46,48 +57,37 @@ The most common data entry block is the ``Input``.
 
   An input block with optional value validation.
 
-  .. note::
+  :param check:
+    A value test function or ``None`` if unused.
+    If the function's return value evaluates to true,
+    new value is accepted, otherwise it is rejected.
+  :type check: Callable[[Any], Any] or None
 
-    Of course, you *should* validate input data.
+  :param collection allowed:
+    A collection of allowed values or ``None`` if unused. Equivalent to:
+    ``check=lambda value: value in ALLOWED``
+  :type allowed: Collection or None
+
+  :param schema:
+    A function possibly modifying (preprocessing) the value or ``None`` if unused.
+    If the function raises, value is rejected,
+    otherwise the input is set to the returned value.
+    *Schema* is the only validator capable of changing the value.
+    It is called last to ensure all validators test the original
+    input value.
+  :type schema: Callable[[Any], Any] or None
+
+  :param bool persistent: If true, initialize from the last known value
+
+  :param Any initdef: Default value; must pass the validators.
 
   The ``Input`` accepts only ``'put'`` events.
   It stores and outputs the ``'value'`` data item sent with the event
   provided that it validates successfully. The event returns ``True``
   if the new value is accepted, ``False`` otherwise.
 
-  Initialization parameters:
-
-  :param bool persistent:
-    If true, initialize from the last known value
-
-  :param initdef:
-    Default value; must pass the validators.
-
-  Optional validators of input values, ``None`` if unused:
-
-  :param callable check:
-    A value test function.
-    If the function's return value evaluates to true,
-    new value is accepted, otherwise it is rejected.
-
-  :param allowed:
-    Allowed values, roughly equivalent to::
-
-      check=lambda value: value in ALLOWED
-
-  :type allowed: sequence or set
-
-  :param callable schema:
-    A function possibly modifying (preprocessing) the value.
-    If the function raises, value is rejected,
-    otherwise the input is set to the returned value.
-
-  It is recommended to use only one validator, but any
-  combination of *schema*, *check* and *allowed* is allowed.
-
-  *Schema* is the only validator capable of changing the value.
-  It is called last to ensure all validators test the original
-  input value.
+  You should always validate inputs. It is recommended to use only one validator,
+  but any combination of *schema*, *check* and *allowed* is allowed.
 
 
 .. class:: InputExp(name, *, duration, expired=None, check=None, allowed=None, schema=None, persistent=False, initdef=edzed.UNDEF, **block_kwargs)
@@ -101,17 +101,15 @@ The most common data entry block is the ``Input``.
   :param duration:
     The default duration in seconds before a value expires.
     May be overridden on a per-event basis. The argument
-    may be:
+    may be ``None`` for no default duration. Without a default,
+    every event must explicitly specify the duration.
 
-      - a numeric value, or
-      - a :ref:`string with time units<Time intervals with units>`, or
-      - ``None`` for no default duration. Without a default,
-        every event must explicitly specify the duration.
+  :type duration: int or float or str or None
 
-  :param expired:
+  :param Any expired:
     A value to be applied after expiration; must pass the validators.
 
-  If a ``'duration'`` item (with the same format as *duration* argument)
+  If a ``'duration'`` item (with the same format as the *duration* parameter)
   is present in the event data, it overrides the default duration.
 
 Polling data sources
@@ -122,20 +120,20 @@ A specialized block is provided for this task:
 .. class:: ValuePoll(name, *, func, interval, init_timeout=None, initdef=edzed.UNDEF, **block_kwargs)
 
   A source of measured or computed values.
-
   This block outputs the result of an acquisition function *func* every
   *interval* seconds.
-  The *func* argument should be a regular function (defined with ``def``)
-  or a coroutine function (defined with ``async def``).
-  The *interval* may be written also as a
-  :ref:`string with time units<Time intervals with units>`.
 
-  The interval is measured between function calls. The duration
-  of the call itself represents an additional delay.
+  :param Callable func:
+    The data acquisition function *func*. It could be a regular function
+    (defined with ``def``) or a coroutine function (defined with ``async def``).
+
+  :param interval:
+    The interval between function calls. The duration
+    of the call itself represents an additional delay.
+  :type interval: int or float or str
 
   A data acquisition error (i.e. any unhandled exception in *func*)
   terminates the simulation.
-
   If a real value could become unavailable, the function should handle such
   condition. It has these basic options:
 
@@ -146,7 +144,6 @@ A specialized block is provided for this task:
     and no output change will happen
 
   Initialization rules:
-
   If the very first value is not obtained within the *init_timeout*
   limit, the *initdef* value will be used as a default. If *initdef*
   is not defined, the initialization fails.
@@ -197,11 +194,29 @@ always return in a short time, because it could do a CPU intensive computation
 or slow I/O. Local file access is considered not blocking, but
 any network communication is a typical example of blocking I/O.
 
----
+----
 
 .. class:: OutputFunc(name, *, func, f_args=['value'], f_kwargs=(), on_success=None, on_error, stop_data=None, **block_kwargs)
 
   Call a function when a ``'put'`` event arrives.
+
+  :param Callable func: function to be invoked on each ``'put'`` event
+  :param Sequence[str] f_args:
+    specifies which event data values will be passed to *func*
+    as positional arguments (args)
+  :param Sequence[str] f_kwargs:
+    specifies which event data values will be passed to *func*
+    as keyword arguments (kwargs)
+
+  :param on_error:
+    event(s) to be sent on a function call error, this is a mandatory parameter
+
+  :param on_success: event(s) to be sent after a successful function call
+
+  :param stop_data:
+    event data (a ``{'name': value}`` dictionary) or ``None`` if not used.
+    See the "Final state" paragraph below..
+  :type stop_data: Mapping[str, Any] or None
 
   **Output function and its arguments:**
   The function *func* is called with arguments extracted from the event data.
@@ -211,11 +226,11 @@ any network communication is a typical example of blocking I/O.
   *f_args*  and *f_kwargs*.
 
   The keys of values to be extracted as positional (keyword) arguments
-  are specified with the *f_args* (*f_kwargs*) respectively. Both arguments must be
-  sequences of strings. The event data of every received ``'put'`` event must contain
-  the keys listed in *f_args* and *f_kwargs*.
+  are specified with the *f_args* (*f_kwargs*) respectively.
+  The event data of every received ``'put'`` event must contain
+  all keys listed in *f_args* and *f_kwargs*.
 
-  (note: due to a software limitation, the default *f_args*
+  (side note: due to a software limitation, the default *f_args*
   value is shown as a list, but it is a tuple.)
 
   **Generated events:**
@@ -233,17 +248,17 @@ any network communication is a typical example of blocking I/O.
     - the ``'put'`` event returns ``('error', <exception>)``
 
   **Final state:**
-  If the *stop_data* is not ``None``, it is used as the event data of a virtual
+  If the *stop_data* is not ``None``, it is used as the event data of a synthetic
   event delivered to the block during the cleanup and processed as the
   last item before stopping. This allows to leave the controlled process
-  in a well-defined state. *stop_data* argument must a dict.
+  in a well-defined state.
 
   **Output:** The output of an OutputFunc block is always ``False``.
 
-.. class:: OutputAsync(name, *, coro, mode, f_args=['value'], f_kwargs=(), guard_time=0.0, on_success=None, on_cancel=None, on_error, stop_data=None, stop_timeout=None, **block_kwargs)
+.. class:: OutputAsync(name, *, coro, mode: str, f_args=['value'], f_kwargs=(), guard_time=None, on_success=None, on_cancel=None, on_error, stop_data=None, stop_timeout=None, **block_kwargs)
 
-  Run a coroutine function *coro* in an asycio task when a ``'put'`` event arrives.
-  The coroutine function is invoked with arguments extracted from the event data.
+  Run an async function *coro* in an asycio task when a ``'put'`` event arrives.
+  The async function is invoked with arguments extracted from the event data.
   The event returns immediately and does not return any result.
 
   Parameters *f_args*, *f_kwargs*, *on_success*, *on_error*, and *stop_data* have
@@ -265,7 +280,7 @@ any network communication is a typical example of blocking I/O.
 
     In this mode the task processing the previous event will be awaited
     before the next one is started. All events are enqueued and processed
-    one by one in order they have arrived. This may introduce delays. Make sure
+    one by one in order of arrival. This may introduce delays. Make sure
     the coroutine can keep up with the rate of incoming events.
 
   - mode='start' or 's' (**s**\tart immediately)
@@ -307,12 +322,12 @@ any network communication is a typical example of blocking I/O.
   run with *stop_data*.
 
   **Guard time:**
-  The *guard_time* is the duration of a mandatory and uncancellable sleep
-  after each run of the output task. No output activity can
+  The *guard_time* is the duration in seconds of a mandatory and uncancellable
+  sleep after each run of the output task. No output activity can
   happen during the sleep. The purpose is to limit the frequency
   of actions, for instance when controlling a hardware switch.
-  Default value is 0.0 [seconds], i.e. no guard_time. The *guard_time*
-  must not be longer than the *stop_timeout*.
+  Default value is ``None`` for no guard_time, equivalent to 0.0 seconds.
+  The *guard_time* must not be longer than the *stop_timeout*.
 
   .. note::
 
@@ -437,16 +452,19 @@ Periodic events
         Example:
           ``times="23:50-01:30, 3:20-5:10"``
 
-      - as numbers:
+      - as numbers (nested sequences of ints):
 
-        A sequence (typically a list or tuple) of time intervals.
+        A sequence (typically a list or tuple) of time intervals. Each interval
+        is a pair of start, stop times. Each time is a sequence of hour, minute
+        and possibly also the second.
 
         Example (same values as above):
           ``times=[[[23,50],[1,30]], [[3,20],[5,10]]]``
 
   - *dates*
       A comma separated list of date intervals. The ranges are closed intervals,
-      i.e. ``DateFrom`` <= date <= ``DateTo``.
+      i.e. ``DateFrom`` <= date <= ``DateTo``. Dates are always given without
+      a year as they are supposed to repeat yearly.
 
       - as a string:
 
@@ -462,9 +480,10 @@ Periodic events
           | ``dates="Sept1-Sept2, DEC 31 - JAN 05"``
           | ``dates="May 4"``
 
-      - as numbers:
+      - as numbers (nested sequences of ints):
 
-        A sequence (typically a list or tuple) of date intervals. Dates are always
+        A sequence (typically a list or tuple) of date intervals.
+        Each interval is a pair of start, stop dates. Dates are always
         written as a sequence of two numbers: the month (1-12) followed by the day (1-31).
         The shortcut mentioned in the string representation is not allowed here.
 
@@ -483,8 +502,14 @@ Periodic events
 
           The weekday numbers in the standard library:
 
-          - :func:`time.strftime`:  0 (Sunday) to 6 (Saturday)
-          - :meth:`datetime.date.weekday` and :data:`time.struct_time.wday`: 0 (Monday) to 6 (Sunday)
+          - compatible with ``edzed``:
+
+            - :func:`time.strftime`: 0 (Sunday) to 6 (Saturday)
+            - :meth:`datetime.date.isoweekday`: 1 (Monday) to 7 (Sunday)
+
+          - not compatible with ``edzed`` (add/substract 1 to adjust):
+
+            - :meth:`datetime.date.weekday` and :data:`time.struct_time.wday`: 0 (Monday) to 6 (Sunday)
 
       Examples:
 
@@ -513,9 +538,10 @@ Periodic events
   The numeric form of parameters is used internally. Strings are converted
   to numbers before use. The internal parser is available should the need arise:
 
-  .. classmethod:: parse(times, dates, weekdays) -> dict
+  .. classmethod:: parse(times, dates, weekdays) -> dict[str, list|None]
 
-      Parse the arguments, return a dict with keys ``'times'``, ``'dates'``, ``'weekdays'``
+      Parse the arguments in any format accepted by the ``TimeDate``,
+      return a dict with keys ``'times'``, ``'dates'``, ``'weekdays'``
       and values in the numeric form, i.e. as lists or nested lists of integers or ``None``.
 
 
@@ -547,7 +573,7 @@ though.
 Non-periodic events
 -------------------
 
-.. class:: TimeSpan(name, *, span=(), utc=False, **block_kwargs)
+.. class:: TimeSpan(name, *, span=(), utc: bool = False, **block_kwargs)
 
   Block for non-periodic events occurring in intervals between start and stop
   defined with full date and time, i.e. year, month, day, hour, minute and second.
@@ -579,9 +605,9 @@ Non-periodic events
 
   - a numeric form:
 
-    A sequence (typically a list or tuple) of time intervals.
+    A sequence (typically a list or tuple) of intervals.
 
-    Example (same values as above). The seconds may be omitted if it zero::
+    Example (same values as above). The seconds may be omitted if zero::
 
       span=[
         [[2020,  3,  1, 12,  0],    [2020,  3,  7, 18, 30]   ],
@@ -591,11 +617,11 @@ Non-periodic events
   The numeric form of parameters is used internally. A string is converted
   with this parser:
 
-
   .. classmethod:: parse(span) -> list
 
-      Parse the *span* and return a list of intervals, where each interval
-      is defined by a pair of lists with 6 integers [year, month, day, hour, minute, second].
+      Parse the *span* in any form accepted by the ``TimeSpan`` and return a list of intervals,
+      where each interval is defined by a pair of lists with 6 integers
+      ``[year, month, day, hour, minute, second]``.
 
 **Dynamic updates**
 
@@ -635,7 +661,7 @@ and responds with a dump of the internal scheduling data in the form of a dict:
 Counter
 =======
 
-.. class:: Counter(name, *, modulo=None, initdef=0, persistent=False, **kwarg)
+.. class:: Counter(name, *, modulo: int|float|None = None, initdef=0, persistent=False, **kwarg)
 
   A counter.
 
@@ -643,6 +669,9 @@ Counter
   For a positive integer M it means to count only from 0 to M-1
   and then wrap around. If *modulo* is not set, the output value
   is not bounded.
+
+  The counter can process floats, but be prepared for inevitable
+  rounding errors of floating point arithmetic.
 
   Initialization parameters:
 
@@ -666,15 +695,17 @@ Counter
 
   All events return the updated output value.
 
-  The counter can process floating point numbers.
-
 
 Repeat
 ======
 
-.. class:: Repeat(name, *, dest, etype='put', interval, count=None, **block_kwargs)
+.. class:: Repeat(name, *, dest: str|block.SBlock, etype: str = 'put', interval: int|float|str, count: Optional[int] = None, **block_kwargs)
 
   Periodically repeat the last received event.
+
+  .. note::
+     The :class:`Event` class offers a convenient automatic creation
+     of a ``Repeat`` block for a given event.
 
   For a predictable operation only one selected event type *etype*
   is repeated. All other events are ignored. This limitation can
@@ -683,9 +714,7 @@ Repeat
 
   The event is sent to the destination block specified by *dest*, which can
   be an instance or its name. The received event is re-sent immediately
-  and then duplicates are sent in time intervals specified by *interval*
-  which may be given as a number of seconds or as a
-  :ref:`string with time units<Time intervals with units>`.
+  and then duplicates are sent in time intervals specified by *interval*.
 
   The number of repetitions may be limited with *count*. If not ``None``,
   at most *count* duplicates are sent. The original event is always re-sent

@@ -9,15 +9,18 @@ Docs: https://edzed.readthedocs.io/en/latest/
 Home: https://github.com/xitop/edzed/
 """
 
+from __future__ import annotations
+
 import asyncio
 import bisect
 from dataclasses import dataclass
 import time
+from typing import NoReturn, Optional
 
 from .. import addons
 from .. import block
 from .. import utils
-from . import timeinterval
+from . import timeinterval as ti
 
 # HMS is an abbreviation for clock time hour, minute, second
 # MD is an abbreviation for month, day
@@ -30,13 +33,13 @@ _MAX_TRACKING_ERROR = 2.0   # max. acceptable scheduler's error in seconds, must
 class TimeData:
     """Time in various represenations."""
     __slots__ = ['hms', 'tstruct', 'subsec']
-    hms: timeinterval.HMS
+    hms: ti.HMS
     tstruct: time.struct_time
     subsec: float
 
 
 # hourly wake-ups for precise time tracking and early detection of DST changes
-SET24 = frozenset(timeinterval.HMS([hour, 0, 0]) for hour in range(24))
+SET24 = frozenset(ti.HMS([hour, 0, 0]) for hour in range(24))
 
 
 class Cron(addons.AddonMainTask, block.SBlock):
@@ -47,21 +50,21 @@ class Cron(addons.AddonMainTask, block.SBlock):
     to allow debug messages and monitoring through the event interface.
     """
 
-    def __init__(self, *args, utc, **kwargs):
+    def __init__(self, *args, utc: bool, **kwargs):
         super().__init__(*args, **kwargs)
         self._timefunc = time.gmtime if utc else time.localtime
-        self._alarms = {}   # {HMS: set_of_blocks}
-        self._queue = None
+        self._alarms: dict[ti.HMS, set[block.SBlock]] = {}
+        self._queue: Optional[asyncio.Queue] = None
         self._needs_reload = False
 
-    def reload(self):
+    def reload(self) -> None:
         """Reload the configuration after add_block/remove_block calls."""
         if self._needs_reload:
             if self._mtask is not None:
                 self._queue.put_nowait(None)    # wake up the task, value does not matter
             self._needs_reload = False
 
-    def add_block(self, hms, blk):
+    def add_block(self, hms: ti.HMS, blk: block.SBlock) -> None:
         """
         Add a block to be activated at given HMS.
 
@@ -75,7 +78,7 @@ class Cron(addons.AddonMainTask, block.SBlock):
         """
         if not hasattr(blk, 'recalc'):
             raise TypeError("{blk} is not compatible with the cron internal service")
-        if not isinstance(hms, timeinterval.HMS):
+        if not isinstance(hms, ti.HMS):
             raise TypeError(f"argument 'hms': expected an HMS object, got {hms!r}")
         if hms in self._alarms:
             self._alarms[hms].add(blk)
@@ -84,7 +87,7 @@ class Cron(addons.AddonMainTask, block.SBlock):
             if hms not in SET24:
                 self._needs_reload = True
 
-    def remove_block(self, hms, blk):
+    def remove_block(self, hms: ti.HMS, blk: block.SBlock) -> None:
         """
         Remove a blk for given HMS if it was registered.
 
@@ -106,12 +109,12 @@ class Cron(addons.AddonMainTask, block.SBlock):
         now = time.time()
         tstruct = self._timefunc(now)
         return TimeData(
-            hms=timeinterval.HMS(tstruct),
+            hms=ti.HMS(tstruct),
             tstruct=tstruct,
             subsec=now % 1,     # don't want to import math just for the modf()
             )
 
-    async def _maintask(self):
+    async def _maintask(self) -> NoReturn:
         """Recalculate registered blocks according to the schedule."""
         reset = False
         reload = True
@@ -170,14 +173,14 @@ class Cron(addons.AddonMainTask, block.SBlock):
                         blk.recalc(now)
                 next_idx += 1
 
-    def init_regular(self):
+    def init_regular(self) -> None:
         self.set_output(None)
 
-    def start(self):
+    def start(self) -> None:
         super().start()
         self._queue = asyncio.Queue()
 
-    def _event_get_schedule(self, **_data):
+    def _event_get_schedule(self, **_data) -> dict[str, list[str]]:
         """Return the internal scheduling data for debugging or monitoring."""
         return {
             str(hms): sorted(blk.name for blk in blkset)

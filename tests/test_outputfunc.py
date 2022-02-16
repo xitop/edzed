@@ -19,7 +19,7 @@ pytest_plugins = ('pytest_asyncio',)
 pytestmark = pytest.mark.asyncio
 
 
-def test_argument_checks(circuit):
+async def test_argument_checks(circuit):
     """Test f_args and f_kwargs validation."""
     for val in (None, 0, "string", edzed.UNDEF, {1:2}, {'xy'}, ["A", "B", 1], (True, False)):
         with pytest.raises(TypeError, match="f_args"):

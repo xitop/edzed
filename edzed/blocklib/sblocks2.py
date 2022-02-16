@@ -6,10 +6,13 @@ Docs: https://edzed.readthedocs.io/en/latest/
 Home: https://github.com/xitop/edzed/
 """
 
+from __future__ import annotations
+
 import asyncio
-import collections.abc as cabc
+from collections.abc import Callable, Collection, Coroutine, Iterator, Mapping, Sequence
 import concurrent.futures
 import itertools
+from typing import Any, Optional
 import weakref
 
 from .. import addons
@@ -24,13 +27,18 @@ __all__ = ['InitAsync', 'Input', 'InputExp', 'InExecutor', 'OutputAsync', 'Outpu
 class _Validation:
     """Value validation mix-in."""
 
-    def __init__(self, *args, schema=None, check=None, allowed=None, **kwargs):
+    def __init__(
+            self, *args,
+            schema: Optional[Callable[[Any], Any]] = None,
+            check: Optional[Callable[[Any], Any]] = None,
+            allowed: Optional[Collection] = None,
+            **kwargs):
         self._schema = schema
         self._check = check
         self._allowed = None if allowed is None else frozenset(allowed)
         super().__init__(*args, **kwargs)
 
-    def _validate(self, value):
+    def _validate(self, value: Any) -> Any:
         """
         Validate a value.
 
@@ -60,10 +68,10 @@ class Input(_Validation, addons.AddonPersistence, block.SBlock):
         if self.initdef is not block.UNDEF:
             self._validate(self.initdef)
 
-    def init_from_value(self, value):
+    def init_from_value(self, value: Any) -> None:
         self.put(value)
 
-    def _event_put(self, *, value, **_data):
+    def _event_put(self, *, value: Any, **_data) -> bool:
         try:
             value = self._validate(value)
         except ValueError as err:
@@ -88,7 +96,12 @@ class InputExp(_Validation, fsm.FSM):
         ('put', None, 'valid'),
         )
 
-    def __init__(self, *args, duration, expired=None, initdef=block.UNDEF, **kwargs):
+    def __init__(
+            self, *args,
+            duration: Optional[int|float|str],
+            expired: Any = None,
+            initdef: Any = block.UNDEF,
+            **kwargs):
         # meaning of the initdef parameter:
         # - in InputExp: initial value
         # - in the underlying FSM: initial state
@@ -102,7 +115,7 @@ class InputExp(_Validation, fsm.FSM):
             self.sdata['input'] = self._validate(initdef)
         self._expired = self._validate(expired)
 
-    def cond_put(self):
+    def cond_put(self) -> bool:
         data = fsm.fsm_event_data.get()
         value = data['value']
         try:
@@ -113,28 +126,28 @@ class InputExp(_Validation, fsm.FSM):
         self.sdata['input'] = value
         return True
 
-    def on_enter_expired(self):
+    def on_enter_expired(self) -> None:
         self.sdata.pop('input', None)
 
-    def calc_output(self):
+    def calc_output(self) -> Any:
         """Stop the FSM part from setting the output."""
         return self.sdata['input'] if self._state == 'valid' else self._expired
 
 
-def _check_arg(name, arg):
+def _check_arg(name, arg: Any) -> None:
     """
-    Check OutputXY arguments.
+    Verify that arg is a sequence of strings.
 
     An early check should prevent difficult to understand error messages.
     """
-    if isinstance(arg, str) or not isinstance(arg, cabc.Sequence) \
+    if isinstance(arg, str) or not isinstance(arg, Sequence) \
             or any(not isinstance(k, str) for k in arg):
         raise TypeError(
             f"Argument {name!r} should be a sequence (e.g. a list or tuple) of strings, "
             f"but got {arg!r}")
 
 
-def _args_as_string(args, kwargs):
+def _args_as_string(args: Sequence, kwargs: Mapping) -> str:
     """Convert args and kwargs to a printable string."""
     return '(' + ', '.join(itertools.chain(
         (repr(a) for a in args),
@@ -148,17 +161,23 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
 
     def __init__(
             self, *args,
-            coro, mode,
-            f_args=('value',), f_kwargs=(),
-            guard_time=0.0,
-            on_success=None, on_cancel=None, on_error,
-            stop_data=None,
+            coro: Callable[..., Coroutine], # i.e. an async function
+            mode: str,
+            f_args: Sequence[str] = ('value',),
+            f_kwargs: Sequence[str] = (),
+            guard_time: Optional[int|float|str] = None,
+            on_success:
+                Optional[block.Event|Iterator[block.Event]|Sequence[block.Event]] = None,
+            on_cancel: Optional[block.Event|Iterator[block.Event]|Sequence[block.Event]] = None,
+            on_error: None|block.Event|Iterator[block.Event]|Sequence[block.Event],
+            stop_data: Optional[Mapping[str, Any]] = None,
             **kwargs):
         _check_arg('f_args', f_args)
         _check_arg('f_kwargs', f_args)
         self._on_success = block.event_tuple(on_success)
         self._on_cancel = block.event_tuple(on_cancel)
         self._on_error = block.event_tuple(on_error)
+        self._guard_time = 0.0 if guard_time is None else utils.time_period(guard_time)
         self._coro = coro
         if mode == 'c' or mode == "cancel":
             self._ctrl_coro = self._ctrl_cancel
@@ -166,7 +185,7 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
             self._ctrl_coro = self._ctrl_wait
         elif mode == 's' or mode == "start":
             self._ctrl_coro = self._ctrl_start
-            if guard_time > 0.0:
+            if self._guard_time > 0.0:
                 self.log_warning("using guard_time in 'start' mode is ineffective!")
         else:
             raise ValueError(
@@ -174,20 +193,19 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
                 f"(may be abbreviated to 'c', 's', or 'w'), but got {mode!r}")
         self._f_args = f_args
         self._f_kwargs = f_kwargs
-        self._guard_time = guard_time
         self._stop_data = stop_data
         self._ctrl_task = None
         self._queue = None
         super().__init__(*args, **kwargs)
-        if guard_time > self.stop_timeout:
+        if self._guard_time > self.stop_timeout:
             raise ValueError(
-                f"guard_time {guard_time:.3f} must not exceed "
+                f"guard_time {self._guard_time:.3f} must not exceed "
                 f"stop_timeout {self.stop_timeout:.3f} seconds.")
 
-    def _event_put(self, **data):
+    def _event_put(self, **data) -> None:
         self._queue.put_nowait(data)
 
-    async def _output_coro(self, data):
+    async def _output_coro(self, data: Mapping) -> None:
         args = tuple(data[k] for k in self._f_args)
         kwargs = {k: data[k] for k in self._f_kwargs}
         if self.debug:
@@ -215,7 +233,7 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
                 # shield_cancel re-reaises any CancelledError when it stops shielding
                 pass
 
-    async def _output_coro_wrapper(self, data):
+    async def _output_coro_wrapper(self, data: Mapping) -> None:
         """Count the active tasks."""
         self.set_output(self.output + 1)
         try:
@@ -224,7 +242,7 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
             self.set_output(self.output - 1)
 
 
-    async def _ctrl_cancel(self):
+    async def _ctrl_cancel(self) -> None:
         """
         Start an output task for data from the queue.
 
@@ -261,7 +279,7 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
             # we are already running as monitored task
             task = asyncio.create_task(self._output_coro_wrapper(data))
 
-    async def _ctrl_wait(self):
+    async def _ctrl_wait(self) -> None:
         """
         Start an output task for values from the queue.
 
@@ -280,7 +298,7 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
                 break
             await self._output_coro_wrapper(data)
 
-    async def _ctrl_start(self):
+    async def _ctrl_start(self) -> None:
         """
         Start an output task for values from the queue asap.
 
@@ -295,15 +313,15 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
-    def start(self):
+    def start(self) -> None:
         super().start()
         self._queue = asyncio.Queue()
         self._ctrl_task = self._create_monitored_task(self._ctrl_coro())
 
-    def init_regular(self):
+    def init_regular(self) -> None:
         self.set_output(0)
 
-    def stop(self):
+    def stop(self) -> None:
         # do not compare self._ctrl_coro using "is" (descriptors are in play)
         if self._stop_data is not None and self._ctrl_coro != self._ctrl_start:
             # stop_data processing in start mode moved to stop_async, because
@@ -312,7 +330,7 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
         self._queue.put_nowait(None)    # stop serving
         super().stop()
 
-    async def stop_async(self):
+    async def stop_async(self) -> None:
         try:
             await self._ctrl_task
         except asyncio.CancelledError:
@@ -330,7 +348,11 @@ class InExecutor:
 
     The function will be executed in an executor.
     """
-    def __init__(self, func, executor=concurrent.futures.ThreadPoolExecutor):
+    def __init__(
+            self,
+            func: Callable,
+            executor: concurrent.futures.Executor = concurrent.futures.ThreadPoolExecutor
+            ):
         self._func = func
         self._executor = executor
 
@@ -347,9 +369,13 @@ class OutputFunc(block.SBlock):
 
     def __init__(
             self, *args,
-            func, f_args=('value',), f_kwargs=(),
-            on_success=None, on_error,
-            stop_data=None,
+            func: Callable,
+            f_args: Sequence[str] = ('value',),
+            f_kwargs: Sequence[str] = (),
+            on_success:
+                Optional[block.Event|Iterator[block.Event]|Sequence[block.Event]] = None,
+            on_error: None|[block.Event|Iterator[block.Event]|Sequence[block.Event]],
+            stop_data: Optional[Mapping[str, Any]] = None,
             **kwargs):
         _check_arg('f_args', f_args)
         _check_arg('f_kwargs', f_kwargs)
@@ -361,7 +387,7 @@ class OutputFunc(block.SBlock):
         self._stop_data = stop_data
         super().__init__(*args, **kwargs)
 
-    def _event_put(self, **data):
+    def _event_put(self, **data) -> tuple[str, Any]:
         args = tuple(data[k] for k in self._f_args)
         kwargs = {k: data[k] for k in self._f_kwargs}
         try:
@@ -379,11 +405,11 @@ class OutputFunc(block.SBlock):
                 ev.send(self, trigger='success', value=result)
             return ('result', result)
 
-    def init_regular(self):
+    def init_regular(self) -> None:
         """Initialize the internal state."""
         self.set_output(False)
 
-    def stop(self):
+    def stop(self) -> None:
         if self._stop_data is not None:
             self._event_put(**self._stop_data)
         super().stop()
@@ -394,8 +420,8 @@ class InitAsync(addons.AddonAsync, block.SBlock):
     Run a coroutine once during the circuit initialization.
     """
 
-    def __init__(self, *args, init_coro: list, **kwargs):
-        if not isinstance(init_coro, cabc.Sequence):
+    def __init__(self, *args, init_coro: Sequence, **kwargs):
+        if not isinstance(init_coro, Sequence):
             raise TypeError(
                 "Parameter 'init_coro' must be a sequence (list, tuple, ...), "
                 f"but got {init_coro!r}")
@@ -404,17 +430,17 @@ class InitAsync(addons.AddonAsync, block.SBlock):
         self._init_coro = init_coro
         super().__init__(*args, **kwargs)
 
-    def init_regular(self):
+    def init_regular(self) -> None:
         if self.is_initialized() or self.initdef is not block.UNDEF:
             return      # is initialized or will be initialized
         # initialize only to prevent a startup failure
         self._output_events = ()    # do not send output events
         self.set_output(None)
 
-    def init_from_value(self, value):
+    def init_from_value(self, value: Any) -> None:
         self.set_output(value)
 
-    async def init_async(self):
+    async def init_async(self) -> None:
         coro, *args = self._init_coro
         result = await coro(*args)
         self.set_output(result)

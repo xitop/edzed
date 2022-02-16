@@ -38,7 +38,7 @@ List of :ref:`event filters<Event filters>` bundled with ``edzed``.
   It checks the item ``'previous'`` in the event data.
 
 
-.. class:: Delta(delta)
+.. class:: Delta(delta: int|float)
 
   Event filter for numeric values. If filters out insignificant value changes.
 
@@ -85,15 +85,16 @@ List of :ref:`event filters<Event filters>` bundled with ``edzed``.
 .. class:: DataEdit
 
   This class provides a set of simple data modifiers. Multiple modifiers
-  may be chained (see examples below):
+  may be chained (see examples below). All keys in event data must be strings.
 
   .. classmethod:: add(key1=value1, key2=value2, ...)
 
     Add data items. Existing values for the same key will be overwritten.
+    See also :meth:`setdefault`.
 
-  .. classmethod:: add_output(key, source)
+  .. classmethod:: add_output(key, source: str|Block)
 
-    Add one data item with the key *key* and *source* block's current value.
+    Add one data item with the key *key* and *source* block's current output value.
     Existing value for the same key will be overwritten.
     The *source* argument may be a block object or block name.
 
@@ -106,7 +107,7 @@ List of :ref:`event filters<Event filters>` bundled with ``edzed``.
 
     Delete all items with given keys. Ignore missing keys.
 
-  .. classmethod:: modify(key, func)
+  .. classmethod:: modify(key, func: Callable[[Any], Any])
 
     Modify an event using the *func*.
 

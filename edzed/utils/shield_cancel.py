@@ -2,8 +2,11 @@
 asyncio.shield improved.
 """
 
+from __future__ import annotations
+
 import asyncio
-from typing import Any, Awaitable
+from collections.abc import Awaitable
+from typing import Any
 
 __all__ = ['shield_cancel']
 

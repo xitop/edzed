@@ -20,16 +20,20 @@ Docs: https://edzed.readthedocs.io/en/latest/
 Home: https://github.com/xitop/edzed/
 """
 
+from __future__ import annotations
+
 import ast
 import asyncio
 import collections
+from collections.abc import Callable
 from dataclasses import dataclass
 import logging
 import signal
 import sys
-from typing import Callable
+from typing import Optional
 
-from . simulator import get_circuit, run
+from . import simulator
+from . import block
 
 if sys.platform == 'win32':
     # Python 3.7 only, ProactorEventLoop is the default on 3.8+
@@ -53,7 +57,7 @@ Circuit evaluation commands:
     c[debug] 1|0                -- circuit simulator's debug messages on|off
   Events:
     e[vent] <blockname> <type> [{'name':value, ...}]
-                                -- send event
+                                -- send event with optional data
     p[ut] <blockname> <value>   -- send 'put' event
   Info:
     l[ist]                      -- list all blocks
@@ -66,7 +70,7 @@ Command history:
     !!                          -- repeat last command (same as !-1)
 """
 
-def _check_01(value):
+def _check_01(value: str) -> bool:
     if value == '0':
         return False
     if value == '1':
@@ -74,60 +78,63 @@ def _check_01(value):
     raise ValueError("Argument must be 0 (debug off) or 1 (debug on)")
 
 
-def _cmd_adebug(value):
+def _cmd_adebug(value: str) -> None:
     bvalue = _check_01(value)
-    circuit = get_circuit()
+    circuit = simulator.get_circuit()
     circuit.set_debug(bvalue, *circuit.getblocks())
     print(f"all blocks: debug {'on' if bvalue else 'off'}")
 
 
-def _cmd_bdebug(blk, value):
+def _cmd_bdebug(blk: block.Block, value: str) -> None:
     bvalue = _check_01(value)
     blk.debug = bvalue
     print(f"{blk}: debug {'on' if bvalue else 'off'}")
 
 
-def _cmd_cdebug(value):
+def _cmd_cdebug(value: str) -> None:
     bvalue = _check_01(value)
-    circuit = get_circuit()
+    circuit = simulator.get_circuit()
     circuit.debug = bvalue
     print(f"circuit simulator: debug {'on' if bvalue else 'off'}")
 
 
-def _cmd_eval(expr):
+def _cmd_eval(expr: str) -> None:
     result = eval(expr)         # pylint: disable=eval-used
     print(f"result: {result}")
 
 
-def _cmd_event(blk, etype, data=None):
+def _cmd_event(blk: block.Block, etype: str, data: Optional[str] = None) -> None:
     data = {} if data is None else ast.literal_eval(data)
+    if not isinstance(data, dict):
+        raise TypeError(
+            f"Invalid event data: {data!r}. Expected is a dict literal: {{'name':value, ...}}")
     retval = blk.event(etype, **data)
     print(f"event() returned: {retval}")
     _cmd_show(blk)
 
 
-def _cmd_help():
+def _cmd_help() -> None:
     print(HELP)
 
 
-def _cmd_info(blk):
+def _cmd_info(blk: block.Block) -> None:
     for name, value in sorted(blk.get_conf().items()):
         print(f"{name}: {value}")
 
 
-def _cmd_list():
-    circuit = get_circuit()
+def _cmd_list() -> None:
+    circuit = simulator.get_circuit()
     for name, btype in sorted((blk.name, type(blk).__name__) for blk in circuit.getblocks()):
         print(f"{name}   ({btype})")
 
 
-def _cmd_put(blk, value):
+def _cmd_put(blk, value) -> None:
     retval = blk.put(ast.literal_eval(value))
     print(f"put() returned: {retval}")
     _cmd_show(blk)
 
 
-def _cmd_show(blk):
+def _cmd_show(blk) -> None:
     output = blk.output
     state = blk.get_state()
     if state == output:
@@ -137,7 +144,7 @@ def _cmd_show(blk):
         print(f"state: {state!r}")
 
 
-def _complete(cmd):
+def _complete(cmd: str) -> str:
     if cmd == '?':
         return 'help'
     for fullcmd in _PARSE:
@@ -182,9 +189,9 @@ async def _cli_repl() -> None:
     protocol = asyncio.StreamReaderProtocol(rstream, loop=loop)
     await loop.connect_read_pipe(lambda: protocol, sys.stdin)
 
-    history = collections.deque(maxlen=HISTSIZE)
+    history: collections.deque[tuple[str, Callable, list]] = collections.deque(maxlen=HISTSIZE)
     cmdnum = 1
-    circuit = get_circuit()
+    circuit = simulator.get_circuit()
     print("Type 'help' to get a summary of available commands.")
     print("Type 'a 1' to enable debug messages in all blocks.")
     while True:
@@ -283,4 +290,4 @@ async def cli_repl(setup_logging: bool = True) -> None:
 # DEPRECATED
 async def run_demo():
     """Run a circuit simulation and an edzed REPL."""
-    await run(cli_repl())
+    await simulator.run(cli_repl())

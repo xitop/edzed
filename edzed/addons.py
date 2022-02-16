@@ -9,10 +9,13 @@ Docs: https://edzed.readthedocs.io/en/latest/
 Home: https://github.com/xitop/edzed/
 """
 
+from __future__ import annotations
+
 import abc
 import asyncio
+from collections.abc import Coroutine
 import time
-from typing import Any, Awaitable, Mapping, Union
+from typing import Any, Optional
 
 from . import block
 from .exceptions import EdzedCircuitError
@@ -32,7 +35,7 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
             *args,
             persistent: bool = False,
             sync_state: bool = True,
-            expiration: Union[None, int, float, str] = None,
+            expiration: Optional[int|float|str] = None,
             **kwargs):
         self.persistent = bool(persistent)
         self.sync_state = bool(sync_state)
@@ -43,7 +46,7 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
         self.key = str(self)
 
     # TODO in Python3.8+ (see Block.event for an explanation):
-    #   def event(self, etype: Union[str, block.EventType], /, **data) -> Any:
+    #   def event(self, etype: str|block.EventType], /, **data) -> Any:
     # pylint: disable=no-method-argument
     def event(*args, **data) -> Any:
         """Save persistent state after a possible state change."""
@@ -76,7 +79,7 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
             self.circuit.persistent_dict.pop(self.key, None)  # remove stale data
 
     @abc.abstractmethod
-    def _restore_state(self, state: Any):
+    def _restore_state(self, state: Any) -> None:
         """
         Initialize by restoring the state (low-level).
         """
@@ -108,7 +111,7 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
         except Exception as err:
             self.log_warning("Error restoring saved state: %s; state: %s", err, state)
 
-    def get_conf(self) -> Mapping[str, Any]:
+    def get_conf(self) -> dict[str, Any]:
         return {
             'persistent': self.persistent,
             **super().get_conf()
@@ -158,7 +161,7 @@ class AddonAsync(block.Addon):
             self.log_debug("stop_timeout not set, default is %.3fs", DEFAULT_STOP_TIMEOUT)
             self.stop_timeout = DEFAULT_STOP_TIMEOUT
 
-    async def _task_monitor(self, coro: Awaitable, is_service: bool = False) -> Any:
+    async def _task_monitor(self, coro: Coroutine, is_service: bool = False) -> Any:
         """
         A coroutine wrapper delivering exceptions to the simulator.
 
@@ -182,7 +185,7 @@ class AddonAsync(block.Addon):
             raise
         return retval
 
-    def _create_monitored_task(self, coro, is_service: bool = False):
+    def _create_monitored_task(self, coro: Coroutine, is_service: bool = False) -> asyncio.Task:
         return asyncio.create_task(self._task_monitor(coro, is_service))
 
 
@@ -224,14 +227,14 @@ class AddonAsyncInit(AddonAsync, metaclass=abc.ABCMeta):
         self._init_event = None
         super().__init__(*args, **kwargs)
 
-    def start(self):
+    def start(self) -> None:
         super().start()
         self._init_event = asyncio.Event()
 
-    def set_output(self, value):
+    def set_output(self, value: Any) -> None:
         super().set_output(value)
         if not self._init_event.is_set():
             self._init_event.set()
 
-    async def init_async(self):
+    async def init_async(self) -> None:
         await self._init_event.wait()

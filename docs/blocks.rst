@@ -37,10 +37,6 @@ Common features
 
   The optional *comment* may be any arbitrary text and is not used internally.
 
-    .. versionchanged:: 21.3.16
-      the *comment* parameter and the corresponding ``comment`` attribute were formerly
-      called ``desc``. The old name will be recognized at least until 15-JUN-2021.
-
   The *on_output* argument specifies :ref:`events<Events>` to be sent on each
   output change.
 
@@ -61,7 +57,7 @@ Common features
     :type: Circuit
 
     The :class:`Circuit` object the block belongs to. Usually there is
-    only one circuit; an application code should use :func:`get_circuit`
+    only one circuit. An application code should use :func:`get_circuit`
     to get a reference to it.
 
   .. attribute:: comment
@@ -83,6 +79,7 @@ Common features
     The assigned block's name.
 
   .. attribute:: output
+    :type: Any
 
     Block's output value, a read-only property.
 
@@ -91,12 +88,14 @@ Common features
     A special :const:`UNDEF` value is assigned to newly created blocks.
 
   .. attribute:: x_anyname
+    :type: Any
   .. attribute:: X_ANYNAME
+    :type: Any
 
     (with any arbitrary name) Reserved for application data, ignored by ``edzed``.
     May be added/removed/modified.
 
-  .. method:: get_conf() -> dict
+  .. method:: get_conf() -> dict[str, Any]
 
     Return a summary of static block information.
 
@@ -147,7 +146,7 @@ Combinational blocks
 
 The output of a combinational block depends only on its present input values.
 
-.. class:: CBlock(name: Optional[str], **block_kwargs)
+.. class:: CBlock(name, **block_kwargs)
 
   The base class for combinational blocks does not
   add any new arguments compared to :class:`Block`.
@@ -179,21 +178,23 @@ The output of a combinational block depends only on its present input values.
 
     1. to another block's output specified with:
 
-       - a :class:`Block` object
+      - a :class:`Block` object
 
-       - the name of a Block object (string)
+      - the name of a Block object (string)
 
-       - ``'_not_NAME'`` for connecting the :ref:`logically inverted output<Inverted output>`
-         of another block.
+      - ``'_not_NAME'`` for connecting the :ref:`logically inverted output<Inverted output>`
+        of another block.
 
     2. or to a constant value given as:
 
-       - a :class:`Const` object
+      - a :class:`Const` object
 
-       - any ``value`` that does not specify an input or a group,
-         i.e. not a string, tuple, list or similar.
-         The value will be automatically wrapped into a :class:`Const`.
-         If not sure, use ``Const(value)`` explicitly.
+      - any ``value`` that does not specify an input or a group,
+        i.e. not a string, tuple, list or similar.
+        The value will be automatically wrapped into a :class:`Const`.
+
+      It is recommended to use ``Const(value)`` explicitly for all
+      values except the ``None``, ``True``, ``False`` and numbers.
 
     :meth:`connect` must be called before the circuit initialization
     takes place and may be called only once.
@@ -208,7 +209,7 @@ Sequential blocks
 Base class arguments
 --------------------
 
-.. class:: SBlock(name: Optional[str], *, initdef=edzed.UNDEF, persistent=False, sync_state=True, expiration=None, init_timeout=None, stop_timeout=None, **block_kwargs)
+.. class:: SBlock(name, *, initdef=edzed.UNDEF, persistent=False, sync_state=True, expiration=None, init_timeout=None, stop_timeout=None, **block_kwargs)
 
   .. important::
     Not all parameters are accepted by concrete sequential block types!
@@ -217,7 +218,7 @@ Base class arguments
   which parameters are appropriate for the given block.
 
   - Setting the initial state:
-      Argument *initdef* specifies the initial or the default internal state.
+      Argument *initdef* (type: Any) specifies the initial or the default internal state.
       Its precise meaning varies depending on the block:
 
       - *initdef* is not accepted, because the internal state
@@ -241,13 +242,13 @@ Base class arguments
       If a block supports this feature, it is controlled by these
       parameters:
 
-      - *persistent*:
+      - *persistent* (bool):
           Enable the persistent state. Default is ``False``.
 
-      - *sync_state*:
+      - *sync_state* (bool):
           Save the state also after each event. Default is ``True``.
 
-      - *expiration*:
+      - *expiration* (int or float or str or None):
           Expiration time measured since the program stop. An expired
           state is disregarded. Expiration value may be ``None``,
           number of seconds, or
@@ -261,12 +262,12 @@ Base class arguments
       Some blocks perform asynchronous operations. These
       arguments control the timeouts:
 
-      - *init_timeout*:
+      - *init_timeout* (int or float or str or None):
          initialization timeout in seconds.
          Default timeout is 10 seconds.
          Value 0.0 or negative disables the async initialization.
 
-      - *stop_timeout*:
+      - *stop_timeout* (int or float or str or None):
          cleanup timeout in seconds.
          Default timeout is 10 seconds.
          Value 0.0 or negative disables the async cleanup.

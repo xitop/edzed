@@ -76,19 +76,19 @@ Creating FSMs types
 ===================
 
 A new FSM is created by subclassing the base class.
-Instances of the subclasses will be circuit blocks.
+Instances of the subclass will be circuit blocks.
 
 .. class:: FSM
 
   Base class for creating FSMs.
 
-  Subclasses are supposed to define class attributes:
+  Subclasses are supposed to define these class attributes:
 
   - :obj:`FSM.STATES`
   - :obj:`FSM.EVENTS`
   - :obj:`FSM.TIMERS`
 
-  All three contain an empty list/table by default.
+  All three are empty by default.
 
   A subclass may also define:
 
@@ -113,44 +113,40 @@ but using the same name for both is discouraged.
 The :meth:`FSM.event` method returns ``True`` for accepted FSM events
 and ``False`` for rejected FSM events.
 
-.. note::
-
-  In this section we use the term *"list of items"* in general sense
-  that means Python's list, tuple or other sequence of items.
-
 .. attribute:: FSM.STATES
-  :type: list of strings
+  :type: Sequence[str]
 
   Class attribute.
 
-  A list of valid states. Timed states from :obj:`FSM.TIMERS` are appended
+  A sequence of valid states. Timed states from :obj:`FSM.TIMERS` are appended
   automatically, but may be listed here, because duplicates
   do not matter. The very first item in the resulting list is the
   default initial state.
 
 .. attribute:: FSM.EVENTS
-  :type: list of lists
+  :type: Iterable[Sequence]
 
   Class attribute.
 
-  Events and rules, i.e. the transition table. The table has three columns::
+  The transition table as a sequence of transition rules. Each rule in
+  the sequence has three items::
 
-    [event, states, next_state]
+    [event: str, states: str|Sequence[str]|None, next_state: str|None]
 
-  and as many entries as necessary. *states* (column 2) define in which states
-  will the *event* (column 1) trigger a transition to the *next_state* (column 3).
-  The transition table must be deterministic. Only one next state may be defined
-  for any combination of event and state.
+  *states* (item 2) define in which states will the *event* (item 1)
+  trigger a transition to the *next_state* (item 3).
+  The order of rules does not matter, but the transition table must be deterministic.
+  Only one next state may be defined for any combination of event and state.
 
   Data format of a table entry in detail:
 
-  - *event* is always a string, the name of an event. The set of all valid
-    events is comprised from the entire first column.
+  - *event* is always a string, the name of an event. Only events found in
+    the ``EVENTS`` table are valid events for the given FSM.
 
   - *states* must be one of:
 
     - a single state (string)
-    - a list of multiple states (strings)
+    - a sequence of multiple states (strings)
     - ``None`` as a special value for any state.
       An entry with ``None`` has lower precedence than
       an entry with explicitly listed states.
@@ -158,9 +154,9 @@ and ``False`` for rejected FSM events.
   - *next_state* must be:
 
     - a single state (string), or
-    - ``None`` to make a transition explicitly disallowed
+    - ``None`` to make a transition explicitly disallowed.
 
-  Examples::
+  Examples of ``EVENTS`` entries::
 
     #1
     ('push', 'unlocked', 'locked'),
@@ -182,7 +178,7 @@ and ``False`` for rejected FSM events.
 
 
 .. attribute:: FSM.TIMERS
-  :type: dict
+  :type: Mapping[str, Sequence]
 
   Class attribute.
 
@@ -193,7 +189,7 @@ and ``False`` for rejected FSM events.
 
   Data format:
 
-    dict of ``{timed_state: (default_duration, timed_event)}``
+    dictionary of ``{timed_state: (default_duration, timed_event)}``
 
   A timer is set when the *timed_state* is entered. When the timer
   expires, the *timed_event* is generated. If the state is exited
@@ -379,16 +375,16 @@ Additional internal state data
 ------------------------------
 
 .. attribute:: FSM.sdata
-  :type: dict
+  :type: dict[str, Any]
 
   In some cases the internal state consists of more values than just the current
   FSM state and the timer state. This additional data should be stored here
-  as key=value pairs.
-
-  .. important:: All keys must be strings.
+  as key=value pairs. All keys must be strings.
 
   Because the :attr:`FSM.sdata` dict is by definition a part of the internal state,
   it is automatically saved and restored when the persistent state is turned on.
+  Note that the underlying persistent data storage must be able to serialize
+  the data types used in the ``FSM.sdata``.
 
 In the following example, the output is ``True`` between the ``start`` and ``stop``
 events and also during the following after-run period. The after-run duration is
@@ -429,7 +425,7 @@ The output value is calculated in the :meth:`FSM.calc_output` method which is ca
 during a state transition after ``enter_STATE`` action and before ``on_enter_STATE``
 and ``on_output`` events:
 
-.. method:: FSM.calc_output
+.. method:: FSM.calc_output() -> Any
 
   Return the block's output value computed from the internal state data.
 

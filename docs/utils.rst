@@ -34,7 +34,7 @@ Notes:
 
 Conversions routines:
 
-.. function:: timestr(seconds: Union[int, float]) -> str
+.. function:: timestr(seconds: int|float) -> str
 
   Convert seconds, return a string with time units.
 
@@ -47,7 +47,9 @@ Conversions routines:
 
   Convert a string to number of seconds. See also the next function.
 
-.. function:: time_period(period: Union[None, int, float, str]) -> Optional[float]
+.. function:: time_period(period: int|float|str) -> float
+.. function:: time_period(period: None) -> None
+  :noindex:
 
   This is a convenience function accepting all time period formats used in ``edzed``:
 
@@ -101,7 +103,7 @@ At some point the names need to be resolved, because the software works
 only with objects internally. The resolver is a service provided by the
 :doc:`circuit simulator<simulation>`.
 
-.. method:: Circuit.resolve_name(obj, attr: str, block_type=edzed.Block)
+.. method:: Circuit.resolve_name(obj, attr: str, block_type: type[Block] = edzed.Block)
 
   Register an object with the resolver.
 

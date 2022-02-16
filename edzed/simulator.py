@@ -6,13 +6,17 @@ Docs: https://edzed.readthedocs.io/en/latest/
 Home: https://github.com/xitop/edzed/
 """
 
+from __future__ import annotations
+
 import asyncio
+from collections.abc import \
+    Callable, Coroutine, Iterator, Iterable, MutableMapping, Sequence, Set
 import fnmatch
 import logging
 import operator
 import signal
 import time
-from typing import Any, Coroutine, Iterator, Mapping, Optional
+from typing import Any, NoReturn, Optional
 
 from . import addons
 from . import block
@@ -28,10 +32,10 @@ _MAX_EVALS_PER_BLOCK = 3
 
 
 _logger = logging.getLogger(__package__)
-_current_circuit = None
+_current_circuit: Optional[Circuit] = None
 
 
-def get_circuit() -> 'Circuit':
+def get_circuit() -> Circuit:
     """Get the current circuit. Create one if it does not exist."""
     global _current_circuit
 
@@ -67,19 +71,19 @@ class _BlockResolver:
     block names by real block objects in all registered objects.
     """
 
-    def __init__(self, resolve_function):
-        self._unresolved = []
+    def __init__(self, resolve_function: Callable[[str], block.Block]):
+        self._unresolved: list[tuple[Any, str, type[block.Block]]] = []
         self._resolve_function = resolve_function
 
     @staticmethod
-    def _check_type(obj, attr, blk, block_type):
+    def _check_type(obj, attr: str, blk: block.Block, block_type: type[block.Block]) -> None:
         if not isinstance(blk, block_type):
             raise TypeError(
                 f"type of {blk!r} stored in {obj!r} as attribute {attr!r} "
                 f"should be {block_type.__name__}")
 
 
-    def register(self, obj, attr: str, block_type=block.Block):
+    def register(self, obj, attr: str, block_type: type[block.Block] = block.Block) -> None:
         """Register an object with a block reference to be resolved."""
         blk = getattr(obj, attr)
         if isinstance(blk, str):
@@ -89,7 +93,7 @@ class _BlockResolver:
             # no need to resolve, just check
             self._check_type(obj, attr, blk, block_type)
 
-    def resolve(self):
+    def resolve(self) -> None:
         """
         Resolve references by name in all registered objects.
 
@@ -115,22 +119,32 @@ class Circuit:
     """
 
     def __init__(self):
-        self._blocks = {}           # all blocks belonging to this circuit by name
-        self._simtask = None        # task running run_forever
-        self._finalized = False     # no circuit modification after the initialization
-        self._error = None          # exception that terminated the simulator or None
-        self.persistent_dict = None # persistent state data back-end
-        self.persistent_ts = None   # timestamp of persistent data
-        self.sblock_queue = None    # a Queue for notifying about changed SBlocks,
-                                    # the queue will be created when simulation starts, because
-                                    # it has a side effect of creating an event_loop if one
-                                    # was not created yet. That may lead to errors in rare
-                                    # scenarios with asyncio.new_event_loop().
-        self._init_done = None      # an Event for wait_init() synchronization
+        self._blocks: dict[str, block.Block] = {}
+            # all blocks belonging to this circuit by name
+        self._simtask: Optional[asyncio.Task] = None
+            # the task running run_forever
+        self._finalized: bool = False
+            # no circuit modification after the initialization
+        self._error: Optional[BaseException] = None
+            # exception that terminated the simulator if any
+        self.persistent_dict: Optional[MutableMapping[str, Any]] = None
+            # persistent state data back-end
+        self.persistent_ts: Optional[float] = None
+            # timestamp of persistent data
+        self.sblock_queue: Optional[asyncio.Queue] = None
+            # a Queue for notifying about changed SBlocks,
+            # the queue will be created when simulation starts, because
+            # it has a side effect of creating an event_loop if one
+            # was not created yet. That may lead to errors in rare
+            # scenarios with asyncio.new_event_loop().
+        self._init_done: Optional[asyncio.Event] = None
+            # an Event for wait_init() synchronization
         self._resolver = _BlockResolver(self._validate_blk)
-        self.resolve_name = self._resolver.register     # export to API
-        self.debug = False          # enable debug messages
-
+            # the name to block resolver
+        self.resolve_name = self._resolver.register
+            # provide access to the resolver
+        self.debug: bool = False
+            # enable debug messages
 
     def log_debug(self, *args, **kwargs) -> None:
         """Log a debug message if enabled."""
@@ -189,7 +203,7 @@ class Circuit:
         if self._finalized:
             raise EdzedInvalidState("No changes allowed in a finalized circuit")
 
-    def set_persistent_data(self, persistent_dict: Optional[Mapping[str, Any]]) -> None:
+    def set_persistent_data(self, persistent_dict: Optional[MutableMapping[str, Any]]) -> None:
         """Setup the persistent state data storage."""
         self.check_not_finalized()
         self.persistent_dict = persistent_dict
@@ -208,11 +222,11 @@ class Circuit:
             raise ValueError(f"Duplicate block name {blk.name}")
         self._blocks[blk.name] = blk
 
-    def getblocks(self, btype: Optional[block.Block] = None) -> Iterator:
+    def getblocks(self, btype: Optional[type[block.Block|block.Addon]] = None) -> Iterator:
         """Return an iterator of all blocks or btype blocks only."""
         allblocks = self._blocks.values()
         if btype is None:
-            return allblocks
+            return iter(allblocks)  # iter() only for type consistency, not really needed
         return (blk for blk in allblocks if isinstance(blk, btype))
 
     def findblock(self, name: str) -> block.Block:
@@ -223,7 +237,11 @@ class Circuit:
             # add an error message
             raise KeyError(f"Block {name!r} not found") from None
 
-    def set_debug(self, value: bool, *args) -> int:
+    def set_debug(
+            self,
+            value: bool,
+            *args: str|block.Block|type[block.Block|block.Addon]
+            ) -> int:
         """
         Set debug flag to given value (True/False) for selected blocks.
         """
@@ -249,7 +267,7 @@ class Circuit:
             blk.debug = value
         return len(todo)
 
-    def _check_persistent_data(self):
+    def _check_persistent_data(self) -> None:
         """Check persistent state related settings."""
         persistent_blocks = [
             blk for blk in self.getblocks(addons.AddonPersistence) if blk.persistent]
@@ -279,7 +297,7 @@ class Circuit:
             _logger.info("Removing unused persistent state for '%s'", key)
             del self.persistent_dict[key]
 
-    def _validate_blk(self, blk):
+    def _validate_blk(self, blk: Any) -> block.Block|block.Const:
         """
         Process a block specification. Return a valid block object.
 
@@ -306,7 +324,7 @@ class Circuit:
             raise ValueError(f"{blk} is not in the current circuit")
         return blk
 
-    def _finalize(self):
+    def _finalize(self) -> None:
         """
         Complete the initialization of circuit block interconnections.
 
@@ -315,7 +333,7 @@ class Circuit:
           - create inverter blocks for _not_name shortcuts
           - update connection data
         """
-        def validate_output(iblk, oblk):
+        def validate_output(iblk: block.CBlock, oblk: Any) -> block.Block|block.Const:
             """Validate oblk as a block to be connected to iblk."""
             try:
                 return self._validate_blk(oblk)
@@ -343,14 +361,17 @@ class Circuit:
                         blk.iconnections.add(inp)
                         self._blocks[inp.name].oconnections.add(blk)
 
-    def finalize(self):
+    def finalize(self) -> None:
         """A wrapper for _finalize()."""
         if not self._finalized:
             self._finalize()
             self._finalized = True
 
     @staticmethod
-    async def _run_tasks(jobname, btt_list):
+    async def _run_tasks(
+            jobname: str,
+            btt_list: Iterable[tuple[block.Block, asyncio.Task, float]]
+            ) -> None:
         """
         Run multiple tasks concurrently. Log errors.
 
@@ -382,7 +403,7 @@ class Circuit:
         if errcnt:
             _logger.error("%d block %s error(s) suppressed", errcnt, jobname)
 
-    async def _init_sblocks_async(self):
+    async def _init_sblocks_async(self) -> None:
         """Initialize all sequential blocks, the async part."""
         start_tasks = [
             (blk, asyncio.create_task(blk.init_async()), blk.init_timeout)
@@ -395,7 +416,7 @@ class Circuit:
             await self._run_tasks("async init", start_tasks)
 
     @staticmethod
-    def init_sblock(blk: block.Block, full: bool) -> None:
+    def init_sblock(blk: block.SBlock, full: bool) -> None:
         """
         Initialize a SBlock skipping any async code.
 
@@ -437,12 +458,12 @@ class Circuit:
             err.args = (fmt.format(err.args[0] if err.args else "<NO ARGS>"), *err.args[1:])
             raise
 
-    def _init_sblocks_sync_1(self):
+    def _init_sblocks_sync_1(self) -> None:
         """Initialize all sequential blocks, the non async part 1."""
         for blk in self.getblocks(block.SBlock):
             self.init_sblock(blk, full=False)
 
-    def _init_sblocks_sync_2(self):
+    def _init_sblocks_sync_2(self) -> None:
         """Initialize all sequential blocks, the non async part 2."""
         for blk in self.getblocks(block.SBlock):
             self.init_sblock(blk, full=False)
@@ -460,7 +481,7 @@ class Circuit:
         while not queue.empty():
             queue.get_nowait()
 
-    async def _stop_sblocks(self, blocks: set):
+    async def _stop_sblocks(self, blocks: Set[block.SBlock]):
         """
         Stop sequential blocks. Wait until all blocks are stopped.
 
@@ -495,7 +516,7 @@ class Circuit:
             except Exception:
                 _logger.error("%s: ignored error in stop()", blk, exc_info=True)
 
-    async def _simulate(self):
+    async def _simulate(self) -> NoReturn:
         """
         Simulate the circuit until cancelled.
 
@@ -504,7 +525,7 @@ class Circuit:
             - changed sequential blocks
             - changed evaluated blocks
         """
-        def select_blk(block_set):
+        def select_blk(block_set: Set[block.CBlock]) -> block.CBlock:
             """
             Return one block from the given set with minimum number of
             its inputs connected to another block within the set.
@@ -556,7 +577,7 @@ class Circuit:
             if changed:
                 eval_set |= blk.oconnections
 
-    async def run_forever(self):    # no return value
+    async def run_forever(self) -> NoReturn:
         """
         Run the circuit simulation until the coroutine is cancelled.
 
@@ -641,7 +662,7 @@ class Circuit:
             await self._stop_sblocks(started_blocks)
         raise self._error
 
-    def abort(self, exc: Exception) -> None:
+    def abort(self, exc: BaseException) -> None:
         """
         Abort the circuit simulation due to an exception.
 
@@ -681,7 +702,7 @@ class Circuit:
             pass
 
 
-def _install_sigterm_handler():
+def _install_sigterm_handler() -> None:
     old_handler = signal.getsignal(signal.SIGTERM)
     def handler(signum, frame):
         # using the _threadsafe variant because we need also to wake up the event loop

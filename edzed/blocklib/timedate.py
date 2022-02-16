@@ -6,17 +6,22 @@ Docs: https://edzed.readthedocs.io/en/latest/
 Home: https://github.com/xitop/edzed/
 """
 
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from typing import Optional
+
 from .. import addons
 from .. import block
 from .. import simulator
 from . import cron
-from . import timeinterval
+from . import timeinterval as ti
 
 
 __all__ = ['TimeDate', 'TimeSpan']
 
 
-def _get_cron(utc):
+def _get_cron(utc: bool) -> cron.Cron:
     circuit = simulator.get_circuit()
     name = '_cron_utc' if utc else '_cron_local'
     try:
@@ -30,7 +35,13 @@ class TimeDate(addons.AddonPersistence, block.SBlock):
     Block for periodic events at given time/date.
     """
 
-    def __init__(self, *args, times=None, dates=None, weekdays=None, utc=False, **kwargs):
+    def __init__(
+            self, *args,
+            times: Optional[str|Sequence[Sequence[Sequence[int]]]] = None,
+            dates: Optional[str|Sequence[Sequence[Sequence[int]]]] = None,
+            weekdays: Optional[str|Sequence[int]] = None,
+            utc: bool = False,
+            **kwargs):
         self._cron = _get_cron(bool(utc))
         self._times = self._dates = self._weekdays = None
         # we build the initdef from times, dates, weekdays in order to simplify the usage
@@ -41,16 +52,25 @@ class TimeDate(addons.AddonPersistence, block.SBlock):
         super().__init__(*args, initdef=initdef, **kwargs)
 
     @classmethod
-    def parse(cls, times, dates, weekdays) -> dict:
+    def parse(
+            cls,
+            times: Optional[str|Sequence[Sequence[Sequence[int]]]],
+            dates: Optional[str|Sequence[Sequence[Sequence[int]]]],
+            weekdays: Optional[str|Sequence[int]]
+            ) -> dict[str, list|None]:
         """Return the values in a normalized form."""
         return cls._export3(*cls._parse3(times, dates, weekdays))
 
     @staticmethod
-    def _parse3(times, dates, weekdays):
+    def _parse3(
+            times: Optional[str|Sequence[Sequence[Sequence[int]]]],
+            dates: Optional[str|Sequence[Sequence[Sequence[int]]]],
+            weekdays: Optional[str|Sequence[int]]
+            ) -> tuple[Optional[ti.TimeInterval], Optional[ti.DateInterval], Optional[set]]:
         if times is not None:
-            times = timeinterval.TimeInterval(times)
+            times = ti.TimeInterval(times)
         if dates is not None:
-            dates = timeinterval.DateInterval(dates)
+            dates = ti.DateInterval(dates)
         if weekdays is not None:
             if isinstance(weekdays, str):
                 weekdays = [int(x) for x in weekdays if x != ' ']
@@ -61,27 +81,37 @@ class TimeDate(addons.AddonPersistence, block.SBlock):
         return times, dates, weekdays
 
     @staticmethod
-    def _export3(times, dates, weekdays):
+    def _export3(
+            times: Optional[ti.TimeInterval],
+            dates: Optional[ti.DateInterval],
+            weekdays: Optional[set]
+            ) -> dict[str, list|None]:
         return {
             'times': None if times is None else times.as_list(),
             'dates': None if dates is None else dates.as_list(),
             'weekdays': None if weekdays is None else sorted(weekdays),
         }
 
-    def get_state(self):
+    def get_state(self) -> dict[str, list|None]:
         return self._export3(self._times, self._dates, self._weekdays)
 
-    def recalc(self, now: cron.TimeData):
+    def recalc(self, now: cron.TimeData) -> None:
         """Update the output."""
         tnone, dnone, wnone = self._times is None, self._dates is None, self._weekdays is None
         self.set_output(
             not (tnone and dnone and wnone)
             and (tnone or now.hms in self._times)
-            and (dnone or timeinterval.MD(now.tstruct) in self._dates)
+            and (dnone or ti.MD(now.tstruct) in self._dates)
             # convert 0-6 (Mon-Sun) to 0-6 (Sun-Sat)
             and (wnone or (now.tstruct.tm_wday + 1) % 7 in self._weekdays))
 
-    def _event_reconfig(self, *, times=None, dates=None, weekdays=None, **_data):
+    def _event_reconfig(
+            self, *,
+            times: Optional[str|Sequence[Sequence[Sequence[int]]]] = None,
+            dates: Optional[str|Sequence[Sequence[Sequence[int]]]] = None,
+            weekdays: Optional[str|Sequence[int]] = None,
+            **_data
+            ) -> None:
         """Reconfigure the block."""
         if self._times is not None:
             for hms in self._times.range_endpoints():
@@ -92,11 +122,11 @@ class TimeDate(addons.AddonPersistence, block.SBlock):
                 self._cron.add_block(hms, self)
         # sometimes it is necessary, sometimes not, but it is easier
         # to always add 0:0:0 than to analyze the arguments
-        self._cron.add_block(timeinterval.HMS([0, 0, 0]), self)
+        self._cron.add_block(ti.HMS([0, 0, 0]), self)
         self._cron.reload()
         self.recalc(self._cron.get_current_time())
 
-    def init_from_value(self, value):
+    def init_from_value(self, value: Mapping[str, Sequence|None]) -> None:
         self._event_reconfig(**value)
 
     _restore_state = init_from_value
@@ -107,9 +137,13 @@ class TimeSpan(addons.AddonPersistence, block.SBlock):
     Block active between start and stop time/date.
     """
 
-    def __init__(self, *args, span=(), utc=False, **kwargs):
+    def __init__(
+            self, *args,
+            span: str|Sequence[Sequence[Sequence[int]]] = (),
+            utc: bool = False,
+            **kwargs):
         self._cron = _get_cron(bool(utc))
-        self._span = timeinterval.DateTimeInterval(())
+        self._span = ti.DateTimeInterval(())
         # we build the initdef
         if 'initdef' in kwargs:
             raise TypeError(
@@ -118,32 +152,35 @@ class TimeSpan(addons.AddonPersistence, block.SBlock):
         super().__init__(*args, initdef=initdef, **kwargs)
 
     @classmethod
-    def parse(cls, span) -> list:
+    def parse(cls, span: str|Sequence[Sequence[Sequence[int]]]) -> list[list[list[int]]]:
         """Return the value in a normalized form."""
-        return timeinterval.DateTimeInterval(span).as_list()
+        return ti.DateTimeInterval(span).as_list()
 
-    def get_state(self):
+    def get_state(self) -> list[list[list[int]]]:
         return self._span.as_list()
 
-    def recalc(self, now: cron.TimeData):
+    def recalc(self, now: cron.TimeData) -> None:
         """Update the output."""
-        self.set_output(timeinterval.YDT(now.tstruct) in self._span)
+        self.set_output(ti.YDT(now.tstruct) in self._span)
 
-    def _event_reconfig(self, *, span=(), **_data):
+    def _event_reconfig(
+            self, *,
+            span: str|Sequence[Sequence[Sequence[int]]] = (),
+            **_data) -> None:
         """Reconfigure the block."""
         for ydt in self._span.range_endpoints():
-            self._cron.remove_block(timeinterval.HMS(ydt[3:6]), self)
-        self._span = timeinterval.DateTimeInterval(span)
+            self._cron.remove_block(ti.HMS(ydt[3:6]), self)
+        self._span = ti.DateTimeInterval(span)
         now = self._cron.get_current_time()
         now_ymd = tuple(now.tstruct[0:3])
         for ydt in self._span.range_endpoints():
             if ydt[0:3] >= now_ymd:
                 # future events only
-                self._cron.add_block(timeinterval.HMS(ydt[3:6]), self)
+                self._cron.add_block(ti.HMS(ydt[3:6]), self)
         self._cron.reload()
         self.recalc(now)
 
-    def init_from_value(self, value):
+    def init_from_value(self, value: Sequence[Sequence[Sequence[int]]]) -> None:
         self._event_reconfig(span=value)
 
     _restore_state = init_from_value
