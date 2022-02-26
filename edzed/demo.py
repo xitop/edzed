@@ -30,14 +30,10 @@ from dataclasses import dataclass
 import logging
 import signal
 import sys
-from typing import Optional
+from typing import Any, Optional
 
 from . import simulator
 from . import block
-
-if sys.platform == 'win32':
-    # Python 3.7 only, ProactorEventLoop is the default on 3.8+
-    asyncio.set_event_loop(asyncio.ProactorEventLoop())
 
 
 __all__ = ['cli_repl', 'run_demo']
@@ -103,12 +99,13 @@ def _cmd_eval(expr: str) -> None:
     print(f"result: {result}")
 
 
-def _cmd_event(blk: block.Block, etype: str, data: Optional[str] = None) -> None:
-    data = {} if data is None else ast.literal_eval(data)
-    if not isinstance(data, dict):
+def _cmd_event(blk: block.SBlock, etype: str, data: Optional[str] = None) -> None:
+    datadict = {} if data is None else ast.literal_eval(data)
+    if not isinstance(datadict, dict):
         raise TypeError(
-            f"Invalid event data: {data!r}. Expected is a dict literal: {{'name':value, ...}}")
-    retval = blk.event(etype, **data)
+            f"Invalid event data: {datadict!r}. "
+            "Expected is a dict literal: {{'name':value, ...}}")
+    retval = blk.event(etype, **datadict)
     print(f"event() returned: {retval}")
     _cmd_show(blk)
 
@@ -128,7 +125,7 @@ def _cmd_list() -> None:
         print(f"{name}   ({btype})")
 
 
-def _cmd_put(blk, value) -> None:
+def _cmd_put(blk: block.SBlock, value: Any) -> None:
     retval = blk.put(ast.literal_eval(value))
     print(f"put() returned: {retval}")
     _cmd_show(blk)

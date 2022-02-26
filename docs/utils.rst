@@ -15,7 +15,7 @@ time periods written as strings with other usual time units, e.g.:
   | ``'2d 12h'`` = 2 days + 12 hours = 216000.0
 
 Format:
-  TIMESTRING = [DAYS] [HOURS] [MINUTES] [SECONDS]
+  TIMESTRING = [DAYS] [HOURS] [MINUTES] [SECONDS]
 
   where:
     - DAYS = <int> "D"

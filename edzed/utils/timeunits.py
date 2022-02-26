@@ -6,6 +6,7 @@ Example: "20h15m10" = 20 hours + 15 minutes + 10 seconds = 72910 seconds
 
 from __future__ import annotations
 
+from typing import overload
 import re
 
 from .tconst import *   # pylint: disable=wildcard-import, unused-wildcard-import
@@ -47,7 +48,7 @@ def convert(tstr: str) -> float:
     Convert string to number of seconds. Return float.
 
     Format:
-        TIMESTR = [DAYS] [HOURS] [MINUTES] [SECONDS]
+        TIMESTR = [DAYS] [HOURS] [MINUTES] [SECONDS]
     where:
         DAYS = <int> "D"
         HOURS = <int> "H"
@@ -75,8 +76,13 @@ def convert(tstr: str) -> float:
         result += float(s)  # may raise ValueError, the regexp is not strict enough
     return result
 
-
-def time_period(period: None|int|float|str) -> None|float:
+@overload
+def time_period(period: None) -> None:
+    ...
+@overload
+def time_period(period: int|float|str) -> float:
+    ...
+def time_period(period):
     """Convenience wrapper for convert()."""
     if period is None:
         return None

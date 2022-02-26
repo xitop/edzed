@@ -9,10 +9,12 @@ Home: https://github.com/xitop/edzed/
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Collection, Coroutine, Iterator, Mapping, Sequence
+from collections.abc import (
+    Callable, Collection, Coroutine, Iterator, Mapping, MutableSet, Sequence)
 import concurrent.futures
 import itertools
-from typing import Any, Optional
+import functools
+from typing import Any, Optional, Type
 import weakref
 
 from .. import addons
@@ -179,11 +181,11 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
         self._on_error = block.event_tuple(on_error)
         self._guard_time = 0.0 if guard_time is None else utils.time_period(guard_time)
         self._coro = coro
-        if mode == 'c' or mode == "cancel":
+        if mode in {"c", "cancel"}:
             self._ctrl_coro = self._ctrl_cancel
-        elif mode == 'w' or mode == "wait":
+        elif mode in {"w", "wait"}:
             self._ctrl_coro = self._ctrl_wait
-        elif mode == 's' or mode == "start":
+        elif mode in {"s", "start"}:
             self._ctrl_coro = self._ctrl_start
             if self._guard_time > 0.0:
                 self.log_warning("using guard_time in 'start' mode is ineffective!")
@@ -194,8 +196,8 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
         self._f_args = f_args
         self._f_kwargs = f_kwargs
         self._stop_data = stop_data
-        self._ctrl_task = None
-        self._queue = None
+        self._ctrl_task: asyncio.Task
+        self._queue: asyncio.Queue
         super().__init__(*args, **kwargs)
         if self._guard_time > self.stop_timeout:
             raise ValueError(
@@ -276,7 +278,7 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
                 for ev in self._on_cancel:
                     ev.send(self, trigger='cancel', put=data)
                 data = new_data
-            # we are already running as monitored task
+            # we are already running as a monitored task
             task = asyncio.create_task(self._output_coro_wrapper(data))
 
     async def _ctrl_wait(self) -> None:
@@ -304,7 +306,7 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
 
         Stop serving after receiving the None sentinel value.
         """
-        tasks = weakref.WeakSet()
+        tasks: MutableSet[asyncio.Task] = weakref.WeakSet()
         while True:
             data = await self._queue.get()
             if data is None:
@@ -323,6 +325,7 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
 
     def stop(self) -> None:
         # do not compare self._ctrl_coro using "is" (descriptors are in play)
+        # pylint: disable=comparison-with-callable
         if self._stop_data is not None and self._ctrl_coro != self._ctrl_start:
             # stop_data processing in start mode moved to stop_async, because
             # that mode does not guarantee that stop_data will be processed last
@@ -335,10 +338,11 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
             await self._ctrl_task
         except asyncio.CancelledError:
             pass
-        finally:
-            self._ctrl_task = None
+        # pylint: disable=comparison-with-callable
         if self._stop_data is not None and self._ctrl_coro == self._ctrl_start:
             await self._output_coro_wrapper(self._stop_data)
+        # super().stop_async is an UNBOUND placeholder, pylint complains about missing 'self'
+        # pylint: disable=no-value-for-parameter
         await super().stop_async()
 
 
@@ -351,15 +355,18 @@ class InExecutor:
     def __init__(
             self,
             func: Callable,
-            executor: concurrent.futures.Executor = concurrent.futures.ThreadPoolExecutor
+            executor: Type[concurrent.futures.Executor] = concurrent.futures.ThreadPoolExecutor
             ):
         self._func = func
         self._executor = executor
 
-    async def __call__(self, *args):
-        loop = asyncio.get_running_loop()
+    async def __call__(self, *args, **kwargs):
+        run_in_executor = asyncio.get_running_loop().run_in_executor
         with self._executor() as pool:
-            return await loop.run_in_executor(pool, self._func, *args)
+            if kwargs:
+                func = functools.partial(self._func, *args, **kwargs)
+                return await run_in_executor(pool, func)
+            return await run_in_executor(pool, self._func, *args)
 
 
 class OutputFunc(block.SBlock):
@@ -374,7 +381,7 @@ class OutputFunc(block.SBlock):
             f_kwargs: Sequence[str] = (),
             on_success:
                 Optional[block.Event|Iterator[block.Event]|Sequence[block.Event]] = None,
-            on_error: None|[block.Event|Iterator[block.Event]|Sequence[block.Event]],
+            on_error: None|block.Event|Iterator[block.Event]|Sequence[block.Event],
             stop_data: Optional[Mapping[str, Any]] = None,
             **kwargs):
         _check_arg('f_args', f_args)

@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, MutableMapping
 import logging
 import types
-from typing import Any
+from typing import Any, cast
 
 from .. import block
 from .. import simulator
@@ -87,7 +87,7 @@ class IfOutput:
         simulator.get_circuit().resolve_name(self, '_ctrl_blk')
 
     def __call__(self, data: Mapping) -> Mapping|None:
-        return data if self._ctrl_blk.output else None
+        return data if cast(block.Block, self._ctrl_blk).output else None
 
 
 class IfNotIitialized:
@@ -100,7 +100,7 @@ class IfNotIitialized:
         simulator.get_circuit().resolve_name(self, '_ctrl_blk', block_type=block.SBlock)
 
     def __call__(self, data: Mapping) -> Mapping|None:
-        return None if self._ctrl_blk.is_initialized() else data
+        return None if cast(block.SBlock, self._ctrl_blk).is_initialized() else data
 
 
 class dualmethod(classmethod):
@@ -117,7 +117,7 @@ class dualmethod(classmethod):
     def __get__(self, instance, cls):
         if instance is None:
             instance = cls()
-        return self.__func__.__get__(instance, cls)
+        return self.__func__.__get__(instance, cls)     # pylint: disable=no-member
 
 
 class DataEdit:

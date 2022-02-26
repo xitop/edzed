@@ -36,9 +36,7 @@ Applications are supposed to build and simulate only one circuit.
 
   Return the current circuit. Create one if it does not exist.
 
-.. seealso::
-
-  :func:`reset_circuit`
+.. seealso:: :func:`reset_circuit`
 
 
 Pre-start preparations

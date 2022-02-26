@@ -91,7 +91,7 @@ with a comprehensive documentation.
 
 ----
 
-Simply print "tick/tock" in 1 second pace::
+Simply print "tick/tock" (the clock sound) in 1 second pace::
 
   import asyncio
   import edzed

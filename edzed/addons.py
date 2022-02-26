@@ -45,15 +45,10 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
         # just the name, because it contains also the block type name.
         self.key = str(self)
 
-    # TODO in Python3.8+ (see Block.event for an explanation):
-    #   def event(self, etype: str|block.EventType], /, **data) -> Any:
-    # pylint: disable=no-method-argument
-    def event(*args, **data) -> Any:
+    def event(self, etype: str|block.EventType, /, **data) -> Any:
         """Save persistent state after a possible state change."""
-        self, etype = args
         try:
-            # TODO in Python3.8+: super().event
-            retval = super(AddonPersistence, self).event(etype, **data)
+            retval = super().event(etype, **data)
         except Exception:
             if self.persistent and not self.circuit.is_ready():
                 # The internal state data may be corrupted, because it looks like
@@ -79,7 +74,7 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
             self.circuit.persistent_dict.pop(self.key, None)  # remove stale data
 
     @abc.abstractmethod
-    def _restore_state(self, state: Any) -> None:
+    def _restore_state(self, state: Any, /) -> None:
         """
         Initialize by restoring the state (low-level).
         """
@@ -174,9 +169,6 @@ class AddonAsync(block.Addon):
             retval = await coro
             if is_service:
                 raise EdzedCircuitError("Unexpected task termination")
-        # not needed in Python 3.8+
-        except asyncio.CancelledError:  # pylint: disable=try-except-raise
-            raise
         except Exception as err:
             # add context to the error message
             fmt = f"{self}: error in {coro.__qualname__}: {{}}"

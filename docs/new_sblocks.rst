@@ -68,7 +68,7 @@ appropriate to its functionality.
 
   Define only if the block can be initialized this way.
 
-.. method:: SBlock.init_from_value(value: Any) -> None
+.. method:: SBlock.init_from_value(value: Any, /) -> None
 
   Initialize the internal state from the given *value*
   and set the output.
@@ -78,6 +78,8 @@ appropriate to its functionality.
   Defining this method automatically enables
   :class:`SBlock`\'s keyword argument *initdef*.
 
+  .. versionchanged:: 22.3.1
+    the *value* parameter is now positional-only.
 
 Event handlers
 ==============
@@ -210,13 +212,6 @@ has fired is to add an *on_TRIGGER* keyword argument::
   where the trigger name is derived from the corresponding parameter
   mainly by stripping the ``'on_'`` prefix.
 
-  .. note::
-
-    *source* is a positional-only parameter,
-    see `PEP-570 <https://www.python.org/dev/peps/pep-0570/>`_.
-    This is a new feature in Python 3.8, but
-    the current code emulates it also in Python 3.7.
-
 
 Start and stop
 ==============
@@ -308,7 +303,7 @@ Persistent state add-on
 
   This method is usually called by the simulator.
 
-.. method:: SBlock._restore_state(state: Any) -> None
+.. method:: SBlock._restore_state(state: Any, /) -> None
   :abstractmethod:
 
   Initialize by restoring the *state* (presumably created by :meth:`get_state`)
@@ -316,6 +311,9 @@ Persistent state add-on
 
   Note that :meth:`_restore_state` is sometimes identical with
   :meth:`SBlock.init_from_value`.
+
+  .. versionchanged:: 22.3.1
+    the *state* parameter is now positional-only.
 
 .. attribute:: SBlock.key
   :type: str

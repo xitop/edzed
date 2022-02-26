@@ -9,8 +9,7 @@ Home: https://github.com/xitop/edzed/
 from __future__ import annotations
 
 import asyncio
-from collections.abc import \
-    Callable, Coroutine, Iterator, Iterable, MutableMapping, Sequence, Set
+from collections.abc import Callable, Coroutine, Iterator, Iterable, MutableMapping, Set
 import fnmatch
 import logging
 import operator
@@ -22,7 +21,7 @@ from . import addons
 from . import block
 from .blocklib import cblocks
 from .blocklib import sblocks1
-from .exceptions import *   # pylint: disable=wildcard-import
+from .exceptions import *   # pylint: disable=wildcard-import, unused-wildcard-import
 
 
 __all__ = ['get_circuit', 'reset_circuit', 'run']
@@ -131,13 +130,13 @@ class Circuit:
             # persistent state data back-end
         self.persistent_ts: Optional[float] = None
             # timestamp of persistent data
-        self.sblock_queue: Optional[asyncio.Queue] = None
+        self.sblock_queue: asyncio.Queue
             # a Queue for notifying about changed SBlocks,
             # the queue will be created when simulation starts, because
             # it has a side effect of creating an event_loop if one
             # was not created yet. That may lead to errors in rare
             # scenarios with asyncio.new_event_loop().
-        self._init_done: Optional[asyncio.Event] = None
+        self._init_done: asyncio.Event
             # an Event for wait_init() synchronization
         self._resolver = _BlockResolver(self._validate_blk)
             # the name to block resolver
@@ -184,6 +183,7 @@ class Circuit:
     async def wait_init(self) -> None:
         """Wait until a running circuit is fully initialized."""
         await self._check_started()
+        assert self._simtask is not None    # mypy type narrowing
         await asyncio.wait(
             [asyncio.create_task(self._init_done.wait()), self._simtask],
             return_when=asyncio.FIRST_COMPLETED)
@@ -280,10 +280,12 @@ class Circuit:
 
         try:
             self.persistent_ts = self.persistent_dict['edzed-stop-time']
-        except KeyError:
+            if not isinstance(self.persistent_ts, float):
+                raise TypeError()
+        except (KeyError, TypeError):
             self.persistent_ts = None
             _logger.warning(
-                "The timestamp of persistent data is missing, "
+                "The timestamp of persistent data is missing or invalid, "
                 "state expiration will not be checked")
         else:
             if self.persistent_ts > time.time():
@@ -346,15 +348,16 @@ class Circuit:
             # doing two passes because the first one may create new inverter blocks
             # some inverter blocks may be processed twice, that's acceptable
             for blk in list(self.getblocks(btype)):
-                all_inputs = []
+                all_inputs: list[block.Block|block.Const] = []
                 for iname, inp in blk.inputs.items():
                     if isinstance(inp, tuple):
-                        newinp = tuple(validate_output(blk, i) for i in inp)
-                        all_inputs.extend(newinp)
+                        newgroup = tuple(validate_output(blk, i) for i in inp)
+                        all_inputs.extend(newgroup)
+                        blk.inputs[iname] = newgroup
                     else:
-                        newinp = validate_output(blk, inp)
-                        all_inputs.append(newinp)
-                    blk.inputs[iname] = newinp
+                        newinput = validate_output(blk, inp)
+                        all_inputs.append(newinput)
+                        blk.inputs[iname] = newinput
 
                 for inp in all_inputs:
                     if not isinstance(inp, block.Const):
@@ -481,7 +484,8 @@ class Circuit:
         while not queue.empty():
             queue.get_nowait()
 
-    async def _stop_sblocks(self, blocks: Set[block.SBlock]):
+    # AbstractSet does not define .difference and .intersection
+    async def _stop_sblocks(self, blocks: set[block.SBlock]|frozenset[block.SBlock]):
         """
         Stop sequential blocks. Wait until all blocks are stopped.
 
@@ -540,6 +544,7 @@ class Circuit:
                 if min_idep is None or idep < min_idep:
                     min_idep = idep
                     min_blk = blk
+            assert min_blk is not None  # because block_set must not be empty
             return min_blk
 
         eval_limit = _MAX_EVALS_PER_BLOCK * len(self._blocks)
@@ -601,47 +606,48 @@ class Circuit:
         started_blocks = set()
         start_ok = False
         try:
-            try:
-                if self._error is not None:
-                    raise self._error       # stop before start
-                if not self._blocks:
-                    raise EdzedCircuitError("The circuit is empty")
+            if self._error is not None:
+                raise self._error       # stop before start
+            if not self._blocks:
+                raise EdzedCircuitError("The circuit is empty")
 
-                self.log_debug("Initializing the circuit")
-                self.sblock_queue = asyncio.Queue()
-                self._init_done = asyncio.Event()
-                self._check_persistent_data()
-                self._resolver.resolve()
-                self.finalize()
+            self.log_debug("Initializing the circuit")
+            self.sblock_queue = asyncio.Queue()
+            self._init_done = asyncio.Event()
+            self._check_persistent_data()
+            self._resolver.resolve()
+            self.finalize()
 
-                self.log_debug("Setting up circuit blocks")
-                for blk in self.getblocks():
-                    blk.start()
-                    started_blocks.add(blk)
-                # return control to the loop in order to run any tasks created by start()
-                await asyncio.sleep(0)
-                start_ok = True
-                self.log_debug("Initializing sequential blocks")
-                self._init_sblocks_sync_1()
-                await self._init_sblocks_async()
-                self._init_sblocks_sync_2()
+            self.log_debug("Setting up circuit blocks")
+            for blk in self.getblocks():
+                blk.start()
+                started_blocks.add(blk)
+            # return control to the loop in order to run any tasks created by start()
+            await asyncio.sleep(0)
+            start_ok = True
+            self.log_debug("Initializing sequential blocks")
+            self._init_sblocks_sync_1()
+            await self._init_sblocks_async()
+            self._init_sblocks_sync_2()
 
-                if self._error is None:
-                    self.log_debug("Starting simulation")
-                    self._init_done.set()
-                    await self._simulate()
-                    # not reached
-                    assert False
-            # CancelledError is derived from BaseException, (not Exception) in Python 3.8+
-            except (Exception, asyncio.CancelledError) as err:
-                if self._error is None:
-                    self._error = err
-            # Normally when a function from the try-except clause above calls abort(), the
-            # abort() sets the self._error and cancels the task. The exception clause then
-            # catches the cancellation.
-            # But when a function calls abort() and also raises, the exception clause
-            # catches the exception and the cancellation is left pending. For this
-            # special edge case we must add a second except clause below.
+            if self._error is None:
+                self.log_debug("Starting simulation")
+                self._init_done.set()
+                await self._simulate()
+                # not reached
+                assert False
+        # CancelledError is derived from BaseException, not Exception
+        except (Exception, asyncio.CancelledError) as err:
+            if self._error is None:
+                self._error = err
+
+        # Normally when a function from the try-except clause above calls abort(), the
+        # abort() sets the self._error and cancels the task. The exception clause then
+        # catches the cancellation.
+        # But when a function calls abort() and also raises, the exception clause
+        # catches the exception and the cancellation is left pending. For this
+        # special edge case we must add a second except clause below.
+        try:
             await asyncio.sleep(0)  # allow delivery of pending CancelledError if any
         except asyncio.CancelledError:
             pass
@@ -660,6 +666,7 @@ class Circuit:
                     blk.save_persistent_state()
                 self.persistent_dict['edzed-stop-time'] = time.time()
             await self._stop_sblocks(started_blocks)
+        assert self._error is not None  # mypy type narrowing
         raise self._error
 
     def abort(self, exc: BaseException) -> None:
@@ -679,11 +686,12 @@ class Circuit:
         if self._error is not None:
             if exc != self._error and exc != self._error.__cause__ \
                     and not isinstance(exc, asyncio.CancelledError):
-                _logger.warning("subsequent error: abort(%s)", exc)
+                _logger.warning("ignoring subsequent abort(%r)", exc)
             return
         if not isinstance(exc, BaseException):
             # one more reason to abort
             exc = TypeError(f'abort(): expected an exception, got {exc!r}')
+        _logger.warning("abort(%r)", exc)
         self._error = exc
         if self._simtask is not None and not self._simtask.done():
             self._simtask.cancel()
@@ -693,6 +701,7 @@ class Circuit:
         Stop the simulation and wait until it finishes.
         """
         await self._check_started()
+        assert self._simtask is not None    # mypy type narrowing
         if self.is_current_task():
             raise EdzedInvalidState("Cannot await the simulator task from the simulator task.")
         self.abort(asyncio.CancelledError('shutdown'))

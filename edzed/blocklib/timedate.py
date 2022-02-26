@@ -8,8 +8,8 @@ Home: https://github.com/xitop/edzed/
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from typing import Optional
+from collections.abc import Iterable, Mapping, Sequence, Set
+from typing import cast, Optional
 
 from .. import addons
 from .. import block
@@ -25,7 +25,7 @@ def _get_cron(utc: bool) -> cron.Cron:
     circuit = simulator.get_circuit()
     name = '_cron_utc' if utc else '_cron_local'
     try:
-        return circuit.findblock(name)
+        return cast(cron.Cron, circuit.findblock(name))
     except KeyError:
         return cron.Cron(name, utc=utc, _reserved=True)
 
@@ -43,7 +43,9 @@ class TimeDate(addons.AddonPersistence, block.SBlock):
             utc: bool = False,
             **kwargs):
         self._cron = _get_cron(bool(utc))
-        self._times = self._dates = self._weekdays = None
+        self._times: Optional[ti.TimeInterval] = None
+        self._dates: Optional[ti.DateInterval] = None
+        self._weekdays: Optional[Set[int]] = None
         # we build the initdef from times, dates, weekdays in order to simplify the usage
         if 'initdef' in kwargs:
             raise TypeError(
@@ -66,25 +68,29 @@ class TimeDate(addons.AddonPersistence, block.SBlock):
             times: Optional[str|Sequence[Sequence[Sequence[int]]]],
             dates: Optional[str|Sequence[Sequence[Sequence[int]]]],
             weekdays: Optional[str|Sequence[int]]
-            ) -> tuple[Optional[ti.TimeInterval], Optional[ti.DateInterval], Optional[set]]:
-        if times is not None:
-            times = ti.TimeInterval(times)
-        if dates is not None:
-            dates = ti.DateInterval(dates)
-        if weekdays is not None:
+            ) -> tuple[
+                    Optional[ti.TimeInterval],
+                    Optional[ti.DateInterval],
+                    Optional[frozenset[int]]
+                    ]:
+        ptimes = None if times is None else ti.TimeInterval(times)
+        pdates = None if dates is None else ti.DateInterval(dates)
+        if weekdays is None:
+            pweekdays = None
+        else:
             if isinstance(weekdays, str):
                 weekdays = [int(x) for x in weekdays if x != ' ']
             if not all(0 <= x <= 7 for x in weekdays):
                 raise ValueError(
                     "Only numbers 0 or 7 (Sun), 1 (Mon), ... 6(Sat) are accepted as weekdays")
-            weekdays = frozenset(0 if x == 7 else x for x in weekdays)
-        return times, dates, weekdays
+            pweekdays = frozenset(0 if x == 7 else x for x in weekdays)
+        return ptimes, pdates, pweekdays
 
     @staticmethod
     def _export3(
             times: Optional[ti.TimeInterval],
             dates: Optional[ti.DateInterval],
-            weekdays: Optional[set]
+            weekdays: Optional[Iterable]
             ) -> dict[str, list|None]:
         return {
             'times': None if times is None else times.as_list(),
@@ -95,15 +101,17 @@ class TimeDate(addons.AddonPersistence, block.SBlock):
     def get_state(self) -> dict[str, list|None]:
         return self._export3(self._times, self._dates, self._weekdays)
 
+    def _is_configured(self) -> bool:
+        return any(cfg is not None for cfg in (self._times, self._dates, self._weekdays))
+
     def recalc(self, now: cron.TimeData) -> None:
         """Update the output."""
-        tnone, dnone, wnone = self._times is None, self._dates is None, self._weekdays is None
         self.set_output(
-            not (tnone and dnone and wnone)
-            and (tnone or now.hms in self._times)
-            and (dnone or ti.MD(now.tstruct) in self._dates)
+            self._is_configured()
+            and (self._times is None or now.hms in self._times)
+            and (self._dates is None or ti.MD(now.tstruct) in self._dates)
             # convert 0-6 (Mon-Sun) to 0-6 (Sun-Sat)
-            and (wnone or (now.tstruct.tm_wday + 1) % 7 in self._weekdays))
+            and (self._weekdays is None or (now.tstruct.tm_wday + 1) % 7 in self._weekdays))
 
     def _event_reconfig(
             self, *,

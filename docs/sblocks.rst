@@ -154,13 +154,10 @@ Outputs
 
 The output blocks invoke a function in response to a ``'put'`` event.
 
-.. tip::
+.. seealso::
 
   See also the :class:`Repeat` block. Repeated output actions
-  may increase the robustness of applications. The key requirement
-  is that repeating must not change the outcome, i.e. multiple invocations
-  produce the same effect as a single invocation. Such actions are called
-  *idempotent*.
+  may increase the robustness of applications.
 
 Error handling
 --------------
@@ -344,6 +341,15 @@ any network communication is a typical example of blocking I/O.
 
   ``InExecutor`` is a thin wrapper around the asyncio's
   `run_in_executor <https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.run_in_executor>`_.
+  Starting with Python 3.9 asyncio provides
+  `to_thread <https://docs.python.org/3/library/asyncio-task.html#asyncio.to_thread>`_
+  with similar functionality, but different usage.
+
+  .. versionchanged:: 22.3.1
+
+    ``InExecutor`` can now pass keyword arguments to *func*. Previous versions
+    were limited to passing positional arguments only and the limitation was not documented.
+
 
 
 Initialization helper
@@ -699,26 +705,44 @@ Counter
 Repeat
 ======
 
-.. class:: Repeat(name, *, dest: str|block.SBlock, etype: str = 'put', interval: int|float|str, count: Optional[int] = None, **block_kwargs)
+.. class:: Repeat(name, *, dest, etype = 'put', interval, count = None, **block_kwargs)
 
   Periodically repeat the last received event.
 
-  .. note::
+  :param etype: type of events to be repeated
+  :type etype: str or EventType
+  :param dest: destination block, an instance or its name
+  :type dest: block.SBlock or str
+  :param interval: time interval between repetitions
+  :type interval: int or float or str
+  :param count:
+    optional limit for repetition count, the original event is not counted
+  :type count: int or None
+
+  .. tip::
      The :class:`Event` class offers a convenient automatic creation
-     of a ``Repeat`` block for a given event.
+     of a ``Repeat`` block for a given event. It is the preferred
+     method for most cases. However, if there are multiple event sources
+     for the given destination, an explicitly created ``Repeat`` block
+     is necessary.
+
+  The Event block is intended mainly to repeat output events and thus minimize
+  the chance that some connected device will fail to act due to temporary
+  communication problems. The key requirement is that repeating must not
+  change the outcome, i.e. multiple invocations produce the same effect
+  as a single invocation. Such actions are called *idempotent*.
 
   For a predictable operation only one selected event type *etype*
-  is repeated. All other events are ignored. This limitation can
-  be easily overcome with multiple ``Repeat`` blocks operating in parallel,
-  if need be. Only events identified by a string can be repeated.
+  is repeated and all others are ignored. This implies a separate ``Repeat``
+  block for each event type. A warning is logged on the first encounter
+  with an unexpected type.
 
-  The event is sent to the destination block specified by *dest*, which can
-  be an instance or its name. The received event is re-sent immediately
+  The event is sent to the destination block specified by *dest*.
+  The received event is re-sent immediately
   and then duplicates are sent in time intervals specified by *interval*.
-
   The number of repetitions may be limited with *count*. If not ``None``,
-  at most *count* duplicates are sent. The original event is always re-sent
-  and not counted.
+  the repeating stops after *count* duplicates sent. The original event
+  is always re-sent and not counted.
 
   A Repeat block saves the event data item ``'source'`` to ``'orig_source'``,
   because the block itself will become the source. It also adds a ``'repeat'``
@@ -726,11 +750,24 @@ Repeat
   subsequent repetitions are sent with ``repeat=N`` where N is 1, 2, 3, ...
   This repeat value is also copied to the output, the initial output is 0.
 
+  .. important::
+
+    It is not possible to repeat the conditional event :class:`EventCond`.
+    The condition is evaluated and one of the two choices is selected before
+    the event reaches the ``Repeat`` block.
+
   .. note::
 
-    The Event block is intended to repeat output events and thus minimize
-    the chance that some connected system will fail to act due to external
-    reasons. For a source of periodic events use a :class:`Timer` instead.
+    It is recommended to repeat only events identified by a string.
+
+    The type of every received event is compared with the *etype*
+    argument. This is a well-defined operation for strings, but the comparison
+    result for special events (derived from the :class:`EventType`) depends
+    on how the equality is defined in the particular class. This
+    concerns mainly user-defined special events, because ``edzed``
+    provides only two special events from which the :class:`EventCond`
+    cannot be repeated and the :class:`Goto` should not be even sent
+    from block to block.
 
 
 Timer

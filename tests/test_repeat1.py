@@ -1,5 +1,6 @@
 """
 Test the Repeat block.
+Part 1/2: async
 """
 
 # pylint: disable=missing-docstring, no-self-use, protected-access

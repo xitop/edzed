@@ -284,9 +284,9 @@ async def test_on_success(circuit):
 async def test_on_error_ignore(circuit):
     LOG = [
         (0, 'start i1'),
-        # (0, ??), <== error ignored
+        # (0, ??), <== error ignored
         (100, 'start i3'),
-        # (100, ??), <== error ignored
+        # (100, ??), <== error ignored
         (150, '--stop--'),
         (150, 'END')
         ]
@@ -404,6 +404,37 @@ async def test_executor(circuit):
             blk.put(i)
             await asyncio.sleep(0.005)
         await asyncio.sleep(0.17)
+
+    await edzed.run(tester())
+    log.compare(LOG)
+
+
+async def test_executor_args(circuit):
+    """Test argument passing."""
+    def blocking(a, b, *, c=0):
+        time.sleep(0.04)
+        return 100*a + 10*b + c
+
+    LOG = [(40, 123), (60, 120), (80, 789), (100, 780)]
+
+    log = TimeLogger('log')
+    out1 = edzed.OutputAsync(
+        "out1", mode='wait', coro=edzed.InExecutor(blocking),
+        f_args=('a', 'b'), f_kwargs=('c'),
+        on_success=edzed.Event(log), on_error=edzed.Event.abort())
+    out2 = edzed.OutputAsync(
+        "out2", mode='wait', coro=edzed.InExecutor(blocking),
+        f_args=('a', 'b'),  # no kwargs
+        on_success=edzed.Event(log), on_error=edzed.Event.abort())
+
+
+    async def tester():
+        await circuit.wait_init()
+        out1.put(None, a=1, b=2, c=3)
+        out1.put(None, a=7, b=8, c=9)
+        await asyncio.sleep(0.02)
+        out2.put(None, a=1, b=2, c=3)
+        out2.put(None, a=7, b=8, c=9)
 
     await edzed.run(tester())
     log.compare(LOG)

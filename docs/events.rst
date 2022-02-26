@@ -209,13 +209,6 @@ of the destination block.
   In particular, update the internal state and set the output value
   according to the block's rules.
 
-  .. note::
-
-    *etype* is a positional-only parameter,
-    see `PEP-570 <https://www.python.org/dev/peps/pep-0570/>`_.
-    This is a new feature in Python 3.8, but
-    the current code emulates it also in Python 3.7.
-
   ``event()`` may return a value of any type. Other blocks ignore the returned
   value, but it may be useful for input interfaces to external systems.
 

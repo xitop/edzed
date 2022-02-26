@@ -5,6 +5,7 @@ Home: https://github.com/xitop/edzed/
 
 from . import shield_cancel as shield_cancel_module     # solving a name clash
 from .shield_cancel import *
+from . import tconst, timeunits                         # mypy
 from .tconst import *
 from .timeunits import *
 

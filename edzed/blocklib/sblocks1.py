@@ -93,19 +93,22 @@ class Repeat(addons.AddonMainTask, block.SBlock):
     def __init__(
             self, *args,
             dest: str|block.SBlock,
-            etype: str = 'put',
+            etype: str|block.EventType = 'put',
             interval: int|float|str,
             count: Optional[int] = None,
             **kwargs):
+        if isinstance(etype, block.EventCond):
+            raise ValueError("An EventCond event cannot be repeated.")
         self._repeated_event = block.Event(dest, etype)
         self._interval = utils.time_period(interval)
         if self._interval is None or self._interval <= 0.0:
             raise ValueError("interval must be positive")
-        self._queue = None
-        self._count = count
         if count is not None and count < 0:
-            # count = 0 does not make much sense, but is accepted
+            # count = 0 (no repeating) is accepted
             raise ValueError("argument 'count' must not be negative")
+        self._queue: asyncio.Queue
+        self._count = count
+        self._warning_logged = False
         super().__init__(*args, **kwargs)
 
     def init_regular(self) -> None:
@@ -131,13 +134,18 @@ class Repeat(addons.AddonMainTask, block.SBlock):
             repeating = self._count is None or repeat < self._count
 
     def _event(self, etype: str|block.EventType, data) -> None:
-        if etype == self._repeated_event.etype:
-            # send the original event synchronously in order
-            # not to conceal a possible forbidden loop
-            data['orig_source'] = data.get('source')
-            self.set_output(0)
-            self._repeated_event.send(self, **data, repeat=0)
-            self._queue.put_nowait(data)
+        if etype != self._repeated_event.etype:
+            if not self._warning_logged:
+                self.log_warning(
+                    f"Unexpected event type {etype} (this error is logged only once)")
+                self._warning_logged = True
+            return
+        # send the original event synchronously in order
+        # not to conceal a possible forbidden loop
+        data['orig_source'] = data.get('source')
+        self.set_output(0)
+        self._repeated_event.send(self, **data, repeat=0)
+        self._queue.put_nowait(data)
 
     def start(self) -> None:
         super().start()

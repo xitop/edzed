@@ -7,6 +7,18 @@ Changelog
 Version numbers are based on the release date (Y.M.D).
 
 
+22.3.1
+======
+
+- Drop support for Python 3.7.
+- Change to positional-only arguments
+  in :meth:`SBlock.init_from_value` and :meth:`SBlock._restore_state`
+  in order to make them mutually fully compatible.
+- Implement keyword argument passing in :class:`InExecutor`
+- Update :class:`Repeat` documentation regarding special event types.
+- Small improvements and fixes to type annotations.
+- Small code cleanup.
+
 22.2.17
 =======
 
@@ -32,7 +44,7 @@ There was no code change; not exported to the PyPi.
 21.12.8
 =======
 
-- add an new entry point :func:`run`; main features:
+- add a new entry point :func:`run`; main features:
 
   - runs supporting coroutines
   - handles ``SIGTERM`` signal delivery

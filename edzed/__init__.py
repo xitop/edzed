@@ -16,11 +16,12 @@ Home: https://github.com/xitop/edzed/
 """
 
 # pylint: disable=wildcard-import,undefined-variable
-from .exceptions import *
-from .block import *
+from . import exceptions, block, addons, fsm, simulator, blocklib  # mypy
 from .addons import *
-from .simulator import *
+from .block import *
+from .exceptions import *
 from .fsm import *
+from .simulator import *
 # .demo is not imported to edzed
 from .blocklib.cblocks import *
 from .blocklib.filters import *

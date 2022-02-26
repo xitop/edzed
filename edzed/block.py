@@ -9,14 +9,16 @@ Project home: https://github.com/xitop/edzed/
 from __future__ import annotations
 
 import abc
-from collections.abc import Callable, Iterator, Mapping, MutableMapping, Sequence, Set
+from collections.abc import (
+    Callable, Coroutine, Iterator, Mapping, MutableMapping, Sequence, Set)
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 import difflib
 import logging
-from typing import Any, Optional
+from typing import Any, cast, Optional
 import weakref
 
-from .exceptions import *   # pylint: disable=wildcard-import
+from .exceptions import *   # pylint: disable=wildcard-import, unused-wildcard-import
 
 
 __all__ = [
@@ -220,7 +222,7 @@ class Block:
         if any(
                 # pylint: disable=comparison-with-callable
                 # must convert the class method to a bound method for comparison
-                attr == dm.__get__(self, type(self))
+                attr == dm.__get__(self, type(self))    # type: ignore
                 for dm in (SBlock.dummy_method, SBlock.dummy_async_method)):
             return False
         return callable(attr)
@@ -452,6 +454,8 @@ class SBlock(Block):
     Base class for sequential blocks, i.e. blocks with internal state.
     """
 
+    _ct_handlers: dict[str, Callable]   # event handling methods _event_NAME
+
     def __init_subclass__(cls, *args, **kwargs):
         """
         Verify that all add-ons precede the SBlock in the class hierarchy.
@@ -519,22 +523,9 @@ class SBlock(Block):
         """
         raise EdzedUnknownEvent(f"{self}: Unknown event type {etype!r}")
 
-    # TODO: There is an issue fixed in Python3.8+ by PEP570, but
-    # we want to support Python 3.7, so a workaround must be used.
-    #
-    # Python 3.8+ function definition will be:
-    #   def event(self, etype: str|EventType, /, **data) -> Any:
-    #
-    # The problem with:
-    #   def event(self, etype, **data):     # type hints removed
-    # is that names used as positional arguments (self and etype in this case)
-    # cannot be used as a keyword argument in a call:
-    #   block.event('foo', etype=1)         # TypeError
-    #
-    # pylint: disable=no-method-argument, protected-access
-    def event(*args, **data) -> Any:
+    def event(self, etype: str|EventType, /, **data) -> Any:
         """
-        Error handling wrapper, see _event for function usage.
+        Error handling wrapper.
 
         Evaluate so called conditional events. See the EventCond class.
 
@@ -551,7 +542,6 @@ class SBlock(Block):
         simulator is no longer ready, but cannot distinguish internal
         and external events.
         """
-        self, etype = args
         Event.typecheck(etype)
         if data:
             self.log_debug("got event %r, data: %s", etype, data)
@@ -568,8 +558,11 @@ class SBlock(Block):
                     return None
             handler = type(self)._ct_handlers.get(etype)    # pylint: disable=protected-access
             try:
-                # handler is an unbound method, bind it with handler.__get__(self)
-                retval = handler.__get__(self)(**data) if handler else self._event(etype, data)
+                if handler:
+                    # handler is an unbound method, bind it with handler.__get__(self)
+                    retval = handler.__get__(self)(**data)  # type: ignore
+                else:
+                    retval = self._event(etype, data)
             except EdzedUnknownEvent:
                 raise
             except Exception as err:
@@ -590,8 +583,9 @@ class SBlock(Block):
             self._event_active = False
 
     # property + class is an awesome combination, isn't it?
+    _enable_event: AbstractContextManager   # mypy is unable to find out the type
     @property
-    class _enable_event:
+    class _enable_event:    # pylint: disable=invalid-name
         """
         A context manager temporarily enabling recursive events.
 
@@ -633,10 +627,11 @@ class SBlock(Block):
         Initialize the internal state and the output.
         """
 
-    # optional methods
-    init_async = Block.dummy_async_method
-    stop_async = Block.dummy_async_method
-    init_from_value = Block.dummy_method
+    # optional methods (can't get the arg type annotation right)
+    # init_async and stop_async accept no args, init_from_value expects 1 arg
+    init_async: Callable[..., Coroutine[Any, Any, None]] = Block.dummy_async_method
+    stop_async: Callable[..., Coroutine[Any, Any, None]] = Block.dummy_async_method
+    init_from_value: Callable[..., None] = Block.dummy_method
 
     def get_conf(self) -> dict[str, Any]:
         conf = super().get_conf()
@@ -715,10 +710,7 @@ class Event:
         elif not isinstance(etype, EventType):
             raise TypeError(f"event type must be a string or EventType, but got {etype!r}")
 
-    # TODO in Python3.8+ (see SBlock.event for an explanation):
-    #   def send(self, source: Block, /, **data) -> bool:
-    # pylint: disable=no-method-argument, protected-access
-    def send(*args, **data) -> bool:
+    def send(self, source: Block, /, **data) -> bool:
         """
         Apply filters and send the event to the dest block.
 
@@ -726,10 +718,9 @@ class Event:
 
         Return True if sent, False if rejected by a filter.
         """
-        self, source = args
-        if self.dest.circuit is not source.circuit:
-            raise EdzedCircuitError(
-                f"event destination {self.dest} is not in the current circuit")
+        dest = cast(SBlock, self.dest)
+        if dest.circuit is not source.circuit:
+            raise EdzedCircuitError(f"event destination {dest} is not in the current circuit")
         data['source'] = source.name
         for efilter in self._filters:
             retval = efilter(data)
@@ -738,7 +729,6 @@ class Event:
             elif not retval:
                 source.log_debug(f"Not sending event {self} (rejected by a filter)")
                 return False
-        dest = self.dest
         if dest.init_steps_completed < 2:
             # a destination block may be uninitialized, because events
             # may be generated during the initialization process

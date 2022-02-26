@@ -15,12 +15,12 @@ import contextvars
 from dataclasses import dataclass
 import time
 import types
-from typing import Any, Optional
+from typing import Any, Optional, Literal
 
 from . import addons
 from . import block
 from . import utils
-from .exceptions import *   # pylint: disable=wildcard-import
+from .exceptions import *   # pylint: disable=wildcard-import, unused-wildcard-import
 from .utils import looptimes
 
 
@@ -46,6 +46,25 @@ class FSM(addons.AddonPersistence, block.SBlock):
     STATES: Sequence[str] = ()
     TIMERS: Mapping[str, Sequence] = {}
     EVENTS: Iterable[Sequence] = ()
+    # and edzed will translate that to:
+    _ct_chainlimit: int
+        # limit for chained transitions
+    _ct_default_duration: dict[str, Optional[float]]
+        # {timed_state: duration_in_seconds_or_None}
+    _ct_events: set[str]
+        # all valid events
+    _ct_default_state: str
+        # the default initial state
+    _ct_methods: dict[Literal['enter', 'exit', 'cond'], dict[str, Callable]]
+        # summary of enter_STATE, exit_STATE, cond_EVENT methods
+    _ct_prefixes: list[tuple[str, int, Iterable]]
+        # auxilliary data for keyword argument parsing
+    _ct_states: set[str]
+        # all valid states
+    _ct_timed_event: dict[str, str|block.EventType]
+        # {timed_state: event_on_timer_expiration}
+    _ct_transition: dict[tuple[str, str|None], str]
+        # the transition table: {(event, state): next_state}
 
     @classmethod
     def _check_state(cls, state):
@@ -71,17 +90,12 @@ class FSM(addons.AddonPersistence, block.SBlock):
 
         # control tables must be created for each subclass
         # '_ct' (control table) prefix chosen to make a name clash unlikely
-        cls._ct_states: set[str] = set(cls.STATES).union(cls.TIMERS)
-            # all known states
-        cls._ct_events: set[str] = set()
-            # all known events
-        cls._ct_transition: dict[tuple[str, str], str] = {}
-            # {(event, state): next_state}
-        cls._ct_default_duration: dict[str, Optional[float]] = {}
-            # {timed_state: duration_in_seconds_or_None}
-        cls._ct_timed_event: dict[str, str] = {}
-            # {timed_state: event_on_timer_expiration}
-        cls._ct_methods: dict[str, dict[str, Callable]] = {
+        cls._ct_states = set(cls.STATES).union(cls.TIMERS)
+        cls._ct_events = set()
+        cls._ct_transition = {}
+        cls._ct_default_duration = {}
+        cls._ct_timed_event = {}
+        cls._ct_methods = {
             'enter': {},            # {state: enter_cb}
             'exit': {},             # {state: exit_cb}
             'cond': {},             # {event: cond_cb}
@@ -115,7 +129,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
 
         for state in cls._ct_states:
             block.checkname(state, "FSM state name")
-        cls._ct_chainlimit = 3 * len(cls._ct_states)    # limit for chained transitions
+        cls._ct_chainlimit = 3 * len(cls._ct_states)
 
         for event, from_states, next_state in cls.EVENTS:
             block.checkname(event, "FSM event name")
@@ -209,9 +223,16 @@ class FSM(addons.AddonPersistence, block.SBlock):
                             f"{type(self).__name__}(); accepted are: {valid_names_str}"
                             )
                     prefixed[prefix].append((name, arg))
-        self._duration = self._ct_default_duration
-        for name, arg in prefixed['t_']:
-            self._set_duration(name, kwargs.pop(arg))
+        if prefixed['t_']:
+            self._duration = self._ct_default_duration.copy()   # copy on write
+            for timed_state, arg in prefixed['t_']:
+                if timed_state not in self._duration:
+                    raise ValueError(f"{timed_state!r} is not a timed state")
+                duration = utils.time_period(kwargs.pop(arg))
+                if duration is not None:
+                    self._duration[timed_state] = duration
+        else:
+            self._duration = self._ct_default_duration
         self._fsm_functions = {
             'cond': {name: kwargs.pop(arg) for name, arg in prefixed['cond_']},
             'enter': {name: kwargs.pop(arg) for name, arg in prefixed['enter_']},
@@ -227,17 +248,19 @@ class FSM(addons.AddonPersistence, block.SBlock):
             }
 
         self._on_notrans = block.event_tuple(on_notrans)
-        self._state = block.UNDEF
-        self._active_timer = None
+        self._state: str|block._UndefType = block.UNDEF
+        self._active_timer: asyncio.TimerHandle|None = None
         self._fsm_event_active = False
-        self._next_event = None     # scheduled event in chained state transition
+        self._next_event: str|None = None     # scheduled event in chained state transition
         self.sdata: dict[str, Any] = {}
         kwargs.setdefault('initdef', self._ct_default_state)
         super().__init__(*args, **kwargs)
 
     @property
     def state(self) -> str|block._UndefType:
-        """Return the FSM state."""
+        """
+        Return the FSM state (string) or UNDEF if not initialized.
+        """
         return self._state
 
     def get_state(self) -> tuple[str, Optional[float], dict[str, Any]]:
@@ -258,7 +281,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
             exp_timestamp = looptimes.loop_to_unixtime(timer.when())
         return (self._state, exp_timestamp, self.sdata)
 
-    def _restore_state(self, istate: Sequence) -> None:
+    def _restore_state(self, istate: Sequence, /) -> None:
         """
         Restore the internal state created by get_state().
 
@@ -298,45 +321,20 @@ class FSM(addons.AddonPersistence, block.SBlock):
         self._stop_timer()
         super().stop()
 
-    def _set_duration(self, timed_state: str, value: Optional[int|float|str]) -> None:
-        """
-        Set the duration of a timed_state.
-
-        _set_duration() accepts various value formats, see the docs
-        for TIMERS.
-
-        Reset to default if value is None.
-        """
-        ct_duration = type(self)._ct_default_duration
-        if timed_state not in ct_duration:
-            raise ValueError(f"{timed_state!r} is not a timed state")
-        if self._duration is ct_duration:
-            self._duration = ct_duration.copy()   # copy in write
-        self._duration[timed_state] = \
-            ct_duration[timed_state] if value is None else utils.time_period(value)
-
-    def get_duration(self, timed_state: str) -> Optional[float]:
-        """
-        Return the timed state duration in seconds.
-
-        Return None if the duration is not set. This includes the case
-        when the state is not timed.
-        """
-        return self._duration.get(timed_state)
-
-    def _set_timer(self, duration: float, timed_event: str) -> None:
+    def _set_timer(self, duration: float, timed_event: str|block.EventType) -> None:
         """Start the timer (low-level)."""
         self.log_debug("timer: %.3fs before %s", duration, timed_event)
         self._active_timer = asyncio.get_running_loop().call_later(
             duration, self.event, timed_event)
 
-    def _start_timer(self, duration: Optional[int|float|str], timed_event: str) -> None:
+    def _start_timer(
+            self, duration: Optional[int|float|str], timed_event: str|block.EventType) -> None:
         """Start the timer."""
         if duration is not None:
             duration = utils.time_period(duration)
         else:
-            duration = self.get_duration(self._state)
-            if duration is None:
+            duration = self._duration.get(self._state)
+            if duration is None:    # not found or explicitly set to None
                 raise EdzedCircuitError(f"Timer duration for state {self._state!r} not set")
         if duration == INF_TIME:
             return
@@ -357,8 +355,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
                     self.log_debug("timer: cancelled")
             self._active_timer = None
 
-    # TODO: python3.8+: trigger_type: Literal['on_enter', 'on_exit']
-    def _send_events(self, trigger_type: str) -> None:
+    def _send_events(self, trigger_type: Literal['on_enter', 'on_exit']) -> None:
         """Send events triggered by 'on_enter_STATE' or 'on_exit_STATE'."""
         state_events = self._state_events[trigger_type]
         state = self._state
@@ -375,8 +372,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
                 value=self._output,
                 )
 
-    # TODO: python3.8+: Literal['cond', 'enter', 'exit']
-    def _run_cb(self, cb_type: str, name: str) -> list[Any]:
+    def _run_cb(self, cb_type: Literal['cond', 'enter', 'exit'], name: str) -> list[Any]:
         """
         Run methods and callbacks 'cond', 'enter' or 'exit'.
 
@@ -400,14 +396,15 @@ class FSM(addons.AddonPersistence, block.SBlock):
             retvals.append(cb())
         cls_cb = self._ct_methods[cb_type]
         try:
-            cb = cls_cb[name].__get__(self)      # bind the method
+            # bind the method
+            cb = cls_cb[name].__get__(self)     # type: ignore
         except KeyError:
             pass
         else:
             retvals.append(cb())
         return retvals
 
-    def _event_ctx(self, etype: str, data: Mapping) -> bool:
+    def _event_ctx(self, etype: str|block.EventType, data: Mapping) -> bool:
         """
         Handle event. Check validity and conditions.
 
@@ -432,6 +429,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
         else:
             if etype not in self._ct_events:
                 raise EdzedUnknownEvent(f"{self}: Unknown event type {etype!r}")
+            assert isinstance(etype, str)   # mypy type narrowing
             try:
                 newstate = self._ct_transition[(etype, self.state)]
             except KeyError:
@@ -501,7 +499,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
             self._fsm_event_active = False
 
 
-    def _event(self, etype: str, data: Mapping) -> bool:
+    def _event(self, etype: str|block.EventType, data: Mapping) -> bool:
         """Wrapper creating a separate context, see _event_ctx for docs."""
         return contextvars.copy_context().run(self._event_ctx, etype, data)
 

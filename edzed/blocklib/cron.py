@@ -15,7 +15,7 @@ import asyncio
 import bisect
 from dataclasses import dataclass
 import time
-from typing import NoReturn, Optional
+from typing import NoReturn
 
 from .. import addons
 from .. import block
@@ -54,7 +54,7 @@ class Cron(addons.AddonMainTask, block.SBlock):
         super().__init__(*args, **kwargs)
         self._timefunc = time.gmtime if utc else time.localtime
         self._alarms: dict[ti.HMS, set[block.SBlock]] = {}
-        self._queue: Optional[asyncio.Queue] = None
+        self._queue: asyncio.Queue
         self._needs_reload = False
 
     def reload(self) -> None:
@@ -128,7 +128,7 @@ class Cron(addons.AddonMainTask, block.SBlock):
                 raise RuntimeError("System clock is not set correctly.")
             if reset:
                 for blk in set.union(*self._alarms.values()):    # all blocks
-                    blk.recalc(now)
+                    blk.recalc(now)     # type: ignore
             if reload:
                 timetable = sorted(set.union(set(self._alarms), SET24))
                 tlen = len(timetable)
@@ -170,7 +170,7 @@ class Cron(addons.AddonMainTask, block.SBlock):
                 if next_hms in self._alarms:
                     # recalc may alter the set we are iterating
                     for blk in list(self._alarms[next_hms]):
-                        blk.recalc(now)
+                        blk.recalc(now)     # type: ignore
                 next_idx += 1
 
     def init_regular(self) -> None:

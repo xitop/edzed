@@ -10,7 +10,7 @@ This module defines:
 
 from __future__ import annotations
 
-from collections.abc import Generator, Sequence
+from collections.abc import Callable, Generator, Sequence
 import re
 import time
 from typing import Optional
@@ -18,7 +18,7 @@ from typing import Optional
 from ..utils.tconst import *   # pylint: disable=wildcard-import
 
 
-DAYS = (None, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+DAYS = (0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
 # match group 1 = stripped match
 RE_YEAR = re.compile(r'\s*(\d{4,})\s*', flags=re.ASCII)
 RE_MONTH = re.compile(r'\s*([A-Z]{3,})\.?\s*', flags=re.ASCII|re.IGNORECASE)
@@ -49,7 +49,7 @@ def _ydt_convert(string: str, y:bool=False, d:bool=False, t:bool=False) -> tuple
     """
 
     year = month = day = None
-    hms = [None, None, None]
+    hms: Sequence[int|None] = [None, None, None]
     if t:
         match = RE_TIME.search(string)
         if not match:
@@ -155,6 +155,7 @@ class HMS(tuple):
             return hms
         if hms is None:
             hms = time.localtime()
+        hms3: Sequence[int]
         if isinstance(hms, time.struct_time):
             hms3 = (hms.tm_hour, hms.tm_min, hms.tm_sec)
         elif isinstance(hms, int):
@@ -247,6 +248,7 @@ class MD(tuple):
             return md
         if md is None:
             md = time.localtime()
+        md2: Sequence[int]
         if isinstance(md, time.struct_time):
             md2 = (md.tm_mon, md.tm_mday)
         else:
@@ -300,6 +302,7 @@ class YDT(tuple):
             return ydt
         if ydt is None:
             ydt = time.localtime()
+        ydt6: Sequence[int]
         if isinstance(ydt, time.struct_time):
             ydt6 = tuple(ydt[0:6])
         else:
@@ -359,11 +362,8 @@ class _Interval:
 
     # https://en.wikipedia.org/wiki/Interval_(mathematics)#Terminology
     # the subintervals are always left-closed
-    _RCLOSED_INTERVAL = False # are the subintervals also right-closed?
-
-    @staticmethod
-    def _convert(val: str|Sequence):
-        """Convert interval endpoint."""
+    _RCLOSED_INTERVAL: bool # are the subintervals also right-closed?
+    _convert: Callable[[str|Sequence], tuple[int]]
 
     def __init__(
             self,
@@ -382,6 +382,7 @@ class _Interval:
         _Interval([[from1, to1], [from2, to2], ...]) = create from
             a sequence of pairs
         """
+        self._interval: list[Sequence[Sequence[int]]]
         if ivalue is None:
             self._interval = []
             return
@@ -389,6 +390,7 @@ class _Interval:
             # pylint: disable=protected-access
             self._interval = ivalue._interval.copy()
             return
+        convert = type(self)._convert
         if isinstance(ivalue, str):
             self._interval = []
             ivalue = ivalue.strip()
@@ -400,16 +402,24 @@ class _Interval:
                 except ValueError:
                     if not self._RCLOSED_INTERVAL:
                         raise ValueError(f"Invalid range {rstr!r}") from None
-                    low = high = self._convert(rstr)
+                    low = high = convert(rstr)
                 else:
-                    low = self._convert(rstr[:split_here])
-                    high = self._convert(rstr[split_here+1:])
+                    low = convert(rstr[:split_here])
+                    high = convert(rstr[split_here+1:])
                 self._interval.append((low, high))
             return
         if isinstance(ivalue, Sequence):
-            self._interval = [(self._convert(low), self._convert(high)) for low, high in ivalue]
+            if not all(
+                    len(interval) == 2
+                    and all(
+                        isinstance(endpoint, Sequence) and not isinstance(endpoint, str)
+                        for endpoint in interval)
+                    for interval in ivalue
+                    ):
+                raise ValueError("Incorrect structure of the ivalue sequence")
+            self._interval = [(convert(low), convert(high)) for low, high in ivalue]
             return
-        raise TypeError("Invalid interval value")
+        raise TypeError("Invalid ivalue argument")
 
     def range_endpoints(self) -> Generator:
         """Yield all range start and stop values."""
@@ -473,16 +483,7 @@ class TimeInterval(_Interval):
     """
 
     _RCLOSED_INTERVAL = False
-    def _convert(self, val: Sequence[int]) -> HMS:
-        if isinstance(val, int):
-            # HMS can convert an int, but in this context it is almost
-            # certainly a result of a malformed input. Compare:
-            #   incorrect: [[h1,m1],[h2,m2]]
-            #   correct:  [[[h1,m1],[h2,m2]]]
-            raise TypeError(
-                f"Expected was [H, M] or [H, M, S], but got an int ({val}); "
-                "check the structure of the input argument")
-        return HMS(val)
+    _convert = HMS
 
 
 class DateInterval(_Interval):
@@ -507,6 +508,6 @@ class DateTimeInterval(_Interval):
     _convert = YDT
 
     @staticmethod
-    def _cmp_open(low: DateTimeInterval, item: DateTimeInterval, high: DateInterval) -> bool:
+    def _cmp_open(low: YDT, item: YDT, high: YDT) -> bool:
         """Compare function for non-repeating intervals."""
         return low <= item < high
