@@ -105,8 +105,11 @@ def test_timestr():
     timestr = utils.timestr
     assert timestr(72910) == '20h15m10s'        # from int
     assert timestr(72910.0) == '20h15m10.000s'  # from float
+    assert timestr(60+59.9999) == '2m0.000s'    # test rounding
     assert timestr(5) == '0m5s'                 # minutes always present
     assert timestr(5.0) == '0m5.000s'
+    assert timestr(5.0001) == '0m5.000s'
+    assert timestr(5.0009) == '0m5.001s'
     for d in (1, 5, 10):
         for h in (0, 3, 12):
             for m in (10, 20, 59):
@@ -116,6 +119,64 @@ def test_timestr():
     for t in (0, 100, 10_000, 1_000_000, 100_000_000):
         assert convert(timestr(t)) == t
 
+def test_timestr_sep():
+    convert = utils.convert
+    timestr = utils.timestr
+    for d in (2, 6, 15):
+        for h in (3, 7, 16):
+            for m in (0, 11, 45):
+                for s in ('30.000', '45.999'):
+                    for sep in ('', '_', 'ä', '@@', 'a b c '):
+                        tstr = f"{d}d{h}h{m}m{s}s"
+                        sepstr = f"{d}d{sep}{h}h{sep}{m}m{sep}{s}s"
+                        assert timestr(convert(tstr), sep=sep) == sepstr
+
+def test_timestr_approx():
+    convert = utils.convert
+    timestr = utils.timestr_approx
+    # type int
+    assert timestr(0) == '0s'
+    assert timestr(1) == '1s'
+    assert timestr(3598) == '59m58s'
+    # S.sss
+    assert timestr(0.1234) == '0.123s'
+    assert timestr(0.1236) == '0.124s'
+    assert timestr(0.5) == '0.500s'
+    assert timestr(0.9994) == '0.999s'
+    # S.ss
+    assert timestr(0.9996) == '1.00s'
+    assert timestr(1.0) == '1.00s'
+    assert timestr(2.009) == '2.01s'
+    assert timestr(3.999) == '4.00s'
+    assert timestr(9.9949) == '9.99s'
+    # S.s
+    assert timestr(9.9951) == '10.0s'
+    assert timestr(10.01) == '10.0s'
+    assert timestr(20.05) == '20.1s'
+    assert timestr(30.951) == '31.0s'
+    assert timestr(59.94) == '59.9s'
+    # M S
+    assert timestr(59.99) == '1m0s'
+    assert timestr(60.01) == '1m0s'
+    assert timestr(150.0) == '2m30s'
+    assert timestr(3599.4) == '59m59s'
+    # H M S
+    assert timestr(3600.2) == '1h0m0s'
+    assert timestr(35999.3) == '9h59m59s'
+    # (D) H M
+    assert timestr(35999.7) == '10h0m'
+    assert timestr(36029.99) == '10h0m'
+    assert timestr(36030.0) == '10h1m'
+    assert timestr(86400+7200+660) == '1d2h11m'
+    assert timestr(864000-40) == '9d23h59m'
+    # D H
+    assert timestr(864000-20) == '10d0h'
+    assert timestr(864000) == '10d0h'
+    assert timestr(864000.0) == '10d0h'
+    assert timestr(864000+1799) == '10d0h'
+    assert timestr(864000+1800) == '10d1h'
+    assert timestr(864000+1801) == '10d1h'
+    assert timestr(8640000) == '100d0h'
 
 def test_time_period():
     time_period = utils.time_period

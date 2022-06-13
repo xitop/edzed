@@ -11,21 +11,23 @@ import re
 
 from .tconst import *   # pylint: disable=wildcard-import, unused-wildcard-import
 
-__all__ = ['timestr', 'convert', 'time_period']
+__all__ = ['timestr', 'timestr_approx', 'convert', 'time_period']
 
 # pylint: disable=invalid-name
-def timestr(seconds: int|float) -> str:
+def timestr(seconds: int|float, sep: str = '') -> str:
     """
     Return seconds as a string using d, h, m and s units.
 
+    The individual parts are separated with the 'sep' string.
+
     Minutes and seconds are always present in the result.
     Days and hours are prepended only when needed.
-
-    This is an inverse function to convert() below.
     Partial seconds are formatted to 3 decimal places.
     """
     if seconds < 0:
         raise ValueError("Number of seconds cannot be negative")
+    if isinstance(seconds, float):
+        seconds = round(seconds, 3)
     d, s = divmod(seconds, SEC_PER_DAY)
     h, s = divmod(s, SEC_PER_HOUR)
     m, s = divmod(s, SEC_PER_MIN)
@@ -37,8 +39,68 @@ def timestr(seconds: int|float) -> str:
     parts.append(f"{int(m)}m")
     # seconds = original value; s = 0 to 60 seconds
     parts.append(f"{s:.3f}s" if isinstance(seconds, float) else f"{s}s")
-    return ''.join(parts)
+    return sep.join(parts)
 
+def timestr_approx(seconds: int|float, sep: str = '') -> str:
+    """
+    Return possibly rounded seconds as a string using d, h, m, s units.
+
+    The individual parts are separated with the 'sep' string.
+    """
+    #      ge  lt*   format
+    #     ---  ---   ------
+    #           1s   0.sss (float)
+    #      1s  10s   S.ss  (float)
+    #     10s   1m   S.s   (float)
+    #           1m   S     (int)
+    #      1m  10h   (H) M S
+    #     10h  10d   (D) H M
+    #     10d        D H
+    #
+    # (*) lt (less than) after rounding. We want to prevent e.g. 0.9998
+    # to be rounded to 1 with three decimal places 1.000, but 1.002 to
+    # 1 with two decimal places 1.00. We prefer consistency and always
+    # have 0.xxx and 1.yy.
+
+    if seconds < 0:
+        raise ValueError("Number of seconds cannot be negative")
+    omit_minutes = omit_seconds = False
+    if isinstance(seconds, float):
+        # the rounding issues are trickier than it might seem ...
+        if seconds < 1.0:
+            sprec = 3   # seconds' precision (decimal places)
+            seconds = round(seconds, sprec) # may be now equal to 1.0, no elif in the next line
+        if 1.0 <= seconds < 10.0:
+            sprec = 2
+            seconds = round(seconds, sprec) # may be now equal to 10.0
+        if 10.0 <= seconds < 60.0:
+            sprec = 1
+            seconds = round(seconds, sprec) # may be now equal ... etc.
+        if 60.0 <= seconds < 10*SEC_PER_HOUR:
+            seconds = round(seconds)        # now an int => 'sprec' unused
+    # int or float
+    if 10*SEC_PER_HOUR <= seconds < 10*SEC_PER_DAY:
+        omit_seconds = True
+        seconds = SEC_PER_MIN * int(seconds / SEC_PER_MIN + 0.5)    # round to nearest minute
+    if 10*SEC_PER_DAY <= seconds:
+        omit_seconds = omit_minutes = True
+        seconds = SEC_PER_HOUR * int(seconds / SEC_PER_HOUR + 0.5)  # round to nearest hour
+
+    d, s = divmod(seconds, SEC_PER_DAY)
+    h, s = divmod(s, SEC_PER_HOUR)
+    if not omit_minutes:
+        m, s = divmod(s, SEC_PER_MIN)
+    parts = []
+    if d:
+        parts.append(f"{int(d)}d")
+    if d or h:
+        parts.append(f"{int(h)}h")
+    if not omit_minutes and (d or h or m):
+        parts.append(f"{int(m)}m")
+    if not omit_seconds:
+        # seconds = original value; s = 0 to 60 seconds
+        parts.append(f"{s:.{sprec}f}s" if isinstance(seconds, float) else f"{s}s")
+    return sep.join(parts)
 
 _RE_TIME = r'(?:(\d+)\s*d)?\s*(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?\s*(?:([\d.]+)\s*s?)?'
 _REGEXP_TIME = re.compile(_RE_TIME, re.ASCII | re.IGNORECASE)

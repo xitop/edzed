@@ -34,14 +34,43 @@ Notes:
 
 Conversions routines:
 
-.. function:: timestr(seconds: int|float) -> str
+.. function:: timestr(seconds: int|float, sep: str = '') -> str
 
-  Convert seconds, return a string with time units.
+  Convert *seconds*, return a string with time units.
+
+  The individual parts are separated with the *sep* string.
 
   Minutes (``m``) and seconds (``s``) are always present in the result.
   Days (``d``) and hours (``h``) are prepended only when needed.
 
   Partial seconds are formatted to 3 decimal places.
+
+  This is an inverse function to :func:`convert` below provided
+  the separator is empty or whitespace only.
+
+.. function:: timestr_approx(seconds: int|float, sep: str = '') -> str
+
+  Convert *seconds* to a string using ``d``, ``h``, ``m``, and ``s``
+  units with limited precision.
+
+  The individual parts are separated with the *sep* string.
+
+  This is an alternative to :func:`timestr`. It rounds off the least
+  significant part of the value to make the result shorter and better
+  human readable. Depending on the value magnitude, the seconds'
+  decimal places are gradually reduced from three down to zero and
+  for large values the seconds or even the minutes are omitted entirely.
+
+  Compare:
+
+  .. csv-table::
+    :align: left
+    :header: "timestr", "timestr_approx"
+
+    "0m20.053s", "20.1s"
+    "1d2h11m7.029s", "1d2h11m"
+    "10d3h5m4.120s", "10d3h"
+
 
 .. function:: convert(timestring: str) -> float
 

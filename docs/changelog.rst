@@ -6,6 +6,12 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+22.6.13
+=======
+- Fix a minor issue in :func:`utils.timestr`. In rare cases it could
+  return ``... 60.000s`` instead of counting it as 1 minute.
+- Add an optional separator to :func:`utils.timestr`.
+- Add new function :func:`utils.timestr_approx`.
 
 22.3.1
 ======
@@ -14,7 +20,7 @@ Version numbers are based on the release date (Y.M.D).
 - Change to positional-only arguments
   in :meth:`SBlock.init_from_value` and :meth:`SBlock._restore_state`
   in order to make them mutually fully compatible.
-- Implement keyword argument passing in :class:`InExecutor`
+- Implement passing of keyword arguments in :class:`InExecutor`.
 - Update :class:`Repeat` documentation regarding special event types.
 - Small improvements and fixes to type annotations.
 - Small code cleanup.
@@ -59,16 +65,6 @@ edzed demo CLI changes:
 - rename the ``debug`` command to ``bdebug`` (b = block),
   (the old name will be also accepted during a transitory period)
 - fix the ``cdebug`` command (c = circuit)
-
-21.10.27
-========
-- add an :class:`InitAsync` block
-- add a :class:`NotIfInitialized` event filter
-- accept unabbreviated mode names in :class:`OutputAsync`,
-  e.g. ``mode='w'`` can be now written as ``mode='wait'``
-  for better code readability
-- remove the *desc* parameter and attribute in :class:`Block`;
-  they were replaced by *comment* and deprecated in 21.3.16
 
 
 .. note:: See the git repository for older releases.

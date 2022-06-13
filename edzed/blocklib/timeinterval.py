@@ -40,7 +40,9 @@ def _cut(match: re.Match) -> str:
 
 
 # pylint: disable=invalid-name
-def _ydt_convert(string: str, y:bool=False, d:bool=False, t:bool=False) -> tuple[int|None, ...]:
+def _ydt_convert(
+        string: str, y:bool=False, d:bool=False, t:bool=False
+        ) -> tuple[int|None, int|None, int|None, int|None, int|None, int|None]:
     """
     Convert string to year (if y), month, day (if d), hour, minute, second (if t).
 
@@ -89,7 +91,9 @@ def _ydt_convert(string: str, y:bool=False, d:bool=False, t:bool=False) -> tuple
     return (year, month, day, *hms)
 
 
-def ydt_convert(string: str, *args, **kwargs) -> tuple[int|None, ...]:
+def ydt_convert(
+        string: str, *args, **kwargs
+        ) -> tuple[int|None, int|None, int|None, int|None, int|None, int|None]:
     try:
         return _ydt_convert(string, *args, **kwargs)
     except Exception as err:
