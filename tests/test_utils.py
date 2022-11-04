@@ -119,6 +119,28 @@ def test_timestr():
     for t in (0, 100, 10_000, 1_000_000, 100_000_000):
         assert convert(timestr(t)) == t
 
+
+def test_timestr_prec():
+    timestr = utils.timestr
+    t = 7.12345678
+    assert timestr(t, prec=7) == '0m7.1234568s'
+    assert timestr(t, prec=6) == '0m7.123457s'
+    assert timestr(t, prec=5) == '0m7.12346s'
+    assert timestr(t, prec=4) == '0m7.1235s'
+    assert timestr(t, prec=3) == '0m7.123s'
+    assert timestr(t) == '0m7.123s'
+    assert timestr(t, prec=2) == '0m7.12s'
+    assert timestr(t, prec=1) == '0m7.1s'
+    assert timestr(t, prec=0) == '0m7s'
+    t = 64.0
+    assert timestr(t, prec=4, sep='+') == '1m+4.0000s'
+    assert timestr(t, prec=3, sep='_') == '1m_4.000s'
+    assert timestr(t) == '1m4.000s'
+    assert timestr(t, prec=2) == '1m4.00s'
+    assert timestr(t, prec=1) == '1m4.0s'
+    assert timestr(t, prec=0) == '1m4s'
+
+
 def test_timestr_sep():
     convert = utils.convert
     timestr = utils.timestr

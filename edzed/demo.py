@@ -161,7 +161,6 @@ class CmdInfo:
 _PARSE = {
     'adebug': CmdInfo(func=_cmd_adebug, blk=False, args=1),
     'bdebug': CmdInfo(func=_cmd_bdebug, args=1),
-     'debug': CmdInfo(func=_cmd_bdebug, args=1), # DEPRECATED, old name for bdebug
     'cdebug': CmdInfo(func=_cmd_cdebug, blk=False, args=1),
     'eval': CmdInfo(func=_cmd_eval, blk=False, args=1),
     'event': CmdInfo(func=_cmd_event, args=1, optargs=1),
@@ -282,9 +281,3 @@ async def cli_repl(setup_logging: bool = True) -> None:
     finally:
         # revert to the original state, because we broke the SIGINT handlers chain
         signal.signal(signal.SIGINT, saved_sigint_handler)
-
-
-# DEPRECATED
-async def run_demo():
-    """Run a circuit simulation and an edzed REPL."""
-    await simulator.run(cli_repl())

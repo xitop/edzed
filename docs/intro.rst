@@ -181,21 +181,6 @@ To use this tool, import ``edzed.demo`` and run the simulation with :func:`cli_r
 
   .. versionadded:: 21.12.8
 
-.. function:: run_demo()
-  :async:
-
-  Deprecated entry point::
-
-    asyncio.run(edzed.demo.run_demo())
-
-  is now equivalent to::
-
-    asyncio.run(edzed.run(edzed.demo.cli_repl()))
-
-  .. deprecated:: 21.12.8
-
-    This function will be removed after a 3 months transitory period.
-
 ----
 
 Let's test :ref:`this turnstile <FSM Example>`. It allows one person

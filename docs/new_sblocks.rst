@@ -337,19 +337,31 @@ Async add-on
 
   This class also implements a helper for general use:
 
-  .. method:: _create_monitored_task(coro: Awaitable, is_service: bool = False) -> asyncio.Task
+  .. method:: _create_monitored_task(coro: Awaitable, is_service: bool = False, **task_kwargs) -> asyncio.Task
     :async:
 
     Create a task monitored for an eventual failure.
 
-    Like :meth:`asyncio.create_task`, but if the task exits due to an exception,
-    the simulation will abort. ``_create_monitored_task()`` also adds the block
-    name to the exception arguments for better problem identification.
+    .. important::
+      For the purpose of monitoring, the cancellation is never considered an error.
+      Note that the :exc:`CancelledError` exception is *not* derived from the
+      :exc:`Exception` class (it's a :exc:`BaseException` subclass) and as such
+      it is not caught by the monitor.
+
+    This function acts like :func:`asyncio.create_task`, but if the task exits due to an exception,
+    the simulation will abort. ``_create_monitored_task()`` also adds the block name
+    to the exception message (``Exception.args[0]`` if it is a string)
+    for better problem identification.
 
     Coroutines marked as services (*is_service*  is ``True``) are supposed
     to run until cancelled - even a normal exit is treated as an error.
 
-    Cancellation is not considered an error, of course.
+    Extra keyword arguments *\*\*task_kwargs* are passed to the :func:`asyncio.create_task`;
+    as of Python 3.11 it accepts *name* and *context*.
+
+    .. versionchanged:: 22.11.2
+      Added the *\*\*task_kwargs* parameters.
+
 
 .. method:: SBlock.init_async() -> None
   :async:

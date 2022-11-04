@@ -406,7 +406,7 @@ Date and time strings
 ``edzed`` understands these formats:
 
 - time (e.g. ``'6:45:00'`` or ``'15:55'``)
-    The time format is H:M:S or just H:M (i.e. H:M:0) with 24 hour clock.
+    The time format is H:M:S or just H:M (i.e. H:M:0) with a 24-hour clock.
     Numbers may have one or two digits. The day starts and also ends
     at midnight ``'0:0:0'``.
 

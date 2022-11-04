@@ -170,15 +170,18 @@ class AddonAsync(block.Addon):
             if is_service:
                 raise EdzedCircuitError("Unexpected task termination")
         except Exception as err:
-            # add context to the error message
+            # add context to the error message, if a message is provided
             fmt = f"{self}: error in {coro.__qualname__}: {{}}"
-            err.args = (fmt.format(err.args[0] if err.args else "<NO ARGS>"), *err.args[1:])
+            if err.args and isinstance(err.args[0], str):
+                err.args = (fmt.format(err.args[0]), *err.args[1:])
             self.circuit.abort(err)
             raise
         return retval
 
-    def _create_monitored_task(self, coro: Coroutine, is_service: bool = False) -> asyncio.Task:
-        return asyncio.create_task(self._task_monitor(coro, is_service))
+    def _create_monitored_task(
+            self,
+            coro: Coroutine, is_service: bool = False, **task_kwargs) -> asyncio.Task:
+        return asyncio.create_task(self._task_monitor(coro, is_service), **task_kwargs)
 
 
 class AddonMainTask(AddonAsync, metaclass=abc.ABCMeta):
@@ -197,7 +200,8 @@ class AddonMainTask(AddonAsync, metaclass=abc.ABCMeta):
     def start(self) -> None:
         super().start()
         assert self._mtask is None
-        self._mtask = self._create_monitored_task(self._maintask(), is_service=True)
+        self._mtask = self._create_monitored_task(
+            self._maintask(), is_service=True, name=f"edzed: main task for block {self.name!r}")
 
     async def stop_async(self) -> None:
         self._mtask.cancel()

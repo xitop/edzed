@@ -20,7 +20,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='edzed',
-    version='22.6.13',
+    version='22.11.2',
     description='A library for building small automated systems',
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -36,6 +36,7 @@ setup(
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
     ],
     project_urls={
         'Source': 'https://github.com/xitop/edzed',

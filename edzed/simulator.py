@@ -409,8 +409,12 @@ class Circuit:
     async def _init_sblocks_async(self) -> None:
         """Initialize all sequential blocks, the async part."""
         start_tasks = [
-            (blk, asyncio.create_task(blk.init_async()), blk.init_timeout)
-            for blk in self.getblocks(addons.AddonAsync)
+            (
+                blk,
+                asyncio.create_task(
+                    blk.init_async(), name=f"edzed: init_async for block {blk.name!r}"),
+                blk.init_timeout
+            ) for blk in self.getblocks(addons.AddonAsync)
             if not blk.is_initialized()
                 and blk.has_method('init_async')
                 and blk.init_timeout > 0.0]
@@ -508,8 +512,12 @@ class Circuit:
 
             await asyncio.sleep(0)
             wait_tasks = [
-                (blk, asyncio.create_task(blk.stop_async()), blk.stop_timeout)
-                for blk in async_blocks]
+                (
+                    blk,
+                    asyncio.create_task(
+                        blk.stop_async(), name=f"edzed: stop_async for block {blk.name!r}"),
+                    blk.stop_timeout
+                ) for blk in async_blocks]
             self.log_debug("Waiting for async cleanup")
             await self._run_tasks("stop", wait_tasks)
 
@@ -746,8 +754,11 @@ async def run(*coroutines: Coroutine, catch_sigterm: bool = True) -> None:
             pass
         return
 
-    simtask = asyncio.create_task(circuit.run_forever())
-    tasks =  [asyncio.create_task(coro) for coro in coroutines] + [simtask]
+    simtask = asyncio.create_task(circuit.run_forever(), name="edzed: simulation task")
+    tasks =  [
+        asyncio.create_task(coro, name=f"edzed: supporting task #{i}")
+        for i, coro in enumerate(coroutines, start=1)
+        ] + [simtask]
     try:
         await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
     except asyncio.CancelledError:

@@ -34,7 +34,7 @@ Notes:
 
 Conversions routines:
 
-.. function:: timestr(seconds: int|float, sep: str = '') -> str
+.. function:: timestr(seconds: int|float, sep: str = '', prec: int = 3) -> str
 
   Convert *seconds*, return a string with time units.
 
@@ -43,10 +43,14 @@ Conversions routines:
   Minutes (``m``) and seconds (``s``) are always present in the result.
   Days (``d``) and hours (``h``) are prepended only when needed.
 
-  Partial seconds are formatted to 3 decimal places.
+  If the input value is a float, fractional seconds are formatted
+  to *prec* decimal places.
 
   This is an inverse function to :func:`convert` below provided
   the separator is empty or whitespace only.
+
+  .. versionchanged:: 22.11.2
+    Added the *prec* parameter.
 
 .. function:: timestr_approx(seconds: int|float, sep: str = '') -> str
 
@@ -74,7 +78,8 @@ Conversions routines:
 
 .. function:: convert(timestring: str) -> float
 
-  Convert a string to number of seconds. See also the next function.
+  Convert a :ref:`timestring<Time intervals with units>` to number of seconds.
+  See also the next function.
 
 .. function:: time_period(period: int|float|str) -> float
 .. function:: time_period(period: None) -> None

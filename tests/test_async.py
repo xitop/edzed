@@ -138,3 +138,39 @@ async def test_task_monitoring(circuit):
     logger.compare(LOG)
     # prevent "Task was destroyed but it is pending!" error for tasks 5 and 6
     await asyncio.sleep(0.11)
+
+
+async def test_task_monitor_args(circuit):
+    """Test if _create_monitored_task properly passes args to create_task."""
+    NAME = "Daphne"
+
+    async def dummy():
+        pass
+
+    class TestBlock(edzed.AddonAsync, edzed.SBlock):
+        def init_regular(self):
+            self.x_task = self._create_monitored_task(dummy(), is_service=False, name=NAME)
+            self.set_output(False)
+
+    async def tester():
+        await circuit.wait_init()
+        task = circuit.findblock('block1').x_task
+        assert task.get_name() == NAME
+        await task
+
+    TestBlock('block1')
+    await edzed.run(tester())
+
+
+async def test_task_names(circuit):
+    """Test task names."""
+    async def support1():
+        while True:
+            await asyncio.sleep(1)
+
+    async def tester():
+        assert asyncio.current_task().get_name() == "edzed: supporting task #2"
+        assert circuit._simtask.get_name() == "edzed: simulation task"
+
+    Noop(None)
+    await edzed.run(support1(), tester())

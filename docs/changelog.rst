@@ -6,6 +6,21 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+22.11.2
+=======
+- Add Python version 3.11 classifier to ``setup.py``.
+- Add a parameter controlling the number of decimal places
+  in the output of :func:`utils.timestr`.
+- Allow :meth:`AddonAsync._create_monitored_task` to pass
+  arguments to the underlying :func:`asyncio.create_task`.
+- Remove deprecated features in the demo tool:
+
+  - the ``debug`` command was removed, use ``bdebug``
+  - the ``demo.run_demo()`` entry point was removed,
+    use ``edzed.run(edzed.demo.cli_repl())`` instead
+- Give descriptive names to some asyncio tasks.
+  This feature was added on a provisional basis.
+
 22.6.13
 =======
 - Fix a minor issue in :func:`utils.timestr`. In rare cases it could
@@ -39,41 +54,11 @@ Version numbers are based on the release date (Y.M.D).
   Please note that all type hints are provided *only*
   as a documentation aid.
 
-
-22.2.1
-======
-
-- add documentation for the :meth:`Circuit.abort`
-
-There was no code change; not exported to the PyPi.
-
-21.12.8
+History
 =======
 
-- add a new entry point :func:`run`; main features:
+Only recent changes are listed in this document.
+See the git repository for the full history.
 
-  - runs supporting coroutines
-  - handles ``SIGTERM`` signal delivery
-
-- add short instruction text to examples
-- add Python 3.10 to setup specifiers
-
-edzed demo CLI changes:
-
-- rewrite the command history
-- add a ``adebug`` command (a = all)
-- rename the ``debug`` command to ``bdebug`` (b = block),
-  (the old name will be also accepted during a transitory period)
-- fix the ``cdebug`` command (c = circuit)
-
-
-.. note:: See the git repository for older releases.
-
-
-21.5.15
-=======
-First production/stable release
-
-2020.2.11
-=========
-First public release.
+- first stable release was 21.5.15
+- first public release is dated Febrary 2020

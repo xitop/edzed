@@ -14,20 +14,19 @@ from .tconst import *   # pylint: disable=wildcard-import, unused-wildcard-impor
 __all__ = ['timestr', 'timestr_approx', 'convert', 'time_period']
 
 # pylint: disable=invalid-name
-def timestr(seconds: int|float, sep: str = '') -> str:
+def timestr(seconds: int|float, sep: str = '', prec: int = 3) -> str:
     """
     Return seconds as a string using d, h, m and s units.
 
     The individual parts are separated with the 'sep' string.
 
-    Minutes and seconds are always present in the result.
-    Days and hours are prepended only when needed.
-    Partial seconds are formatted to 3 decimal places.
+    Fractional seconds are formatted to 'prec' decimal places.
     """
     if seconds < 0:
         raise ValueError("Number of seconds cannot be negative")
-    if isinstance(seconds, float):
-        seconds = round(seconds, 3)
+    is_float = isinstance(seconds, float)
+    if is_float:
+        seconds = round(seconds, prec)
     d, s = divmod(seconds, SEC_PER_DAY)
     h, s = divmod(s, SEC_PER_HOUR)
     m, s = divmod(s, SEC_PER_MIN)
@@ -37,8 +36,7 @@ def timestr(seconds: int|float, sep: str = '') -> str:
     if d or h:
         parts.append(f"{int(h)}h")
     parts.append(f"{int(m)}m")
-    # seconds = original value; s = 0 to 60 seconds
-    parts.append(f"{s:.3f}s" if isinstance(seconds, float) else f"{s}s")
+    parts.append(f"{s:.{prec}f}s" if is_float else f"{s}s")
     return sep.join(parts)
 
 def timestr_approx(seconds: int|float, sep: str = '') -> str:

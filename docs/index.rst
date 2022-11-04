@@ -3,7 +3,7 @@ Edzed
 =====
 
 Welcome to edzed's documentation.  The intended audience are Python developers.
-Edzed is a Python library for building small automated systems, i.e. systems
+Edzed is an asyncio based Python library for building small automated systems, i.e. systems
 that control outputs according to input values, system’s internal state, date and time.
 It is free and open-source.
 
