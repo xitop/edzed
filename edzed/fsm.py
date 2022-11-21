@@ -20,7 +20,7 @@ from typing import Any, Optional, Literal
 from . import addons
 from . import block
 from . import utils
-from .exceptions import *   # pylint: disable=wildcard-import, unused-wildcard-import
+from .exceptions import add_note, EdzedCircuitError, EdzedUnknownEvent
 from .utils import looptimes
 
 
@@ -84,8 +84,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
             key = (event, from_state)
             if key in cls._ct_transition:
                 raise ValueError(
-                    "Multiple transition definition for "
-                    f"event {event!r} in state {from_state!r}")
+                    f"Multiple transitions defined for event {event!r} in state {from_state!r}")
             cls._ct_transition[key] = next_state
 
         # control tables must be created for each subclass
@@ -168,7 +167,6 @@ class FSM(addons.AddonPersistence, block.SBlock):
             if name in valid_names and callable(method):
                 cb_dict[name] = method
 
-    # TODO: https://bugs.python.org/issue38085
     def __init_subclass__(cls, *args, **kwargs):
         """
         Build control tables.
@@ -180,8 +178,8 @@ class FSM(addons.AddonPersistence, block.SBlock):
         try:
             cls._build_tables()
         except Exception as err:
-            fmt = f"Cannot create FSM subclass {cls.__name__}: {{}}"
-            err.args = (fmt.format(err.args[0] if err.args else "<NO ARGS>"), *err.args[1:])
+            add_note(err, f"FSM type {cls.__name__}, validation of control tables")
+            # DO NOT catch this error until https://bugs.python.org/issue38085 is fixed
             raise
 
     def __init__(

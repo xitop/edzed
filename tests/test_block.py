@@ -2,7 +2,7 @@
 Test basic circuit block functionality.
 """
 
-# pylint: disable=missing-docstring, no-self-use, protected-access
+# pylint: disable=missing-docstring, protected-access
 # pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
 # pylint: disable=wildcard-import, unused-wildcard-import
 
@@ -180,18 +180,25 @@ def test_is_multiple_and_to_tuple():
         to_tuple(0, lambda x: 1/x)
 
 
-def disabled_test_addons():
-    # RUNNING THIS TEST AFFECTS OTHER TESTS!
-    # THE TEST IS DISABLED AND A BUG WAS FILED:
-    # https://bugs.python.org/issue38085
+# RUNNING THIS TEST MAY AFFECT OTHER TESTS!
+# https://bugs.python.org/issue38085
+# until a bugfix, the following three tests must be run in a separate process
+@pytest.mark.forked
+def test_incorrect_addon1():
     with pytest.raises(TypeError, match="add-on"):
         class CBlockWithAddon1(edzed.AddonAsync, edzed.CBlock):
             def calc_output(self):    # calc_output is abstract
                 return None
+
+@pytest.mark.forked
+def test_incorrect_addon2():
     with pytest.raises(TypeError, match="add-on"):
         class CBlockWithAddon2(edzed.CBlock, edzed.AddonAsync):
             def calc_output(self):
                 return None
+
+@pytest.mark.forked
+def test_incorrect_addon3():
     with pytest.raises(TypeError, match="add-on"):
         class SBlockWithAddonWrongOrder(edzed.SBlock, edzed.AddonAsync):
             def calc_output(self):

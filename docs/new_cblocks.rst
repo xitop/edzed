@@ -110,12 +110,14 @@ An input signature is a dict with the following key:value structure:
 
   Examples of *esig* items::
 
-    'name': None    # a single input (not a group)
-    'name': 1       # a group with one input (not a single input)
-    'ingroup': 4            # exactly 4 inputs
-    'ingroup': [2, None]    # 2 or more inputs
-    'ingroup': [0, 4]       # 4 or less
-    'ingroup': [None, None] # input count doesn't matter
+    # single vs group
+    'input1': None         # a single input (not a group)
+    'input2': 1            # a group with one input (not a single input)
+    # number of inputs in a group
+    'group1': 4            # exactly 4 inputs
+    'group2': [2, None]    # 2 or more inputs
+    'group3': [0, 4]       # 4 or less
+    'group4': [None, None] # input count doesn't matter
 
 
 Example (Invert)

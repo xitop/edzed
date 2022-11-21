@@ -2,7 +2,7 @@
 Test SBlock events and event filters.
 """
 
-# pylint: disable=missing-docstring, no-self-use, protected-access
+# pylint: disable=missing-docstring, protected-access
 # pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
 # pylint: disable=wildcard-import, unused-wildcard-import
 
@@ -52,6 +52,7 @@ def test_send(circuit):
 
     event.send(src)      # 'source' is added automatically
     assert dest.output == ('msg', {'source': 'mysrc'})
+    # pylint: disable=redundant-keyword-arg
     event.send(src, source='fake_source')   # will be replaced by real source
     assert dest.output == ('msg', {'source': 'mysrc'})
     event.send(src, msg='error', level=10)
@@ -65,6 +66,7 @@ def test_any_name(circuit):
     src = Noop('mysrc', comment="fake event source")
     init(circuit)
 
+    # pylint: disable=redundant-keyword-arg
     event.send(src, self='SELF', etype='ETYPE', source='anything')
     assert dest.output == ('msg', {'source': 'mysrc', 'self': 'SELF', 'etype': 'ETYPE'})
 

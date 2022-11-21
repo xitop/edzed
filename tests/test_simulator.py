@@ -2,11 +2,12 @@
 Tests requiring asyncio and event loop.
 """
 
-# pylint: disable=missing-docstring, no-self-use, protected-access
+# pylint: disable=missing-docstring, protected-access
 # pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
 # pylint: disable=wildcard-import, unused-wildcard-import
 
 import asyncio
+import sys
 import time
 
 import pytest
@@ -37,24 +38,36 @@ async def test_shutdown(circuit):
     await circuit.shutdown()    # will not complain
 
 
+async def _test_3_11(circuit, entry_point):
+    # for Python >= 3.11 (with exception notes support)
+    Noop('block').connect('no_such_source')     # will fail
+    simtask = asyncio.create_task(entry_point())
+    with pytest.raises(Exception) as excinfo:
+        await simtask
+    assert any("connection" in note for note in excinfo.value.__notes__)
+    with pytest.raises(Exception) as excinfo:
+        await circuit.shutdown()
+    assert any("connection" in note for note in excinfo.value.__notes__)
+
+async def _test_3_10(circuit, entry_point):
+    # for Python <= 3.10 (without exception notes support)
+    Noop('block').connect('no_such_source')     # will fail
+    simtask = asyncio.create_task(entry_point())
+    with pytest.raises(Exception, match="connection"):
+        await simtask
+    with pytest.raises(Exception, match="connection"):
+        await circuit.shutdown()
+
+_test_shutdown_exception = _test_3_10 if sys.version_info < (3, 11) else _test_3_11
+
 async def test_shutdown_exception_1(circuit):
     """Shutdown raises the exception that stopped the simulation 1."""
-    Noop('block').connect('no_such_source')     # will fail
-    simtask = asyncio.create_task(circuit.run_forever())
-    with pytest.raises(Exception, match="Cannot connect"):
-        await simtask
-    with pytest.raises(Exception, match="Cannot connect"):
-        await circuit.shutdown()
+    await _test_shutdown_exception(circuit, circuit.run_forever)
 
 
 async def test_shutdown_exception_2(circuit):
     """Shutdown raises the exception that stopped the simulation 2."""
-    Noop('block').connect('no_such_source')     # will fail
-    simtask = asyncio.create_task(edzed.run())
-    with pytest.raises(Exception, match="Cannot connect"):
-        await simtask
-    with pytest.raises(Exception, match="Cannot connect"):
-        await circuit.shutdown()
+    await _test_shutdown_exception(circuit, edzed.run)
 
 
 async def test_start_stop(circuit):
@@ -239,7 +252,7 @@ async def test_initialization_order(circuit):
             await asyncio.sleep(0)
             self.inits.append('A')  # Async
 
-        def _restore_state(self, state):
+        def _restore_state(self, state, /):
             self.inits.append('P')  # Persistent
             if state == 'ok':
                 self.set_output('out')

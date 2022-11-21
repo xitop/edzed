@@ -156,7 +156,7 @@ The output blocks invoke a function in response to a ``'put'`` event.
 
 .. seealso::
 
-  See also the :class:`Repeat` block. Repeated output actions
+  the :class:`Repeat` block. Repeated output actions
   may increase the robustness of applications.
 
 Error handling

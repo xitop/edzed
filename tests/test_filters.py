@@ -2,7 +2,7 @@
 Test SBlock events and event filters.
 """
 
-# pylint: disable=missing-docstring, no-self-use, protected-access
+# pylint: disable=missing-docstring, protected-access
 # pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
 # pylint: disable=wildcard-import, unused-wildcard-import
 

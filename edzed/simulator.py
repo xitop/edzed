@@ -21,7 +21,7 @@ from . import addons
 from . import block
 from .blocklib import cblocks
 from .blocklib import sblocks1
-from .exceptions import *   # pylint: disable=wildcard-import, unused-wildcard-import
+from .exceptions import add_note, EdzedCircuitError, EdzedInvalidState
 
 
 __all__ = ['get_circuit', 'reset_circuit', 'run']
@@ -234,7 +234,6 @@ class Circuit:
         try:
             return self._blocks[name]
         except KeyError:
-            # add an error message
             raise KeyError(f"Block {name!r} not found") from None
 
     def set_debug(
@@ -340,8 +339,7 @@ class Circuit:
             try:
                 return self._validate_blk(oblk)
             except Exception as err:
-                fmt = f"Cannot connect {oblk} --> {iblk}: {{}}"
-                err.args = (fmt.format(err.args[0] if err.args else "<NO ARGS>"), *err.args[1:])
+                add_note(err, f"failed connection: {oblk} --> {iblk}")
                 raise
 
         for btype in (block.CBlock, cblocks.Not):
@@ -461,8 +459,7 @@ class Circuit:
                 blk.init_steps_completed = 2
         except Exception as err:
             # add the block name
-            fmt = f"{blk}: error during initialization: {{}}"
-            err.args = (fmt.format(err.args[0] if err.args else "<NO ARGS>"), *err.args[1:])
+            add_note(err, f"block: {blk}, initialization error")
             raise
 
     def _init_sblocks_sync_1(self) -> None:
@@ -584,8 +581,7 @@ class Circuit:
                 changed = blk.eval_block()
             except Exception as err:
                 # add the block name
-                fmt = f"{blk}: Error while evaluating block: {{}}"
-                err.args = (fmt.format(err.args[0] if err.args else "<NO ARGS>"), *err.args[1:])
+                add_note(err, f"block: {blk}, output evaluation error")
                 raise
             if changed:
                 eval_set |= blk.oconnections

@@ -2,7 +2,7 @@
 Test automatically created blocks.
 """
 
-# pylint: disable=missing-docstring, no-self-use, protected-access
+# pylint: disable=missing-docstring, protected-access
 # pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
 # pylint: disable=wildcard-import, unused-wildcard-import
 # pylint: disable=unidiomatic-typecheck

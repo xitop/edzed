@@ -18,7 +18,7 @@ import logging
 from typing import Any, cast, Optional
 import weakref
 
-from .exceptions import *   # pylint: disable=wildcard-import, unused-wildcard-import
+from .exceptions import EdzedCircuitError, EdzedInvalidState, EdzedUnknownEvent
 
 
 __all__ = [
@@ -291,10 +291,8 @@ class CBlock(Block, metaclass=abc.ABCMeta):
     def __init_subclass__(cls, *args, **kwargs):
         """Verify that no SBlock add-ons were added to a CBlock."""
         if issubclass(cls, Addon):
-            # https://bugs.python.org/issue38085
-            # raise TypeError(
-            _logger.error(
-                f"{cls.__name__}: SBlock add-ons are not compatible with a CBlock")
+            # DO NOT catch this error until https://bugs.python.org/issue38085 is fixed
+            raise TypeError(f"{cls.__name__}: SBlock add-ons are not compatible with a CBlock")
         super().__init_subclass__(*args, **kwargs)
 
     def __init__(self, *args, **kwargs):
@@ -468,9 +466,8 @@ class SBlock(Block):
         for mro in cls.__mro__:
             if sblock_seen:
                 if issubclass(mro, Addon):
-                    # https://bugs.python.org/issue38085
-                    # raise TypeError(
-                    _logger.error(
+                    # DO NOT catch this error until https://bugs.python.org/issue38085 is fixed
+                    raise TypeError(
                         f"The order of {cls.__name__} base classes is incorrect: "
                         f"add-ons like {mro.__name__} must appear before SBlock")
             elif mro is SBlock:
@@ -583,7 +580,6 @@ class SBlock(Block):
             self._event_active = False
 
     # property + class is an awesome combination, isn't it?
-    _enable_event: AbstractContextManager   # mypy is unable to find out the type
     @property
     class _enable_event:    # pylint: disable=invalid-name
         """

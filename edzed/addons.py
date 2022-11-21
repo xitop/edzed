@@ -18,7 +18,7 @@ import time
 from typing import Any, Optional
 
 from . import block
-from .exceptions import EdzedCircuitError
+from .exceptions import add_note, EdzedCircuitError
 from . import utils
 
 
@@ -170,10 +170,7 @@ class AddonAsync(block.Addon):
             if is_service:
                 raise EdzedCircuitError("Unexpected task termination")
         except Exception as err:
-            # add context to the error message, if a message is provided
-            fmt = f"{self}: error in {coro.__qualname__}: {{}}"
-            if err.args and isinstance(err.args[0], str):
-                err.args = (fmt.format(err.args[0]), *err.args[1:])
+            add_note(err, f"block {self}, coroutine: {coro.__qualname__}")
             self.circuit.abort(err)
             raise
         return retval

@@ -6,6 +6,15 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+22.11.20
+========
+- Make use of exception notes introduced in Python 3.11.
+  If an additional information about an error is available,
+  if is added as an exception note if notes are supported,
+  otherwise it is prepended to the error message.
+- Add tests requirements to ``setup.py``.
+
+
 22.11.2
 =======
 - Add Python version 3.11 classifier to ``setup.py``.

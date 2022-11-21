@@ -2,7 +2,7 @@
 Test the persistent state.
 """
 
-# pylint: disable=missing-docstring, no-self-use, protected-access
+# pylint: disable=missing-docstring, protected-access
 # pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
 # pylint: disable=wildcard-import, unused-wildcard-import
 
@@ -23,7 +23,7 @@ def test_keys(circuit):
 
 def test_save_state_sync(circuit):
     """By default the state is saved after each event (sync_state=True)."""
-    storage = dict()
+    storage = {}
     inp = edzed.Input('ipers', initdef=99, persistent=True)
     circuit.set_persistent_data(storage)
     init(circuit)
@@ -36,7 +36,7 @@ def test_save_state_sync(circuit):
 
 def test_save_state_nosync(circuit):
     """Test with sync_state disabled."""
-    storage = dict()
+    storage = {}
     inp = edzed.Input('ipers', initdef=99, sync_state=False, persistent=True)
     circuit.set_persistent_data(storage)
     init(circuit)

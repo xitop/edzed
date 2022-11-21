@@ -20,7 +20,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='edzed',
-    version='22.11.2',
+    version='22.11.20',
     description='A library for building small automated systems',
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -54,4 +54,6 @@ setup(
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[],
+
+    tests_require=['pytest', 'pytest-asyncio', 'pytest-forked'],
 )
