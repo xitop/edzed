@@ -2,7 +2,7 @@
 Introduction
 ============
 
-``edzed`` is a Python asyncio-based library for building automated systems,
+``edzed`` is a Python asyncio based library for building automated systems,
 i.e. systems that control outputs according to input values,
 system’s internal state, date and time.
 

@@ -4,7 +4,7 @@
 Creating combinational blocks
 =============================
 
-Feel free to skip this chapter. As noted elsewhere, the :class:`FuncBlock` is an universal
+Feel free to skip this chapter. The :class:`FuncBlock` is an universal
 combinational block and there is very little reason to write a new one.
 
 Directions
@@ -81,7 +81,7 @@ An input signature is a dict with the following key:value structure:
 
 .. method:: CBlock.input_signature() -> dict[str, None|int]
 
-  Return the input signature. The data is available after
+  Return the :ref:`input signature <Input signatures>`. The data is available after
   connecting the inputs with :meth:`CBlock.connect`.
 
   An :exc:`EdzedInvalidState` is raised when called before
@@ -89,7 +89,7 @@ An input signature is a dict with the following key:value structure:
 
 .. method:: CBlock.check_signature(esig: Mapping[str, None|int|Sequence[int]]) -> dict
 
-  Compare the expected signature *esig* with the actual one.
+  Compare the expected :ref:`signature <Input signatures>` *esig* with the actual one.
 
   For a successful result items in the *esig* and
   items from :meth:`CBlock.input_signature` must match.

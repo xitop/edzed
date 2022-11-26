@@ -55,7 +55,14 @@ Only block specific parameters are listed in the signatures. In detail:
   Logical OR with arbitrary number of unnamed inputs.
   The output is ``True`` only if at least one input is true.
 
-  ``Or`` is a subclass of the :class:`FuncBlock`  with fixed ``func=any``.
+  ``Or`` is a subclass of the :class:`FuncBlock` with fixed ``func=any``.
+
+.. class:: Xor(name, **block_kwargs)
+
+  Logical XOR with arbitrary number of unnamed inputs.
+  The output is ``True`` only if an odd number of inputs is true.
+
+  ``Xor`` is a subclass of the :class:`FuncBlock` with fixed custom ``func``.
 
 .. class:: Compare(name, *, low, high, **block_kwargs)
 

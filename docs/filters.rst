@@ -71,7 +71,7 @@ List of :ref:`event filters<Event filters>` bundled with ``edzed``.
     from an ``InitAsync``. The block may be specified by name.
 
   If a block configured to be initialized with the help of :class:`InitAsync`
-  is also receiving update events from an external system a race condition might occur
+  is also receiving update events from an external system, a race condition might occur
   when the update happens to arrive before the initialization event.
 
   In such case we want to disallow the initialization event to overwrite

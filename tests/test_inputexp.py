@@ -81,7 +81,7 @@ async def test_persistent_state(circuit):
     """Test the state persistence."""
     LOG = [
         (0, "ok1"),
-        (150, "exp"),   # 250 total - 100 in circuit1 = 150 in circuit2 [ms]
+        (148, "exp"),   # 250 total - (100 in circuit1 + 2 overhead) = 148 in circuit2 [ms]
     ]
     await ptest(circuit, 0.0, LOG)
 

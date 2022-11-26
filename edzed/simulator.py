@@ -695,7 +695,7 @@ class Circuit:
         if not isinstance(exc, BaseException):
             # one more reason to abort
             exc = TypeError(f'abort(): expected an exception, got {exc!r}')
-        _logger.warning("abort(%r)", exc)
+        _logger.warning("called abort(%r)", exc)
         self._error = exc
         if self._simtask is not None and not self._simtask.done():
             self._simtask.cancel()
@@ -715,16 +715,31 @@ class Circuit:
             pass
 
 
-def _install_sigterm_handler() -> None:
-    old_handler = signal.getsignal(signal.SIGTERM)
-    def handler(signum, frame):
-        # using the _threadsafe variant because we need also to wake up the event loop
-        call_soon = asyncio.get_running_loop().call_soon_threadsafe
-        call_soon(_logger.warning, "SIGTERM caught")
-        call_soon(get_circuit().abort, asyncio.CancelledError("SIGTERM caught"))
-        if callable(old_handler):
-            old_handler(signum, frame)
-    signal.signal(signal.SIGTERM, handler)
+# deliberately using mutable default as a static storage
+# pylint: disable=dangerous-default-value
+def _sigterm_handler_ctrl(signo: int, activate: bool, _handlers={}) -> None:
+    """Install/remove a handler for 'signo'."""
+    if bool(activate) == (signo in _handlers):
+        return      # nothing to do
+    if activate:
+        _handlers[signo] = signal.getsignal(signal.SIGTERM)
+
+        def handler(signum, frame):
+            signame = signal.strsignal(signo) or str(signo)
+            msg = f"Signal {signame!r} caught"
+            # - we need the _threadsafe variant of call_soon
+            # - get_running loop() and get_circuit() will succeed,
+            #   because this handler is active only during edzed.run()
+            call_soon = asyncio.get_running_loop().call_soon_threadsafe
+            call_soon(_logger.warning, msg)
+            call_soon(get_circuit().abort, asyncio.CancelledError(msg))
+            old_handler = _handlers[signo]
+            if callable(old_handler):
+                old_handler(signum, frame)
+
+        signal.signal(signal.SIGTERM, handler)
+    else:
+        signal.signal(signal.SIGTERM, _handlers.pop(signo))
 
 
 async def run(*coroutines: Coroutine, catch_sigterm: bool = True) -> None:
@@ -737,17 +752,17 @@ async def run(*coroutines: Coroutine, catch_sigterm: bool = True) -> None:
     If the simulator raises, re-raise. If any of the supporting
     tasks raises, raise RuntimeError.
     """
-    if catch_sigterm:
-        # the signal handlers are chained, we will left the handler installed
-        _install_sigterm_handler()
 
     circuit = get_circuit()
     if not coroutines:
         # do not create a needless task for this trivial case
         try:
+            _sigterm_handler_ctrl(signal.SIGTERM, catch_sigterm)
             await circuit.run_forever()
         except asyncio.CancelledError:
             pass
+        finally:
+            _sigterm_handler_ctrl(signal.SIGTERM, False)
         return
 
     simtask = asyncio.create_task(circuit.run_forever(), name="edzed: simulation task")
@@ -756,9 +771,12 @@ async def run(*coroutines: Coroutine, catch_sigterm: bool = True) -> None:
         for i, coro in enumerate(coroutines, start=1)
         ] + [simtask]
     try:
+        _sigterm_handler_ctrl(signal.SIGTERM, catch_sigterm)
         await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
     except asyncio.CancelledError:
         pass
+    finally:
+        _sigterm_handler_ctrl(signal.SIGTERM, False)
     for task in tasks:
         if not task.done():
             if task is simtask:

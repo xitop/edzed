@@ -11,7 +11,6 @@ from __future__ import annotations
 import abc
 from collections.abc import (
     Callable, Coroutine, Iterator, Mapping, MutableMapping, Sequence, Set)
-from contextlib import AbstractContextManager
 from dataclasses import dataclass
 import difflib
 import logging
@@ -511,7 +510,7 @@ class SBlock(Block):
         for event in self._every_output_events:
             event.send(self, trigger='output', previous=previous, value=value)
 
-    # pylint: disable=unused-argument, no-self-use
+    # pylint: disable=unused-argument
     def _event(self, etype: str|EventType, data: Mapping[str, Any]) -> Any:
         """
         Handle an event.
@@ -557,6 +556,7 @@ class SBlock(Block):
             try:
                 if handler:
                     # handler is an unbound method, bind it with handler.__get__(self)
+                    # pylint: disable=unnecessary-dunder-call
                     retval = handler.__get__(self)(**data)  # type: ignore
                 else:
                     retval = self._event(etype, data)

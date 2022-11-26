@@ -7,6 +7,8 @@ Tests requiring asyncio and event loop.
 # pylint: disable=wildcard-import, unused-wildcard-import
 
 import asyncio
+import os
+import signal
 import sys
 import time
 
@@ -339,3 +341,34 @@ async def test_nostart_nopersistent(circuit):
     with pytest.raises(RuntimeError):
         await edzed.run()
     assert pd == {inp1.key: 33}
+
+
+async def test_sigterm(circuit):
+    """Test cancellation by SIGTERM."""
+    logger = TimeLogger('logger')
+    edzed.Input('inp', initdef='start', on_output=edzed.Event('echo'))
+    edzed.OutputFunc('echo', func=logger.put, on_error=None, stop_data={'value': 'cleanup'})
+
+    async def send_sigterm_to_self():
+        assert signal.getsignal(signal.SIGTERM) != signal.SIG_DFL   # handler installed
+        await asyncio.sleep(0.03)
+        os.kill(os.getpid(), signal.SIGTERM)
+        try:
+            await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            await asyncio.sleep(0.03)
+            logger.put('cancelled')
+            return
+        raise RuntimeError("should have been cancelled")
+
+    assert signal.getsignal(signal.SIGTERM) == signal.SIG_DFL   # initial state
+    await edzed.run(send_sigterm_to_self())
+    assert signal.getsignal(signal.SIGTERM) == signal.SIG_DFL   # handler removed
+    assert isinstance(circuit.error, asyncio.CancelledError)
+    assert str(circuit.error) == "Signal 'Terminated' caught"
+
+    logger.compare([
+        (0, 'start'),
+        (30, 'cleanup'),
+        (60, 'cancelled'),
+        ])

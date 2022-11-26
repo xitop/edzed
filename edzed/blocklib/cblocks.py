@@ -14,7 +14,7 @@ from typing import Any
 
 from .. import block
 
-__all__ = ['And', 'Or', 'Not', 'FuncBlock', 'Compare', 'Override']
+__all__ = ['And', 'Or', 'Xor', 'Not', 'FuncBlock', 'Compare', 'Override']
 
 
 class Not(block.CBlock):
@@ -68,6 +68,15 @@ class And(FuncBlock):
 class Or(FuncBlock):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, func=any, unpack=False, **kwargs)
+
+
+class Xor(FuncBlock):
+    def __init__(self, *args, **kwargs):
+        super().__init__(
+            *args,
+            func=lambda inputs: bool(sum(1 for v in inputs if v) % 2),
+            unpack=False,
+            **kwargs)
 
 
 class Compare(block.CBlock):

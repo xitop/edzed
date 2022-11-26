@@ -25,12 +25,11 @@ This section lists sequential blocks offered by the ``edzed`` library.
 
 2. all time duration values (timeouts, intervals, etc.) can be given as a number
    of seconds or as a :ref:`string with time units<Time intervals with units>`
-   The corresponding type is ``int or float or str`` with ``... or None`` added
-   if optional.
+   The corresponding type is ``int|float|str`` and if optional, it could be also ``None``.
 
 3. all *on_something* parameters expect zero, one or more :ref:`events<Events>`.
    The corresponding type is
-   ``None or edzed.Event or Iterator[edzed.Event] or Sequence[edzed.Event]``
+   ``None|edzed.Event|Iterator[edzed.Event]|Sequence[edzed.Event]``
    and we omit this long annotation for brevity.
 
 Inputs
@@ -434,7 +433,7 @@ Periodic events
   of conditions is possible (e.g. Every Monday morning 6-9 a.m., but only in April)
 
   If *utc* is ``False`` (which is the default), times are in the local timezone.
-  If *utc* is ``True`` times are in UTC.
+  If *utc* is ``True``, times are in UTC.
 
   The output is a boolean.
   When *times*, *dates* and *weekdays* are all ``None``, the output is ``False``.
@@ -567,7 +566,7 @@ and replaces them with the new values. To modify the settings, retrieve the
 current values, edit them and send an event.
 
 The block supports state persistence. The *persistent* parameter is described
-:ref:`here <Base class arguments>`. Set to ``True`` to make the internal
+:ref:`here <Sequential blocks>`. Set to ``True`` to make the internal
 state persistent. It is only useful with dynamic updates, that's why it is
 documented here.
 
@@ -644,7 +643,7 @@ and replaces them with the new values. To modify the settings, retrieve the
 current values, edit them and send an event.
 
 The block supports state persistence. The *persistent* parameter is described
-:ref:`here <Base class arguments>`. Set to ``True`` to make the internal
+:ref:`here <Sequential blocks>`. Set to ``True`` to make the internal
 state persistent.
 
 If a saved state exists, it has higher precedence than the arguments.

@@ -15,6 +15,9 @@ Docs: https://edzed.readthedocs.io/en/latest/
 Home: https://github.com/xitop/edzed/
 """
 
+__version_info__ = (22, 11, 28)
+__version__ = '.'.join(str(n) for n in __version_info__)
+
 # pylint: disable=wildcard-import,undefined-variable
 from . import exceptions, block, addons, fsm, simulator, blocklib  # mypy
 from .addons import *
@@ -30,16 +33,18 @@ from .blocklib.sblocks1 import *
 from .blocklib.sblocks2 import *
 from .blocklib.timedate import *
 
-__all__ = (
-    addons.__all__
-    + block.__all__
-    + exceptions.__all__
-    + fsm.__all__
-    + simulator.__all__
-    + blocklib.cblocks.__all__
-    + blocklib.filters.__all__
-    + blocklib.fsms.__all__
-    + blocklib.sblocks1.__all__
-    + blocklib.sblocks2.__all__
-    + blocklib.timedate.__all__
-    )
+__all__ = [
+    '__version__',
+    '__version_info__',
+    *addons.__all__,
+    *block.__all__,
+    *exceptions.__all__,
+    *fsm.__all__,
+    *simulator.__all__,
+    *blocklib.cblocks.__all__,
+    *blocklib.filters.__all__,
+    *blocklib.fsms.__all__,
+    *blocklib.sblocks1.__all__,
+    *blocklib.sblocks2.__all__,
+    *blocklib.timedate.__all__,
+    ]

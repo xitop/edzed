@@ -25,19 +25,19 @@ Common features
   Create a block and add it to the current circuit.
 
   The ``Block`` implements common features of all circuit blocks, combinational and sequential.
-  It cannot be instantiated directly (such classes are called abstract classes).
+  It cannot be instantiated directly (it is an *abstract* class).
   Concrete blocks must be derived either from the combinational
   base class :class:`CBlock` or from the sequential base class :class:`SBlock`.
 
   The mandatory argument *name* is block's unique identifier, a non-empty string.
   Names prefixed by an underscore are reserved for automatically created
-  blocks. Enter ``None`` to request a generated name.
-  Use this feature only for auxiliary blocks that you will not need
+  blocks. Enter ``None`` to request a generated name;
+  use this feature only for auxiliary blocks that you will not need
   to reference by name.
 
   The optional *comment* may be any arbitrary text and is not used internally.
 
-  The *on_output* argument specifies :ref:`events<Events>` to be sent on each
+  The optional *on_output* argument specifies :ref:`events<Events>` to be sent on each
   output change.
 
   The *debug* argument initializes the *debug* attribute.
@@ -206,16 +206,18 @@ The output of a combinational block depends only on its present input values.
 Sequential blocks
 =================
 
-Base class arguments
---------------------
+.. class:: SBlock(name, *, initdef=edzed.UNDEF, persistent=False, sync_state=True, expiration=None, init_timeout=None, stop_timeout=None, on_every_output=None, **block_kwargs)
 
-.. class:: SBlock(name, *, initdef=edzed.UNDEF, persistent=False, sync_state=True, expiration=None, init_timeout=None, stop_timeout=None, **block_kwargs)
+  The base class for all sequential blocks. A subclass of :class:`Block`.
+
+  The  optional argument *on_every_output* specifies :ref:`events<Events>` to be
+  sent on each output event. It differs slightly from the *on_output*,
+  more details in :ref:`output events<Output events>`.
 
   .. important::
-    Not all parameters are accepted by concrete sequential block types!
-
-  Refer to descriptions of individual blocks for details
-  which parameters are appropriate for the given block.
+    Only applicable arguments from the list below are accepted by concrete
+    sequential block types. Refer to descriptions of individual blocks for details
+    which arguments are supported by the given block.
 
   - Setting the initial state:
       Argument *initdef* (type: Any) specifies the initial or the default internal state.
@@ -230,7 +232,16 @@ Base class arguments
         the regular initialization fails. In this case is the argument
         optional, but highly recommended for the given block.
 
-      If accepted, the *initdef* value is saved as an attribute.
+      If accepted, the *initdef* value is saved as an attribute:
+
+      .. attribute:: initdef
+        :type: Any
+
+        Saved value of the *initdef* argument or :const:`UNDEF`,
+        if the argument was not given. Only present if the block
+        accepts this argument. This attribute allows to implement
+        a *reset* if need be.
+
 
   - Enabling persistent state:
       Persistent state means that the internal state is saved (most likely
@@ -257,7 +268,6 @@ Base class arguments
           The *expiration* value defaults to ``None`` which means
           that the saved state never expires.
 
-
   - Timeouts for asynchronous initialization and cleanup:
       Some blocks perform asynchronous operations. These
       arguments control the timeouts:
@@ -278,10 +288,6 @@ Base class arguments
 
       The timeouts should be explicitly set. A warning is logged,
       when the default is used.
-
-  - The *on_every_output* argument specifies :ref:`events<Events>` to be sent
-    on each output event. It differs from *on_output*, more details in
-    :ref:`output events<Output events>`.
 
 
 Internal state

@@ -97,7 +97,7 @@ There are two ways to handle :ref:`events <Events>`:
 
   .. note::
 
-    This way a non-FSM event can be added to an FSM block, if need be.
+    This way a non-FSM event can be added to an FSM block if need be.
     Take care not to interfere with the FSM operations.
 
   Customize the method signature to extract the expected event data.
@@ -348,9 +348,10 @@ Async add-on
       :exc:`Exception` class (it's a :exc:`BaseException` subclass) and as such
       it is not caught by the monitor.
 
-    This function acts like :func:`asyncio.create_task`, but if the task exits due to an exception,
-    the simulation will abort. ``_create_monitored_task()`` also adds the block name
-    to the exception message (``Exception.args[0]`` if it is a string)
+    This function acts like :func:`asyncio.create_task`, but if the task exits
+    due to an exception, the simulation will abort. ``_create_monitored_task()``
+    also adds the block name to the exception notes (if supported)
+    or to the exception message (``Exception.args[0]`` if it is a string)
     for better problem identification.
 
     Coroutines marked as services (*is_service*  is ``True``) are supposed
@@ -361,6 +362,9 @@ Async add-on
 
     .. versionchanged:: 22.11.2
       Added the *\*\*task_kwargs* parameters.
+
+    .. versionchanged:: 22.11.20
+      Using exception notes on Python >= 3.11
 
 
 .. method:: SBlock.init_async() -> None

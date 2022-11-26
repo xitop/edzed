@@ -26,7 +26,6 @@ Building a circuit
 ------------------
 
 .. toctree::
-  :maxdepth: 4
 
   blocks
   events
@@ -40,10 +39,10 @@ Running a simulation
 --------------------
 
 .. toctree::
-  :maxdepth: 3
 
   simulation
   errors
+  examination
 
 Creating new block types
 ========================
@@ -52,7 +51,6 @@ For developers of edzed itself or edzed extensions only. Great
 applications can be written using just the built-in blocks.
 
 .. toctree::
-  :maxdepth: 2
 
   new_cblocks
   new_sblocks

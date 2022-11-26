@@ -301,30 +301,37 @@ def test_compare(circuit):
 
 
 def test_and_or(circuit):
-    """Test unpack=False on AND/OR logical gates."""
+    """Test unpack=False on AND/OR/XOR logical gates."""
     inp0 = edzed.Input('inp0', initdef=False)
     inp1 = edzed.Input('inp1', initdef=False)
     and_gate = edzed.And('AND').connect(inp0, inp1, True)
     or_gate = edzed.Or('OR').connect(inp0, inp1, False)
+    xor_gate1 = edzed.Xor('XOR1').connect(inp0, inp1, False)
+    xor_gate2 = edzed.Xor('XOR2').connect(inp0, inp1, True)
     init(circuit)
     for v0, v1 in ((0, 0), (0, 1), (1, 0), (1, 1)):
         inp0.put(v0)
         inp1.put(v1)
-        and_gate.eval_block()
-        or_gate.eval_block()
-        assert and_gate.output == bool(v0 and v1)
-        assert or_gate.output == bool(v0 or v1)
+        for gate in and_gate, or_gate, xor_gate1, xor_gate2:
+            gate.eval_block()
+            assert isinstance(gate.output, bool)
+        assert and_gate.output is bool(v0 and v1)
+        assert or_gate.output is bool(v0 or v1)
+        assert xor_gate1.output is (v0 != v1)
+        assert xor_gate2.output is (not xor_gate1.output)
 
 
 def test_and_or_empty(circuit):
     """Test unpack=False with no inputs."""
     and_gate = edzed.And('AND')
     or_gate = edzed.Or('OR')
+    xor_gate = edzed.Xor('XOR')
     init(circuit)
-    and_gate.eval_block()
-    or_gate.eval_block()
+    for gate in and_gate, or_gate, xor_gate:
+        gate.eval_block()
     assert and_gate.output
     assert not or_gate.output
+    assert not xor_gate.output
 
 
 def test_invert(circuit):

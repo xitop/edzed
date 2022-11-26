@@ -118,8 +118,10 @@ but some applications might prefer the lower-level :meth:`Circuit.run_forever`.
   monitoring the circuit or controlling the simulator. The :ref:`CLI demo tool`
   is an example of a supporting coroutine.
 
-  Unless *catch_sigterm* is false, install a signal handler that cancels the
-  simulation upon ``SIGTERM`` delivery. This allows for a graceful exit.
+  Unless *catch_sigterm* is false, a signal handler that cancels the simulation
+  upon ``SIGTERM`` delivery will be temporarily installed during the simulation.
+  This allows for a graceful exit. Note that the :func:`run` will return normally
+  in this case.
 
   Normally return ``None`` (in contrast to :meth:`Circuit.run_forever`), but raise
   an exception if any of the tasks exits due to an exception other than
@@ -249,33 +251,6 @@ the task that runs :meth:`Circuit.run_forever`.
   wasn't stopped yet. This is a read-only attribute.
 
 
-Multiple circuits
-=================
-
-``edzed`` was deliberately designed to support only one active circuit at a time.
-
-There cannot be multiple circuit simulations in parallel,
-but it is possible to remove the current circuit and start over with
-building of a new one. We use this feature in unit tests.
-
-.. function:: reset_circuit() -> None
-
-  Clear the circuit and create a new one.
-
-  It is recommended to shut down the simulation first, because
-  ``reset_circuit`` aborts a running simulation and in such case
-  the simulation tasks should be awaited to ensure a proper cleanup
-  as explained :ref:`in the previous section <Stopping the simulation>`.
-
-  .. warning::
-
-    A process restart is preferred over the circuit reset.
-    A new process guarantees a clear state.
-
-    A reset relies on the quality of cleanup routines. It cannot
-    fully guarantee that the previous circuit has closed all files,
-    cancelled all tasks, etc.
-
 Logging
 =======
 
@@ -350,101 +325,29 @@ Example: debug all blocks except Inputs::
    circuit.set_debug(False, edzed.Input)
 
 
-Circuit examination
-===================
+Multiple circuits
+=================
 
-Finding blocks
---------------
+``edzed`` was deliberately designed to support only one active circuit at a time.
 
-.. method:: Circuit.getblocks(btype: Optional[type[Block|Addon]] = None) -> Iterator
+There cannot be multiple circuit simulations in parallel,
+but it is possible to remove the current circuit and start over with
+building of a new one. We use this feature in unit tests.
 
-  Return an iterator of all blocks or *btype* blocks only.
+.. function:: reset_circuit() -> None
 
-  Block type checking is implemented with ``isinstance``, so the result
-  includes also derived types. For example ``circuit.getblocks(edzed.SBlock)``
-  returns all sequential circuit blocks.
+  Clear the circuit and create a new one.
 
-  If the result has to be stored, you may want to convert the returned
-  iterator to a list or a set.
+  It is recommended to shut down the simulation first, because
+  ``reset_circuit`` aborts a running simulation and in such case
+  the simulation tasks should be awaited to ensure a proper cleanup
+  as explained :ref:`in the previous section <Stopping the simulation>`.
 
-.. method:: Circuit.findblock(name: str) -> Block
+  .. warning::
 
-  Get block by name. Raise a :exc:`KeyError` when not found.
+    A process restart is preferred over the circuit reset.
+    A new process guarantees a clear state.
 
-
-Inspecting blocks
------------------
-
-This section summarizes attributes and methods providing various block
-information. The application code should not modify any attributes
-liste here.
-
-.. attribute:: Block.oconnections
-  :type: set[CBlock]
-
-  Set of all blocks where the output is connected to. Undefined before
-  the circuit finalization - see :meth:`Circuit.finalize`.
-
-For other attributes common to all blocks refer to the base class :class:`Block`.
-
-Inspecting SBlocks
-^^^^^^^^^^^^^^^^^^
-
-.. method:: SBlock.get_state() -> Any
-
-  Return the :ref:`internal state<Internal state>`.
-  Undefined before a successful block initialization - see
-  :meth:`Block.is_initialized` below and :meth:`Circuit.wait_init`
-
-  The format and semantics of returned data depends on the block type.
-
-.. method:: Block.is_initialized() -> bool
-
-  Return ``True`` only if the block has been initialized.
-
-  This method simply checks if the output is not :const:`UNDEF`
-  relying on the fact that sequential block's output is determined
-  by its internal state.
-
-  .. note::
-
-    This method is defined for all blocks, but the test
-    is helpful for sequential blocks only.
-
-.. attribute:: SBlock.initdef
-  :type: Any
-
-  Saved value of the *initdef* argument or :const:`UNDEF`,
-  if the argument was not given. Only present if the block
-  accepts this argument - see: :ref:`Base class arguments`.
-
-
-Inspecting CBlocks
-^^^^^^^^^^^^^^^^^^
-
-.. attribute:: CBlock.iconnections
-  :type: set[Block]
-
-  A set of all blocks connected to inputs. Undefined before the circuit
-  finalization - see :meth:`Circuit.finalize`.
-
-.. attribute:: CBlock.inputs
-  :type: dict[str, Block|Const|tuple[Block|Const, ...]]
-
-  Block's input connections as a dict, where keys
-  are input names and values are:
-
-  - either a single :class:`Block` or a :class:`Const`,
-  - or tuples of blocks or Consts for input groups.
-
-  The structure directly corresponds
-  to parameters given to :meth:`CBlock.connect`.
-
-  The same data, but with block names instead of block objects,
-  can be obtained with :meth:`Block.get_conf`; extract
-  the ``'inputs'`` value from the result.
-
-  The contents is undefined before the circuit finalization - see
-  :meth:`Circuit.finalize`.
-
-.. seealso:: :ref:`Input signatures`
+    A reset relies on the quality of cleanup routines. It cannot
+    fully guarantee that the previous circuit has closed all files,
+    cancelled all tasks, etc.

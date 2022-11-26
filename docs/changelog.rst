@@ -6,11 +6,21 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+22.11.28
+========
+
+- Add :class:`Xor` block.
+- Add :ref:`version information<Version information>`.
+- When :func:`run` is called with `catch_sigterm=True`,
+  uninstall the ``SIGTERM`` handler before returning.
+- Update the build system configuration. Use ``pyproject.toml``
+  for storing package metadata.
+
 22.11.20
 ========
 - Make use of exception notes introduced in Python 3.11.
   If an additional information about an error is available,
-  if is added as an exception note if notes are supported,
+  it is added as an exception note if notes are supported,
   otherwise it is prepended to the error message.
 - Add tests requirements to ``setup.py``.
 
@@ -70,4 +80,4 @@ Only recent changes are listed in this document.
 See the git repository for the full history.
 
 - first stable release was 21.5.15
-- first public release is dated Febrary 2020
+- first public release is dated February 2020

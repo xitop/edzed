@@ -395,6 +395,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
         cls_cb = self._ct_methods[cb_type]
         try:
             # bind the method
+            # pylint: disable=unnecessary-dunder-call
             cb = cls_cb[name].__get__(self)     # type: ignore
         except KeyError:
             pass
@@ -502,7 +503,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
         return contextvars.copy_context().run(self._event_ctx, etype, data)
 
 
-    def calc_output(self) -> Any:   # pylint: disable=no-self-use
+    def calc_output(self) -> Any:
         """
         Compute and return the output value.
 

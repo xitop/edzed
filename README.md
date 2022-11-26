@@ -1,6 +1,6 @@
 # edzed
 
-A library for building small automated systems, i.e. systems that
+An asyncio based library for building small automated systems, i.e. systems that
 control outputs according to input values, system’s internal state, date and time.
 
 What is in the package:
