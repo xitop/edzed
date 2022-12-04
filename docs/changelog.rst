@@ -6,6 +6,13 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+
+22.12.4
+=======
+
+- Implement a *t_period* argument in the :class:`Timer` block.
+- Fix a bogus event handler being added to :class:`FSM` instances.
+
 22.11.28
 ========
 

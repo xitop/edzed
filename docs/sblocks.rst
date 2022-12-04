@@ -792,12 +792,18 @@ Timer
     time and ignore the event. The same holds for the ``'stop'``
     event in the ``'off'`` state.
 
-  The ``Timer`` accepts all standard :ref:`FSM parameters`:
+  The ``Timer`` accepts all standard :ref:`FSM parameters`
+  and a *t_period* added for convenience:
 
   :param t_on:
     ``'on'`` state timer duration
   :param t_off:
     ``'off'`` state timer duration
+  :param t_period:
+    ``t_period=T`` is a shortcut for setting ``t_on = t_off = T/2``,
+    i.e. to create a clock signal generator with the period ``T``
+    (plus some small overhead) and a duty cycle of 50%.
+    Arguments *t_period* and *t_on*, *t_off* are mutually exclusive.
   :param initdef:
     Set the initial state. Default is ``'off'``.
     Use ``initdef='on'`` to start in the ``'on'`` state.
@@ -813,8 +819,11 @@ Timer
   - ``'toggle'``
       Go from ``'on'`` to ``'off'`` or vice versa.
 
-  A conditional event :class:`EventCond`\ ``('start', 'stop')``
-  is often used for ``Timer`` control.
+  .. hint::
+    A conditional event :class:`EventCond`\ ``('start', 'stop')``
+    is often used for ``Timer`` control.
+
+  .. versionadded:: 22.12.4 *t_period*
 
 
 Simulator control block

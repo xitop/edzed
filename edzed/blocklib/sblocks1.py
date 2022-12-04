@@ -117,16 +117,16 @@ class Repeat(addons.AddonMainTask, block.SBlock):
     async def _maintask(self) -> NoReturn:
         repeating = False
         while True:
-            if repeating:
+            if not repeating:
+                # avoid wait_for() overhead when not repeating an event
+                data = await self._queue.get()
+                repeat = 0
+            else:
                 try:
                     data = await asyncio.wait_for(self._queue.get(), self._interval)
                     repeat = 0
                 except asyncio.TimeoutError:
                     repeat += 1
-            else:
-                # avoid wait_for() overhead when not repeating an event
-                data = await self._queue.get()
-                repeat = 0
 
             if repeat > 0:  # skip the original event
                 self.set_output(repeat)

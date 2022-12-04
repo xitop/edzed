@@ -45,18 +45,26 @@ def test_static(circuit):
 @pytest.mark.asyncio
 async def test_clock(circuit):
     """Test a trivial clock signal generator."""
-    logger = TimeLogger('logger')
-    clock = edzed.Timer('timer', t_on=0.05, t_off=0.1, on_output=edzed.Event(logger))
+    logger1 = TimeLogger('logger1')
+    logger2 = TimeLogger('logger2')
+    clock1 = edzed.Timer('timer1', t_on=0.05, t_off=0.1, on_output=edzed.Event(logger1))
+    clock2 = edzed.Timer('timer2', t_period=0.25, on_output=edzed.Event(logger2))
 
     await edzed.run(asyncio.sleep(0.8))
-    LOG = [
-        (0, False), (100, True),
+    LOG1 = [
+        (0,   False), (100, True),
         (150, False), (250, True),
         (300, False), (400, True),
         (450, False), (550, True),
         (600, False), (700, True),
         (750, False)]
-    logger.compare(LOG)
+    LOG2 = [
+        (0,   False), (125, True),
+        (250, False), (375, True),
+        (500, False), (625, True),
+        (750, False)]
+    logger1.compare(LOG1)
+    logger2.compare(LOG2)
 
 
 @pytest.mark.asyncio
@@ -147,3 +155,17 @@ async def test_no_busy_loop(circuit):
 
     with pytest.raises(edzed.EdzedCircuitError, match="infinite loop?"):
         await edzed.run()
+
+
+def test_args(circuit):
+    with pytest.raises(TypeError):
+        edzed.Timer(None, t_on=1, t_period=1)
+    with pytest.raises(TypeError):
+        edzed.Timer(None, t_off=1, t_period=1)
+
+
+def test_period(circuit):
+    a = edzed.Timer('timer a', t_on=1, t_off=1)
+    b = edzed.Timer('timer b', t_period='2s')
+
+    assert a._duration == b._duration == {'on': 1.0, 'off': 1.0}

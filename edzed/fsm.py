@@ -403,7 +403,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
             retvals.append(cb())
         return retvals
 
-    def _event_ctx(self, etype: str|block.EventType, data: Mapping) -> bool:
+    def _ctx_event(self, etype: str|block.EventType, data: Mapping) -> bool:
         """
         Handle event. Check validity and conditions.
 
@@ -499,8 +499,8 @@ class FSM(addons.AddonPersistence, block.SBlock):
 
 
     def _event(self, etype: str|block.EventType, data: Mapping) -> bool:
-        """Wrapper creating a separate context, see _event_ctx for docs."""
-        return contextvars.copy_context().run(self._event_ctx, etype, data)
+        """Wrapper creating a separate context, see _ctx_event for docs."""
+        return contextvars.copy_context().run(self._ctx_event, etype, data)
 
 
     def calc_output(self) -> Any:

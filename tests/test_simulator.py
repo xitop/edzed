@@ -372,3 +372,26 @@ async def test_sigterm(circuit):
         (30, 'cleanup'),
         (60, 'cancelled'),
         ])
+
+
+async def test_supporting_task_error(circuit):
+    """Test exit on supporting task failure."""
+    async def faulty(n):
+        try:
+            await asyncio.sleep(n/1000)
+        except asyncio.CancelledError:
+            logger.put(f'cancel-{n}')
+            return
+        logger.put(f'crash-{n}')
+        raise RuntimeError("crash")
+
+    logger = TimeLogger('logger', mstop=True)
+    with pytest.raises(RuntimeError, match="Supporting coroutine"):
+        await asyncio.wait_for(
+            asyncio.create_task(edzed.run(faulty(80), faulty(200))),
+            timeout=1.0)
+    logger.compare([
+        (80, 'crash-80'),
+        (80, 'cancel-200'),
+        (80, '--stop--'),
+        ])

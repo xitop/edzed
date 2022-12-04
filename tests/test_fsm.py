@@ -389,3 +389,15 @@ def test_context(circuit):
     init(circuit)
     afsm.event('ev01', sent_to='A')     # A -> B -> C
     assert cfsm.state == 'st1'
+
+
+def test_bogus_ctx_event(circuit):
+    """No bogus 'ctx' event in FSM control tables (fixed in 22.12.4)"""
+    class EvHandler(edzed.FSM):
+        STATES = ['fixed']
+
+        def _event_abc(self, **_data):
+            pass
+
+    eh = EvHandler('ctx')
+    assert eh._ct_handlers.keys() == {'abc'}

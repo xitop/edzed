@@ -401,6 +401,7 @@ class Circuit:
                 if err is not None:
                     errcnt += 1
                     blk.log_error("%s error: %s", jobname, err, exc_info=err)
+                    err = None  # break a reference cycle
         if errcnt:
             _logger.error("%d block %s error(s) suppressed", errcnt, jobname)
 

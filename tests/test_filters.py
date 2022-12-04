@@ -303,40 +303,6 @@ def test_delta(circuit):
     assert dest.output == 12
 
 
-def test_event_handlers(circuit):
-    """Test event_ETYPE."""
-    class B0:
-        # not defined in a SBlock or Addon subclass -> ignored
-        def _event_X(self, **data):
-            return
-
-    class B1(edzed.SBlock):
-        def _event_add(self, value=0, **data):
-            self.set_output(self.output + value)
-
-        def _event_sub(self, value=0, **data):
-            self.set_output(self.output - value)
-
-        def init_regular(self):
-            self.set_output(0)
-
-    class B2(B0, B1):
-        def _event_sub(self, value=0, **data):
-            # redefining sub
-            self.set_output(self.output - 2*value)
-
-    addsub = B2('addsub')
-    init(circuit)
-
-    assert addsub.output == 0
-    addsub.event('add', value=10)
-    assert addsub.output == 10
-    addsub.event('sub', value=1)
-    assert addsub.output == 8       # 2*value
-    with pytest.raises(edzed.EdzedUnknownEvent):
-        addsub.event('X')
-
-
 def test_ifoutput(circuit):
     """Test the IfOutput."""
 

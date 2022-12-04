@@ -574,6 +574,7 @@ class SBlock(Block):
                         f"'{etype}', data: {data}: {err}")
                     sim_err.__cause__ = err
                     self.circuit.abort(sim_err)
+                    sim_err = None  # break a reference cycle
                 raise
             return retval
         finally:

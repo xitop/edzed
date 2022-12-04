@@ -6,7 +6,6 @@ keywords = ['automation', 'finite-state machine']
 authors = [
 	{name = 'Vlado Potisk', email = 'edzed@poti.sk'}
 	]
-license = {file = 'LICENSE.txt'}	# MIT license
 readme = {file = 'README.md', content-type = 'text/markdown'}
 requires-python = '>=3.8'
 dependencies = []
