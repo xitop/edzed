@@ -128,8 +128,6 @@ but some applications might prefer the lower-level :meth:`Circuit.run_forever`.
   the :exc:`asyncio.CancelledError`. In detail, if the simulation task raises,
   re-raise the exception. If any of the supporting tasks raises, raise :exc:`RuntimeError`.
 
-  .. versionadded:: 21.12.8
-
 
 .. method:: Circuit.run_forever() -> NoReturn
   :async:

@@ -15,6 +15,8 @@ The development:
 
 - We may make backward incompatible changes, but we will provide a transitory period
   of at least three months if possible.
+- The documentation will contain notes about added or changed features for a period
+  of at least twelve months.
 - We will reject requests to add new blocks except for really useful general purpose blocks
   with functionality not easily obtainable with existing blocks.
   If you have created a special purpose block or block collection, please
@@ -29,6 +31,6 @@ The code:
 
 Known problems:
 
-- There are probably bugs.
+- As always, there are probably bugs.
 - The unit tests that checks proper timing may fail on heavily loaded systems.
   Please repeat failed tests.

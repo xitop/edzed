@@ -124,14 +124,14 @@ and ``False`` for rejected FSM events.
   default initial state.
 
 .. attribute:: FSM.EVENTS
-  :type: Iterable[Sequence]
+  :type: Sequence[Sequence]
 
   Class attribute.
 
   The transition table as a sequence of transition rules. Each rule in
   the sequence has three items::
 
-    [event: str, states: str|Sequence[str]|None, next_state: str|None]
+    (event: str, states: str|Sequence[str]|None, next_state: str|None)
 
   *states* (item 2) define in which states will the *event* (item 1)
   trigger a transition to the *next_state* (item 3).
@@ -145,11 +145,14 @@ and ``False`` for rejected FSM events.
 
   - *states* must be one of:
 
-    - a single state (string)
-    - a sequence of multiple states (strings)
+    - a string containing one or more states. Multiple states must be separated
+      by ``'|'`` (vertical bar); whitespace may be added for readability.
+    - a sequence of states (strings)
     - ``None`` as a special value for any state.
       An entry with ``None`` has lower precedence than
       an entry with explicitly listed states.
+
+    .. versionadded:: 23.2.14  Added the "union" syntax: ``'state1 | state2 | ...'``
 
   - *next_state* must be:
 
@@ -158,19 +161,23 @@ and ``False`` for rejected FSM events.
 
   Examples of ``EVENTS`` entries::
 
-    #1
-    ('push', 'unlocked', 'locked'),
-
-    #2 - same as #1
-    ('push', ['unlocked'], 'locked'),
-
-    #3
+    #1A
     ('start', ['on', 'off'], 'on'),
 
-    #4 - same as #3 if there exist only the 'on' and 'off state
+    #1B - same as 1A, alternative notation
+    ('start', 'on | off', 'on'),
+
+    #2 - same as above if there exist only the 'on' and 'off states
     ('start', None, 'on'),
 
-    #5
+    #3A
+    ('push', ['unlocked'], 'locked'),
+
+    #3B - same as 3A, alternative notation
+    ('push', 'unlocked', 'locked'),
+
+
+    #4
     ["ev1", None, "state2"],        # default rule for "ev1" and all states except
                                     # more specific rules for state2 and state3 below
     ["ev1", ["state2"], "state3"],  # rule for state2 -> state3
@@ -456,6 +463,7 @@ Example (Timer)
           )
 
       def __init__(self, *args, restartable=True, **kwargs):
+          # for brevity 't_period' handling is not shown
           super().__init__(*args, **kwargs)
           self._restartable = bool(restartable)
 

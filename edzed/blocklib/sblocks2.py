@@ -9,8 +9,7 @@ Home: https://github.com/xitop/edzed/
 from __future__ import annotations
 
 import asyncio
-from collections.abc import (
-    Callable, Collection, Coroutine, Iterator, Mapping, MutableSet, Sequence)
+from collections.abc import Callable, Collection, Coroutine, Mapping, MutableSet, Sequence
 import concurrent.futures
 import itertools
 import functools
@@ -168,10 +167,9 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
             f_args: Sequence[str] = ('value',),
             f_kwargs: Sequence[str] = (),
             guard_time: Optional[int|float|str] = None,
-            on_success:
-                Optional[block.Event|Iterator[block.Event]|Sequence[block.Event]] = None,
-            on_cancel: Optional[block.Event|Iterator[block.Event]|Sequence[block.Event]] = None,
-            on_error: None|block.Event|Iterator[block.Event]|Sequence[block.Event],
+            on_success: None|block.Event|Sequence[block.Event] = None,
+            on_cancel: None|block.Event|Sequence[block.Event] = None,
+            on_error: None|block.Event|Sequence[block.Event],
             stop_data: Optional[Mapping[str, Any]] = None,
             **kwargs):
         _check_arg('f_args', f_args)
@@ -380,9 +378,8 @@ class OutputFunc(block.SBlock):
             func: Callable,
             f_args: Sequence[str] = ('value',),
             f_kwargs: Sequence[str] = (),
-            on_success:
-                Optional[block.Event|Iterator[block.Event]|Sequence[block.Event]] = None,
-            on_error: None|block.Event|Iterator[block.Event]|Sequence[block.Event],
+            on_success: None|block.Event|Sequence[block.Event] = None,
+            on_error: None|block.Event|Sequence[block.Event],
             stop_data: Optional[Mapping[str, Any]] = None,
             **kwargs):
         _check_arg('f_args', f_args)

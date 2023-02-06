@@ -153,26 +153,30 @@ def test_is_multiple_and_to_tuple():
     """Check _is_multiple() and _to_tuple() helpers."""
     is_multiple = edzed.block._is_multiple
     to_tuple = edzed.block._to_tuple
+    accept_all = lambda x: None     # permissive validator
 
     # None is special case
     assert not is_multiple(None)
-    assert to_tuple(None, lambda x: None) == ()
+    assert to_tuple(None, accept_all) == ()
 
     SINGLE_VALUES = ('name', 10, {'a', 'b', 'c'}, set(), True, edzed.Const(-1))
     for arg in SINGLE_VALUES:
         assert not is_multiple(arg)
-        assert to_tuple(arg, lambda x: None) == (arg,)
+        assert to_tuple(arg, accept_all) == (arg,)
 
     MULTI_VALUES = ((1, 2, 3), [0], (), [])
     for arg in MULTI_VALUES:
         assert is_multiple(arg)
-        assert to_tuple(arg, lambda x: None) == tuple(arg)
+        assert to_tuple(arg, accept_all) == tuple(arg)
 
     # iterators are multiple values and are not consumed by is_multiple
+    # iterators are discouraged
     iterator = (x for x in range(4))   # a generator is always an iterator
     assert is_multiple(iterator)
-    # test that the iterator is not exausted yet
-    assert to_tuple(iterator, lambda x: None) == (0, 1, 2, 3)
+    # test that the iterator is not exausted by _is_multiple()
+    # iterators are discouraged
+    assert to_tuple(iterator, accept_all) == (0, 1, 2, 3)
+    assert to_tuple(iterator, accept_all) == ()
 
     # check that validators are being called
     to_tuple(1, lambda x: 1/x)

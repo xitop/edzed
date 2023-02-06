@@ -177,7 +177,8 @@ class AddonAsync(block.Addon):
 
     def _create_monitored_task(
             self,
-            coro: Coroutine, is_service: bool = False, **task_kwargs) -> asyncio.Task:
+            coro: Coroutine,
+            is_service: bool = False, **task_kwargs) -> asyncio.Task:
         return asyncio.create_task(self._task_monitor(coro, is_service), **task_kwargs)
 
 
@@ -187,7 +188,7 @@ class AddonMainTask(AddonAsync, metaclass=abc.ABCMeta):
     """
 
     def __init__(self, *args, **kwargs):
-        self._mtask = None
+        self._mtask: Optional[asyncio.Task] = None
         super().__init__(*args, **kwargs)
 
     @abc.abstractmethod

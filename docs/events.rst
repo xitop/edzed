@@ -24,9 +24,14 @@ situations have names starting with an ``"on_"`` prefix and they accept:
 - ``None`` meaning no events (an empty list or tuple has the same effect), or
 -  a single :class:`Event` object, or
 -  multiple (zero or more) :class:`Event` objects given as a sequence (tuple, list, ...)
-   or as an iterator of single events.
+   of single events.
 
-Hence, the type annotation is: ``None | Event | Sequence[Event] | Iterator[Event]``.
+Hence, the type annotation is: ``None | Event | Sequence[Event]``.
+
+.. versionchanged:: 23.2.14
+
+  Using an iterator to specify multiple events is deprecated.
+  Use a tuple or a list instead.
 
 The :class:`Event` instance sets the destination and the event type. New data
 is added each time the event is sent.

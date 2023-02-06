@@ -7,6 +7,14 @@ Changelog
 Version numbers are based on the release date (Y.M.D).
 
 
+23.2.14
+=======
+
+- Add new syntax in :attr:`FSM.EVENTS`.
+- Deprecate the use of iterators to specify multiple events,
+  multiple event filters or a group of inputs.
+- Small code improvements.
+
 22.12.4
 =======
 

@@ -13,6 +13,34 @@ import edzed
 from .utils import *
 
 
+def test_events_syntax(circuit):
+    """Test alternative syntaxes, different ordering, whitespace."""
+    class M1(edzed.FSM):
+        STATES = ('SA', 'SB', 'SC', 'SD')
+        EVENTS = [
+            ('ev1', ['SC', 'SD', 'SB'], 'SB'),
+            ('ev2', 'SB | SA', 'SC'),
+            ('ev3', 'SD', 'SD'),
+        ]
+
+    class M2(edzed.FSM):
+        STATES = ('SA', 'SD', 'SB', 'SC')   # SA must remain first
+        EVENTS = [
+            ('ev3', ('SD'), 'SD'),
+            ('ev1', 'SB|SD|  SC  ', 'SB'),
+            ('ev2', ['SA', 'SB'], 'SC'),
+        ]
+
+    m1 = M1(None)
+    m2 = M2(None)
+
+    assert len(m1._ct_states) == 4
+    assert m1._ct_states == m2._ct_states
+    assert len(m1._ct_transition) == 6  # 3 (ev1) + 2 (ev2) + 1 (ev3)
+    assert m1._ct_transition == m2._ct_transition
+    assert m1._ct_default_state == m2._ct_default_state == 'SA'
+
+
 def test_basic_state_transition(circuit):
     """Test the basic FSM function."""
     class B123(edzed.FSM):

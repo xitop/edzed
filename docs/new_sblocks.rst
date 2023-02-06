@@ -186,12 +186,17 @@ has fired is to add an *on_TRIGGER* keyword argument::
             for event in self._bang_events:
                 event.send(self, trigger='bang')  # add event data as needed
 
-.. function:: event_tuple(arg: Optional[Event|Iterator[Event]|Sequence[Event]]) -> tuple[Event, ...]
+.. function:: event_tuple(arg: None|Event|Sequence[Event]) -> tuple[Event, ...]
 
   A helper supporting multiple ways to specify event(s).
 
-  Convert ``None``, a single :class:`Event` object or a sequence/iterator of :class:`Event`
+  Convert ``None``, a single :class:`Event` object or a sequence of :class:`Event`
   objects to a tuple with zero, one or more events.
+
+  .. versionchanged:: 23.2.14
+
+    Using an iterator to specify multiple events is deprecated.
+    Use a tuple or a list instead.
 
 .. method:: Event.send(source: Block, /, **data) -> bool
 

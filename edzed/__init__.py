@@ -7,7 +7,7 @@ The edzed package contains:
  - a simple event-driven zero-delay digital circuit simulator
 
 - - - - - -
-Copyright (c) 2019-2022 Vlado Potisk <edzed@poti.sk>.
+Copyright (c) 2019-2023 Vlado Potisk <edzed@poti.sk>.
 
 Released under the MIT License.
 
@@ -15,7 +15,7 @@ Docs: https://edzed.readthedocs.io/en/latest/
 Home: https://github.com/xitop/edzed/
 """
 
-__version_info__ = (22, 12, 4)
+__version_info__ = (23, 2, 14)
 __version__ = '.'.join(str(n) for n in __version_info__)
 
 # pylint: disable=wildcard-import,undefined-variable

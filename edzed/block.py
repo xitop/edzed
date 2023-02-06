@@ -11,9 +11,10 @@ from __future__ import annotations
 import abc
 from collections.abc import (
     Callable, Coroutine, Iterator, Mapping, MutableMapping, Sequence, Set)
-from dataclasses import dataclass
+import dataclasses as dc
 import difflib
 import logging
+import sys
 from typing import Any, cast, Optional
 import weakref
 
@@ -25,13 +26,8 @@ __all__ = [
     'Event', 'EventType', 'EventCond', 'event_tuple', 'checkname',
     ]
 
-try:
-    # Python >= 3.9
-    EFilter = Callable[[MutableMapping], Any]
-except TypeError:
-    # Python <= 3.8
-    from typing import Callable     # pylint: disable=reimported, ungrouped-imports
-    EFilter = Callable[[MutableMapping], Any]
+P3_9 = sys.version_info >= (3, 9)
+P3_10 = sys.version_info >= (3, 10)
 
 _logger = logging.getLogger(__package__)
 
@@ -43,6 +39,7 @@ class _UndefType:
     UNDEF is a singleton.
     """
 
+    __slots__ = ()
     _instance = None
 
     def __new__(cls):
@@ -72,6 +69,8 @@ class Const:
         name -- automatically created from the value
         output -- constant value
     """
+
+    __slots__ = ('_output', '__weakref__')
     _instances: MutableMapping[Any, Const] = weakref.WeakValueDictionary()
 
     def __new__(cls, const: Any):
@@ -118,7 +117,8 @@ def _is_multiple(arg: Any) -> bool:
     matter and can be any value including zero or one.
 
     Iterators are also considered to be multiple items with defined
-    order. Remember that they can be iterated over only once.
+    order, but their use is dicouraged, because they can be iterated
+    over only once.
 
     The str type arg is considered as a single name and not as a string
     of multiple characters; the return value is False.
@@ -127,7 +127,12 @@ def _is_multiple(arg: Any) -> bool:
     this function; the return value is False.
 
     """
-    return not isinstance(arg, str) and isinstance(arg, (Sequence, Iterator))
+    if isinstance(arg, Iterator):
+        _logger.warning(
+            "Specifying multiple items (events, event filters, or inputs) with an iterator "
+            "is deprecated. Use a tuple or a list instead.")
+        return True
+    return not isinstance(arg, str) and isinstance(arg, Sequence)
 
 
 class Block:
@@ -140,7 +145,7 @@ class Block:
             name: Optional[str],
             *,
             comment: str = "",
-            on_output: Optional[Event|Iterator[Event]|Sequence[Event]] = None,
+            on_output: None|Event|Sequence[Event] = None,
             _reserved: bool = False,
             debug: bool = False,
             **x_kwargs):
@@ -221,7 +226,7 @@ class Block:
         if any(
                 # pylint: disable=comparison-with-callable
                 # must convert the class method to a bound method for comparison
-                attr == dm.__get__(self, type(self))    # type: ignore
+                attr == dm.__get__(self, type(self))
                 for dm in (SBlock.dummy_method, SBlock.dummy_async_method)):
             return False
         return callable(attr)
@@ -271,6 +276,8 @@ class CBlock(Block, metaclass=abc.ABCMeta):
         An input value can be retrieved using the name as a key
         or as an attribute.
         """
+
+        __slots__ = ['_blk']
 
         def __init__(self, blk: CBlock):
             self._blk = blk
@@ -482,7 +489,7 @@ class SBlock(Block):
 
     def __init__(
             self, *args,
-            on_every_output: Optional[Event|Iterator[Event]|Sequence[Event]] = None,
+            on_every_output: None|Event|Sequence[Event] = None,
             **kwargs):
         if self.has_method('init_from_value'):
             self.initdef = kwargs.pop('initdef', UNDEF)
@@ -548,21 +555,25 @@ class SBlock(Block):
         self._event_active = True
         try:
             while isinstance(etype, EventCond):
-                etype = etype.etrue if data.get('value') else etype.efalse
+                cond_etype = etype.etrue if data.get('value') else etype.efalse
                 self.log_debug("conditional event -> %r", etype)
-                if etype is None:
+                if cond_etype is None:
                     return None
-            handler = type(self)._ct_handlers.get(etype)    # pylint: disable=protected-access
+                etype = cond_etype
+            if isinstance(etype, str):
+                handler = type(self)._ct_handlers.get(etype) # pylint: disable=protected-access
+            else:
+                handler = None
             try:
                 if handler:
-                    # handler is an unbound method, bind it with handler.__get__(self)
-                    # pylint: disable=unnecessary-dunder-call
-                    retval = handler.__get__(self)(**data)  # type: ignore
+                    # handler is an unbound method
+                    retval = handler(self, **data)
                 else:
                     retval = self._event(etype, data)
             except EdzedUnknownEvent:
                 raise
             except Exception as err:
+                assert err.__traceback__ is not None        # mypy
                 if err.__traceback__.tb_next is not None:
                     # The traceback has more than just one level, i.e. the handler function
                     # call itself succeded. Errors like missing arguments are thus ruled out
@@ -574,7 +585,8 @@ class SBlock(Block):
                         f"'{etype}', data: {data}: {err}")
                     sim_err.__cause__ = err
                     self.circuit.abort(sim_err)
-                    sim_err = None  # break a reference cycle
+                    # break a reference cycle
+                    sim_err = None      # type: ignore[assignment]
                 raise
             return retval
         finally:
@@ -592,9 +604,12 @@ class SBlock(Block):
                 self.event(...) # without _enable_event this would
                                 # raise "Forbidden recursive event()"
         """
+
+        __slots__ = ['_block', '_event_saved']
+
         def __init__(self, block: SBlock):
             self._block = block
-            self._event_saved = None
+            self._event_saved: bool
 
         # pylint: disable=protected-access
         def __enter__(self):
@@ -628,7 +643,7 @@ class SBlock(Block):
     # init_async and stop_async accept no args, init_from_value expects 1 arg
     init_async: Callable[..., Coroutine[Any, Any, None]] = Block.dummy_async_method
     stop_async: Callable[..., Coroutine[Any, Any, None]] = Block.dummy_async_method
-    init_from_value: Callable[..., None] = Block.dummy_method
+    init_from_value: Callable = Block.dummy_method
 
     def get_conf(self) -> dict[str, Any]:
         conf = super().get_conf()
@@ -650,21 +665,27 @@ class EventType:
     """
 
 
-@dataclass(frozen=True)
+dc_slots = {'slots': True} if P3_10 else {}
+@dc.dataclass(frozen=True, **dc_slots)
 class EventCond(EventType):
     """
     A conditional event type.
 
     Roughly equivalent to:
         etype = etrue if value else efalse
-    where the value is taken from the event data item ['value'].
+    where the value is taken from the event data item 'value'.
     Missing value is evaluated as False, i.e. 'efalse' is selected.
 
-    None value means no event.
+    None as etrue or efalse means no event in the respective case.
     """
-    __slots__ = ['etrue', 'efalse']
+
     etrue: Optional[str|EventType]
     efalse: Optional[str|EventType]
+
+
+if not P3_9:
+    from typing import Callable     # pylint: disable=reimported, ungrouped-imports
+EFilter = Callable[[MutableMapping], Any]
 
 
 class Event:
@@ -677,7 +698,7 @@ class Event:
             dest: str|SBlock,
             etype: str|EventType = 'put',
             *,
-            efilter: Optional[EFilter|Iterator[EFilter]|Sequence[EFilter]] = None,
+            efilter: None|EFilter|Sequence[EFilter] = None,
             repeat: Optional[int|float|str] = None,
             count: Optional[int] = None):
         if repeat is not None:
@@ -761,7 +782,7 @@ def _to_tuple(args: Any, validator: Callable[[Any], Any]) -> tuple:
     return args
 
 
-def event_tuple(events: Optional[Event|Iterator[Event]|Sequence[Event]]) -> tuple[Event, ...]:
+def event_tuple(events: None|Event|Sequence[Event])-> tuple[Event, ...]:
     """
     Transform the argument to a tuple of events.
 
@@ -775,7 +796,7 @@ def event_tuple(events: Optional[Event|Iterator[Event]|Sequence[Event]]) -> tupl
 
 
 def efilter_tuple(
-        efilters: Optional[EFilter|Iterator[EFilter]|Sequence[EFilter]]) -> tuple[EFilter, ...]:
+        efilters: None|EFilter|Sequence[EFilter]) -> tuple[EFilter, ...]:
     """
     Transform the argument to a tuple of event filters.
 

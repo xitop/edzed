@@ -4,6 +4,9 @@
 Circuit blocks
 ==============
 
+Two types of blocks
+===================
+
 There are two types of building blocks.
 Each block is either **combinational** or **sequential**.
 The main differences are:
@@ -13,7 +16,7 @@ The main differences are:
 
   "has **inputs**", "does not have inputs"
   "does not have an internal state", "has an **internal state** (memory, time) and thus requires initialization"
-  "does not accept events", "accepts **events**"
+  "does not accept events", "reacts to **events**"
   "can generate events only on output change", "can generate events also on internal state changes"
 
 
@@ -171,8 +174,7 @@ The output of a combinational block depends only on its present input values.
 
     To connect a group::
 
-      name=<multiple_inputs>  # any sequence (tuple, list, ...)
-                              # or an iterator of single inputs
+      name=<multiple_inputs>  # a sequence (tuple, list, ...) of single inputs
 
     A single input could be connected:
 

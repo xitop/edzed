@@ -36,7 +36,7 @@ from . import simulator
 from . import block
 
 
-__all__ = ['cli_repl', 'run_demo']
+__all__ = ['cli_repl']
 
 LIMIT = 4096    # StreamReader buffer limit
 HISTSIZE = 20   # history list size
@@ -273,6 +273,8 @@ async def cli_repl(setup_logging: bool = True) -> None:
         # using the _threadsafe variant because we need also to wake up the event loop
         call_soon = asyncio.get_running_loop().call_soon_threadsafe
         call_soon(print, " -- Interrupt signal received, exiting the edzed demo")
+        assert task is not None     # tell mypy that inside an async function currently
+                                    # being executed there must exist a current task
         call_soon(task.cancel)
         # NOT calling the Python's default interrupt handler
     saved_sigint_handler = signal.signal(signal.SIGINT, sigint_handler)

@@ -15,7 +15,7 @@ import logging
 import operator
 import signal
 import time
-from typing import Any, NoReturn, Optional
+from typing import Any, NoReturn, Optional, overload
 
 from . import addons
 from . import block
@@ -69,6 +69,8 @@ class _BlockResolver:
     The simulator initialization routine calls resolve() to replace
     block names by real block objects in all registered objects.
     """
+
+    __slots__ = ('_unresolved', '_resolve_function')
 
     def __init__(self, resolve_function: Callable[[str], block.Block]):
         self._unresolved: list[tuple[Any, str, type[block.Block]]] = []
@@ -298,7 +300,13 @@ class Circuit:
             _logger.info("Removing unused persistent state for '%s'", key)
             del self.persistent_dict[key]
 
-    def _validate_blk(self, blk: Any) -> block.Block|block.Const:
+    @overload   # type: ignore[misc] # the signature overlap may be safely ignored
+    def _validate_blk(self, blk: str|block.Block) -> block.Block:
+        pass
+    @overload
+    def _validate_blk(self, blk: Any) -> block.Const:
+        pass
+    def _validate_blk(self, blk):
         """
         Process a block specification. Return a valid block object.
 

@@ -179,8 +179,6 @@ To use this tool, import ``edzed.demo`` and run the simulation with :func:`cli_r
   ``logging.basicConfig(level=logging.DEBUG)``
   to display messages of all levels including ``DEBUG``.
 
-  .. versionadded:: 21.12.8
-
 ----
 
 Let's test :ref:`this turnstile <FSM Example>`. It allows one person

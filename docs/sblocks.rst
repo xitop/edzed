@@ -393,8 +393,6 @@ Initialization helper
 
   .. seealso:: :class:`NotIfInitialized` event filter
 
-  .. versionadded:: 21.10.27
-
 
 Time and date
 =============

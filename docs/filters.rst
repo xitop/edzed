@@ -49,7 +49,7 @@ List of :ref:`event filters<Event filters>` bundled with ``edzed``.
   If the absolute difference is smaller than *delta*, it filters out the event.
 
 
-.. class:: IfOutput(control_block: [str, Block])
+.. class:: IfOutput(control_block: str | Block)
 
   Enable or disable events depending on *control_block*\'s output.
 
@@ -60,7 +60,7 @@ List of :ref:`event filters<Event filters>` bundled with ``edzed``.
   see also: :ref:`logically inverted output<Inverted output>`.
 
 
-.. class:: NotIfInitialized(control_block: [str, SBlock])
+.. class:: NotIfInitialized(control_block: str | SBlock)
 
   Enable or disable events depending on *control_block*\'s initialization state.
 
@@ -78,8 +78,6 @@ List of :ref:`event filters<Event filters>` bundled with ``edzed``.
   the state already set by the latest update event. This is the purpose of this filter.
   It allows the initialization event to pass through only if the *control_block*
   has not been initialized in the meantime.
-
-  .. versionadded:: 21.10.27
 
 
 .. class:: DataEdit

@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import asyncio
 import collections
-from collections.abc import Callable, Iterable, Iterator, Mapping, MutableMapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
 import contextvars
-from dataclasses import dataclass
+import dataclasses as dc
+import sys
 import time
 import types
 from typing import Any, Optional, Literal
@@ -26,14 +27,16 @@ from .utils import looptimes
 
 __all__ = ['fsm_event_data', 'FSM', 'Goto', 'INF_TIME']
 
+P3_10 = sys.version_info >= (3, 10)
 INF_TIME = float('+inf')
-fsm_event_data = contextvars.ContextVar('fsm_event_data')
+fsm_event_data: contextvars.ContextVar[Mapping] = contextvars.ContextVar('fsm_event_data')
 
 
-@dataclass(frozen=True)
+dc_slots = {'slots': True} if P3_10 else {}
+@dc.dataclass(frozen=True, **dc_slots)
 class Goto(block.EventType):
     """A special event causing a direct state transition."""
-    __slots__ = ['str']
+
     state: str
 
 
@@ -45,7 +48,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
     # subclasses should define:
     STATES: Sequence[str] = ()
     TIMERS: Mapping[str, Sequence] = {}
-    EVENTS: Iterable[Sequence] = ()
+    EVENTS: Sequence[Sequence] = ()
     # and edzed will translate that to:
     _ct_chainlimit: int
         # limit for chained transitions
@@ -55,7 +58,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
         # all valid events
     _ct_default_state: str
         # the default initial state
-    _ct_methods: dict[Literal['enter', 'exit', 'cond'], dict[str, Callable]]
+    _ct_methods: dict[str, dict[str, Callable]]
         # summary of enter_STATE, exit_STATE, cond_EVENT methods
     _ct_prefixes: list[tuple[str, int, Iterable]]
         # auxilliary data for keyword argument parsing
@@ -139,11 +142,13 @@ class FSM(addons.AddonPersistence, block.SBlock):
             cls._ct_events.add(event)
             if next_state is not None:
                 cls._check_state(next_state)
-            if from_states is None or isinstance(from_states, str):
-                add_transition(event, from_states, next_state)
+            if from_states is None:
+                add_transition(event, None, next_state)
             else:
+                if isinstance(from_states, str):
+                    from_states = from_states.split('|')
                 for fstate in from_states:
-                    add_transition(event, fstate, next_state)
+                    add_transition(event, fstate.strip(), next_state)
 
         for state, (duration, event) in cls.TIMERS.items():
             try:
@@ -184,7 +189,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
 
     def __init__(
             self, *args,
-            on_notrans: Optional[block.Event|Iterator[block.Event]|Sequence[block.Event]]=None,
+            on_notrans: None|block.Event|Sequence[block.Event] = None,
             **kwargs):
         """
         Create FSM.
@@ -249,7 +254,8 @@ class FSM(addons.AddonPersistence, block.SBlock):
         self._state: str|block._UndefType = block.UNDEF
         self._active_timer: asyncio.TimerHandle|None = None
         self._fsm_event_active = False
-        self._next_event: str|None = None     # scheduled event in chained state transition
+        # scheduled event in chained state transition, format: (event, data, newstate)
+        self._next_event: tuple[str|block.EventType, Mapping, str]|None = None
         self.sdata: dict[str, Any] = {}
         kwargs.setdefault('initdef', self._ct_default_state)
         super().__init__(*args, **kwargs)
@@ -394,13 +400,12 @@ class FSM(addons.AddonPersistence, block.SBlock):
             retvals.append(cb())
         cls_cb = self._ct_methods[cb_type]
         try:
-            # bind the method
-            # pylint: disable=unnecessary-dunder-call
-            cb = cls_cb[name].__get__(self)     # type: ignore
+            cb = cls_cb[name]
         except KeyError:
             pass
         else:
-            retvals.append(cb())
+            # cb is an unbound method
+            retvals.append(cb(self))
         return retvals
 
     def _ctx_event(self, etype: str|block.EventType, data: Mapping) -> bool:
@@ -415,6 +420,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
                    for execution
             False = transition rejected
         """
+        rodata: Mapping
         if isinstance(data, MutableMapping):
             # make read-only to prevent any ugly hacks
             rodata = types.MappingProxyType(data)
@@ -422,6 +428,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
             rodata = data
         fsm_event_data.set(rodata)
 
+        newstate: Optional[str]
         if isinstance(etype, Goto):
             newstate = etype.state
             self._check_state(newstate)
@@ -472,7 +479,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
                     self._next_event = None
                 self.log_debug("state: %s -> %s (event: %s)", self._state, newstate, etype)
                 self._state = newstate
-                with self._enable_event:
+                with self._enable_event:        # type: ignore[attr-defined]
                     self._run_cb('enter', self._state)
                 if self._next_event:
                     continue
@@ -481,7 +488,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
                 except KeyError:
                     pass    # new state is not a timed state
                 else:
-                    with self._enable_event:
+                    with self._enable_event:    # type: ignore[attr-defined]
                         self._start_timer(data.get('duration'), timed_event)
                     if self._next_event:
                         continue

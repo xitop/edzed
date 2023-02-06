@@ -128,7 +128,7 @@ class Cron(addons.AddonMainTask, block.SBlock):
                 raise RuntimeError("System clock is not set correctly.")
             if reset:
                 for blk in set.union(*self._alarms.values()):    # all blocks
-                    blk.recalc(now)     # type: ignore
+                    blk.recalc(now)     # type: ignore[attr-defined]
             if reload:
                 timetable = sorted(set.union(set(self._alarms), SET24))
                 tlen = len(timetable)
@@ -170,7 +170,7 @@ class Cron(addons.AddonMainTask, block.SBlock):
                 if next_hms in self._alarms:
                     # recalc may alter the set we are iterating
                     for blk in list(self._alarms[next_hms]):
-                        blk.recalc(now)     # type: ignore
+                        blk.recalc(now)     # type: ignore[attr-defined]
                 next_idx += 1
 
     def init_regular(self) -> None:
