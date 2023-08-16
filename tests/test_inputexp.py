@@ -23,17 +23,18 @@ async def test_expiration(circuit):
     logger = TimeLogger('logger', mstop=True)
     inpexp = edzed.InputExp(
         'ie', duration=0.2, expired=-1, initdef=99,
-        on_output=edzed.Event(logger))
+        on_output=edzed.Event(logger, 'log'))
 
     async def tester():
+        inpexp_put = edzed.ExtEvent(inpexp).send
         await asyncio.sleep(0.25)
         assert inpexp.state == 'expired'
-        inpexp.put(77)
+        inpexp_put(77)
         assert inpexp.state == 'valid'
         await asyncio.sleep(0.1)
-        inpexp.put(55)
+        inpexp_put(55)
         await asyncio.sleep(0.25)
-        inpexp.put(33, duration="0.08s")    # override
+        inpexp_put(33, duration="0.08s")    # override
         await asyncio.sleep(0.2)
 
     await edzed.run(tester())
@@ -72,7 +73,7 @@ async def ptest(circuit, delay, slog):
     logger = TimeLogger('logger')
     ie2 = edzed.InputExp(
         'ie', duration=0.25, expired="exp", initdef="ok2", persistent=True,
-        on_output=edzed.Event(logger))
+        on_output=edzed.Event(logger, 'log'))
     await edzed.run(test_sleep(0.3))
     logger.compare(slog)
 

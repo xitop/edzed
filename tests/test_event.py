@@ -25,7 +25,7 @@ def test_delivery(circuit):
     assert dest.output == ('E2', {'mark': 2, 'extra': True})
     dest.event('put', value=10)
     assert dest.output == ('put', {'value': 10})
-    dest.put(42)   # shortcut for dest.event('put', value=42)
+    dest.put(42)   # shortcut for dest.event('put', value=42), deprecated since 23.8.25
     assert dest.output == ('put', {'value': 42})
 
 
@@ -41,6 +41,80 @@ def test_error_checking(circuit):
         dest.event("no_such_event")
     with pytest.raises(edzed.EdzedUnknownEvent):
         dest.event("no_such_event")
+
+
+def test_attrs(circuit):
+    """Test Event attributes."""
+    etype = 'abc'
+    ev_name = edzed.Event('input', etype)   # forward references supported
+    inp = edzed.Input('input', initdef=0)
+    ev_obj = edzed.Event(inp, etype)
+
+    assert ev_obj.etype == ev_name.etype == etype
+    assert ev_obj.dest == inp
+    with pytest.raises(edzed.EdzedInvalidState):    # names not resolved yet
+        assert ev_name.dest == inp
+    init(circuit)
+    assert ev_name.dest == inp                      # names resolved
+    with pytest.raises(AttributeError):     # read-only
+        ev_obj.etype = None
+    with pytest.raises(AttributeError):     # read-only
+        ev_obj.dest = None
+
+
+def test_ext_args(circuit):
+    """Test ExtEvent args."""
+    with pytest.raises(LookupError):        # forward references not supported
+        edzed.ExtEvent('input', 'ename')
+    inp = edzed.Input('input', initdef=0)
+    ev_name = edzed.ExtEvent('input', 'ename')
+    cond = edzed.EventCond(None, None)
+    edzed.Event(inp, cond)                  # Event + EventType = OK, but ...
+    with pytest.raises(TypeError):
+        edzed.ExtEvent(inp, cond)           # ... ExtEvent + EventType = error!
+    with pytest.raises(TypeError):
+        edzed.ExtEvent(inp, source=113)     # not a string
+
+
+def test_ext_attrs(circuit):
+    """Test ExtEvent attributes."""
+    etype = 'eee'
+    inp = edzed.Input('input', initdef=0)
+    ev_name = edzed.ExtEvent('input', etype)
+    ev_obj = edzed.ExtEvent(inp, etype)
+    assert ev_obj.etype == ev_name.etype == etype
+    assert ev_obj.dest == ev_name.dest == inp
+    with pytest.raises(AttributeError):     # read-only
+        ev_obj.etype = None
+    with pytest.raises(AttributeError):     # read-only
+        ev_obj.dest = None
+
+
+def test_ext_source(circuit):
+    """Test ExtEvent source handling."""
+    dest = EventMemory('dest')
+    init(circuit)
+
+    assert edzed.ExtEvent(dest)._source == '_ext_'
+    assert edzed.ExtEvent(dest, source='device')._source == '_ext_device'
+    assert edzed.ExtEvent(dest, source='_ext_HAL9000')._source == '_ext_HAL9000'
+
+    srcput = edzed.ExtEvent(dest, source='default').send
+    nosrcput = edzed.ExtEvent(dest, etype='put').send
+    srcput(1)
+    assert dest.output == ('put', {'source':'_ext_default', 'value':1})
+    srcput(2, source='send')
+    assert dest.output == ('put', {'source':'_ext_send', 'value':2})
+    srcput(source='send3', value=3)
+    assert dest.output == ('put', {'source':'_ext_send3', 'value':3})
+    srcput(x=4, source='send4')
+    assert dest.output == ('put', {'source':'_ext_send4', 'x':4})
+    nosrcput(5)
+    assert dest.output == ('put', {'source':'_ext_', 'value':5})
+    nosrcput(source='send6', y=6)
+    assert dest.output == ('put', {'source':'_ext_send6', 'y':6})
+    nosrcput(7, source='_ext_send7', b=True)
+    assert dest.output == ('put', {'source':'_ext_send7', 'value':7, 'b':True})
 
 
 def test_send(circuit):
@@ -106,20 +180,21 @@ def test_on_output(circuit):
     init(circuit)
 
     CDATA = {'source': 'src', 'trigger': 'output'}
-    src.put(0)
+    eput = edzed.ExtEvent(src).send
+    eput(0)
     assert dest.output == ('ev', {**CDATA, 'previous': None, 'value': 0})
-    src.put(911)
+    eput(911)
     assert dest.output == ('ev', {**CDATA, 'previous': 0, 'value': 911})
-    src.put('string')
+    eput('string')
     assert dest.output == ('ev', {**CDATA, 'previous': 911, 'value': 'string'})
 
-    dest.event('clear')
-    src.put('string')    # same value, no change, no output event
-    assert dest.output == ('clear', {})
-    src.put('NO!')       # forbidden value (check=...), no output event
-    assert dest.output == ('clear', {})
+    edzed.ExtEvent(dest, 'clear').send(source='master')
+    eput('string')    # same value, no change, no output event
+    assert dest.output == ('clear', {'source':'_ext_master'})
+    eput('NO!')       # forbidden value (check=...), no output event
+    assert dest.output == ('clear', {'source':'_ext_master'})
 
-    src.put(0)
+    eput(0)
     assert dest.output == ('ev', {**CDATA, 'previous': 'string', 'value': 0})
 
 
@@ -134,14 +209,15 @@ def test_on_every_output(circuit):
         initdef=None)
     init(circuit)
 
+    src_put = edzed.ExtEvent(src).send
     CDATA = {'source': 'src', 'trigger': 'output'}
-    src.put(0)
+    src_put(0)
     assert dest.output == dest_every.output == ('ev', {**CDATA, 'previous': None, 'value': 0})
-    src.put(911)
+    src_put(911)
     assert dest.output == dest_every.output == ('ev', {**CDATA, 'previous': 0, 'value': 911})
     dest.event('ev', cleared=True)
     dest_every.event('ev', cleared=True)
-    src.put(911)
+    src_put(911)
     assert dest.output == ('ev', {'cleared': True})
     assert dest_every.output == ('ev', {**CDATA, 'previous': 911, 'value': 911})
 
@@ -158,13 +234,14 @@ def test_multiple_events(circuit):
         initdef=None)
     init(circuit)
 
+    src_put = edzed.ExtEvent(src).send
     CDATA = {'source': 'src', 'trigger': 'output'}
-    src.put(0)
+    src_put(0)
     assert dest1.output == ('ev1', {**CDATA, 'previous': None, 'value': 0})
     assert dest2.output == ('ev2', {**CDATA, 'previous': None, 'value': 0})
-    src.put(911)
+    src_put(911)
     assert dest1.output[1] == dest2.output[1] == {**CDATA, 'previous': 0, 'value': 911}
-    src.put('last')
+    src_put('last')
     assert dest1.output[1] == dest2.output[1] == {**CDATA, 'previous': 911, 'value': 'last'}
 
 
@@ -262,3 +339,29 @@ def test_event_handlers(circuit):
     assert addsub.output == 8       # 2*value
     with pytest.raises(edzed.EdzedUnknownEvent):
         addsub.event('X')
+
+
+@pytest.mark.asyncio
+async def test_recipe(circuit):
+    """Test the recipe from docs."""
+
+    class ExtEventAuth(edzed.ExtEvent):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            if not getattr(self.dest, 'x_input', False):
+                raise ValueError(
+                    f"Block {self.dest.name} is not accepting external inputs")
+
+    inp_a = edzed.Input('inp_a', initdef=0, x_input=True)
+    inp_b = edzed.Input('inp_b', initdef=1)
+
+    async def tester():
+        ExtEventAuth(inp_a, source='tester').send(value=6, wer='Steinscheißer Karl')
+        assert inp_a.output == 6
+        ExtEventAuth(inp_a).send(7)
+        assert inp_a.output == 7
+        with pytest.raises(ValueError):
+            ExtEventAuth(inp_b).send(value=8)
+        assert inp_b.output == 1
+
+    await edzed.run(tester())

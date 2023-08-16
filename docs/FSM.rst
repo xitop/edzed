@@ -553,8 +553,8 @@ The corresponding keyword arguments are:
 Other event data items may be added in the future.
 
 
-Initialization rules
-====================
+FSM Initialization rules
+========================
 
 During initialization, i.e. when the very first state is entered:
 

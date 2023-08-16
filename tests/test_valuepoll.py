@@ -32,7 +32,7 @@ async def test_poll(circuit):
         'out',
         func=acq,
         interval='0m0.05s',
-        on_output=edzed.Event(logger))
+        on_output=edzed.Event(logger, 'log'))
     await edzed.run(asyncio.sleep(0.34))
 
     LOG = [
@@ -57,7 +57,7 @@ async def test_async(circuit):
         'out',
         func=q.get,
         interval='0m0.05s',
-        on_output=edzed.Event(logger))
+        on_output=edzed.Event(logger, 'log'))
     await edzed.run(asyncio.sleep(0.2))
 
     LOG = [
@@ -80,7 +80,7 @@ async def test_undef(circuit):
         'out',
         func=acq,
         interval=0.03,
-        on_output=edzed.Event(logger))
+        on_output=edzed.Event(logger, 'log'))
     timelimit(0.23, error=False)
     # --- time 0.000:
     # Timelogger starts
@@ -114,7 +114,7 @@ async def test_init_timeout(circuit):
         func=lambda: edzed.UNDEF,   # it never delivers
         interval=10,                # don't care
         init_timeout=0.12,
-        on_output=edzed.Event(logger),
+        on_output=edzed.Event(logger, 'log'),
         initdef='DEFAULT')
     await edzed.run(circuit.wait_init())
     logger.compare([(120, 'DEFAULT')])
@@ -144,7 +144,7 @@ async def test_async_init_timeout(circuit):
         func=w3,
         interval=10,                # don't care
         init_timeout=0.2,
-        on_output=edzed.Event(logger),
+        on_output=edzed.Event(logger, 'log'),
         initdef='DEFAULT')
     await edzed.run(circuit.wait_init())
     logger.compare([(100, 3)])
@@ -161,7 +161,7 @@ async def test_async_init_timeout_failure(circuit):
         func=w3,
         interval=10,                # don't care
         init_timeout=0.05,
-        on_output=edzed.Event(logger),
+        on_output=edzed.Event(logger, 'log'),
         initdef='DEFAULT')
     await edzed.run(circuit.wait_init())
     logger.compare([(50, 'DEFAULT')])

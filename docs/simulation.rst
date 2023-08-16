@@ -114,9 +114,9 @@ but some applications might prefer the lower-level :meth:`Circuit.run_forever`.
   cancel and await all remaining tasks.
 
   A supporting coroutine is any coroutine intended to run concurrently with
-  the simulator, mainly a coroutine listening for external events or requests,
-  monitoring the circuit or controlling the simulator. The :ref:`CLI demo tool`
-  is an example of a supporting coroutine.
+  the simulator, mainly an interface, i.e. a coroutine listening for external
+  events or requests, monitoring the circuit or controlling the simulator.
+  The :ref:`CLI demo tool` is an example of a supporting coroutine.
 
   Unless *catch_sigterm* is false, a signal handler that cancels the simulation
   upon ``SIGTERM`` delivery will be temporarily installed during the simulation.
@@ -128,13 +128,18 @@ but some applications might prefer the lower-level :meth:`Circuit.run_forever`.
   the :exc:`asyncio.CancelledError`. In detail, if the simulation task raises,
   re-raise the exception. If any of the supporting tasks raises, raise :exc:`RuntimeError`.
 
+  .. versionchanged:: 23.8.25
+
+    The supporting tasks are started after the simulator. An interface may
+    assume the simulator has reached the point since which it can accept events.
+
 
 .. method:: Circuit.run_forever() -> NoReturn
   :async:
 
   Lower-level entry point. Run the circuit simulation in an infinite loop, i.e. until
-  cancelled or until an exception is raised. Note that technically cancellation equals
-  to a raised exception too.
+  cancelled or until an exception is raised. Note that technically a cancellation is
+  a raised exception as well.
 
   The asyncio task that runs ``run_forever`` is called a *simulation task*.
 
@@ -162,13 +167,23 @@ but some applications might prefer the lower-level :meth:`Circuit.run_forever`.
     When :meth:`run_forever` terminates, it cannot be invoked again.
 
 
+Synchronizing with the circuit start stages
+-------------------------------------------
+
 .. method:: Circuit.is_ready() -> bool
 
   Return ``True`` only if the circuit is ready to accept external events.
 
+  .. note::
+
+    Application code rarely needs to call ``is_ready()`` because
+    :meth:`ExtEvent.send` does the checking.
+
   The ``is_ready()`` value changes from ``False`` to ``True`` immediately
   after the simulation start. At this moment the circuit is finalized,
   but the simulation can be still in the initializing phase.
+  The ``is_ready()`` value reverts to ``False`` when the simulation stops.
+
 
   Because a started circuit is immediately ready,
   no special synchronization is required, but remember that
@@ -181,7 +196,6 @@ but some applications might prefer the lower-level :meth:`Circuit.run_forever`.
     await asyncio.sleep(0)
     # OK, the circuit can now receive events (is ready now)
 
-  The ``is_ready()`` value reverts to ``False`` when the simulation stops.
 
 .. method:: Circuit.wait_init() -> None
   :async:

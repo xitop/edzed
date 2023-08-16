@@ -15,7 +15,7 @@ import abc
 import asyncio
 from collections.abc import Coroutine
 import time
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 from . import block
 from .exceptions import add_note, EdzedCircuitError
@@ -25,7 +25,14 @@ from . import utils
 __all__ = ['AddonAsync', 'AddonAsyncInit', 'AddonMainTask', 'AddonPersistence']
 
 
-class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
+if TYPE_CHECKING:
+    Addon = block.SBlock        # pretend to be a subclass, not a mix-in
+    assert not TYPE_CHECKING    # for static type checking only, cannot run in this mode
+else:
+    Addon = block.Addon
+
+
+class AddonPersistence(Addon, metaclass=abc.ABCMeta):
     """
     Add support for persistent state to a SBlock.
     """
@@ -36,7 +43,7 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
             persistent: bool = False,
             sync_state: bool = True,
             expiration: Optional[int|float|str] = None,
-            **kwargs):
+            **kwargs) -> None:
         self.persistent = bool(persistent)
         self.sync_state = bool(sync_state)
         self.expiration = utils.time_period(expiration)
@@ -67,16 +74,21 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
         """
         if not self.persistent:
             return
+        persistent_dict = self.circuit.persistent_dict
+        # during the finalization the persistent flag gets disabled if there is no storage
+        assert persistent_dict is not None, f"{self}: circuit not finalized"
         try:
-            self.circuit.persistent_dict[self.key] = self.get_state()
+            persistent_dict[self.key] = self.get_state()
         except Exception as err:
             self.log_warning("Persistent data save error: %s", err)
-            self.circuit.persistent_dict.pop(self.key, None)  # remove stale data
+            persistent_dict.pop(self.key, None)  # remove stale data
 
     @abc.abstractmethod
-    def _restore_state(self, state: Any, /) -> None:
+    def _restore_state(self, state: Any, /) -> Any:
         """
         Initialize by restoring the state (low-level).
+
+        The return value is ignored.
         """
 
     def init_from_persistent_data(self) -> None:
@@ -86,6 +98,7 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
         Load the state from persistent storage and apply it.
         Errors are suppressed.
         """
+        assert self.circuit.persistent_dict is not None
         try:
             state = self.circuit.persistent_dict[self.key]
         except KeyError:
@@ -115,12 +128,12 @@ class AddonPersistence(block.Addon, metaclass=abc.ABCMeta):
 
 DEFAULT_INIT_TIMEOUT = 10.0
 DEFAULT_STOP_TIMEOUT = 10.0
-class AddonAsync(block.Addon):
+class AddonAsync(Addon):
     """
     Asynchronous support add-on.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         """
         Parameters:
             init_timeout:
@@ -187,7 +200,7 @@ class AddonMainTask(AddonAsync, metaclass=abc.ABCMeta):
     An add-on running a '_maintask' from start() till stop().
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         self._mtask: Optional[asyncio.Task] = None
         super().__init__(*args, **kwargs)
 
@@ -197,11 +210,12 @@ class AddonMainTask(AddonAsync, metaclass=abc.ABCMeta):
 
     def start(self) -> None:
         super().start()
-        assert self._mtask is None
+        assert self._mtask is None, f"{self}: start() called twice?"
         self._mtask = self._create_monitored_task(
             self._maintask(), is_service=True, name=f"edzed: main task for block {self.name!r}")
 
     async def stop_async(self) -> None:
+        assert self._mtask is not None, f"{self}: start() not called"
         self._mtask.cancel()
         try:
             await self._mtask
@@ -209,6 +223,8 @@ class AddonMainTask(AddonAsync, metaclass=abc.ABCMeta):
             pass
         finally:
             self._mtask = None
+        # super() refers to an SBlock, pylint cannot know that
+        # pylint: disable=no-value-for-parameter
         await super().stop_async()
 
 
@@ -217,8 +233,8 @@ class AddonAsyncInit(AddonAsync, metaclass=abc.ABCMeta):
     Add init_async() waiting for the first output value.
     """
 
-    def __init__(self, *args, **kwargs):
-        self._init_event = None
+    def __init__(self, *args, **kwargs) -> None:
+        self._init_event: Optional[asyncio.Event] = None
         super().__init__(*args, **kwargs)
 
     def start(self) -> None:
@@ -226,9 +242,11 @@ class AddonAsyncInit(AddonAsync, metaclass=abc.ABCMeta):
         self._init_event = asyncio.Event()
 
     def set_output(self, value: Any) -> None:
+        assert self._init_event is not None, f"{self}: start() not called"
         super().set_output(value)
         if not self._init_event.is_set():
             self._init_event.set()
 
     async def init_async(self) -> None:
+        assert self._init_event is not None, f"{self}: start() not called"
         await self._init_event.wait()

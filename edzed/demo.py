@@ -30,7 +30,7 @@ from dataclasses import dataclass
 import logging
 import signal
 import sys
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 from . import simulator
 from . import block
@@ -105,7 +105,7 @@ def _cmd_event(blk: block.SBlock, etype: str, data: Optional[str] = None) -> Non
         raise TypeError(
             f"Invalid event data: {datadict!r}. "
             "Expected is a dict literal: {{'name':value, ...}}")
-    retval = blk.event(etype, **datadict)
+    retval = block.ExtEvent(blk.name, etype).send('demo', **datadict)
     print(f"event() returned: {retval}")
     _cmd_show(blk)
 
@@ -200,6 +200,7 @@ async def _cli_repl() -> None:
         line = line.strip()
         if not line:
             continue
+        args: Sequence[str|block.Block]
         cmd, *args = line.split(None, 1)
         if cmd == 'exit':
             # arguments ignored

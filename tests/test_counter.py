@@ -69,9 +69,9 @@ def test_put(circuit):
     init(circuit)
 
     for i in range(-300, +300, 7):
-        cnt.put(i)
+        edzed.ExtEvent(cnt, 'put').send(value=i)
         assert cnt.output == i
-        cnt11.put(i)
+        edzed.ExtEvent(cnt11, 'put').send(i)
         assert cnt11.output == i % 11
 
 

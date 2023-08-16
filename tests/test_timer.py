@@ -47,8 +47,8 @@ async def test_clock(circuit):
     """Test a trivial clock signal generator."""
     logger1 = TimeLogger('logger1')
     logger2 = TimeLogger('logger2')
-    clock1 = edzed.Timer('timer1', t_on=0.05, t_off=0.1, on_output=edzed.Event(logger1))
-    clock2 = edzed.Timer('timer2', t_period=0.25, on_output=edzed.Event(logger2))
+    clock1 = edzed.Timer('timer1', t_on=0.05, t_off=0.1, on_output=edzed.Event(logger1, 'log'))
+    clock2 = edzed.Timer('timer2', t_period=0.25, on_output=edzed.Event(logger2, 'log'))
 
     await edzed.run(asyncio.sleep(0.8))
     LOG1 = [
@@ -71,9 +71,11 @@ async def test_clock(circuit):
 async def test_restartable(circuit):
     """Test restartable vs. not restartable."""
     rlogger = TimeLogger('rlogger')
-    rmono = edzed.Timer('rtimer', t_on=0.12, on_output=edzed.Event(rlogger))
+    rmono = edzed.Timer(
+        'rtimer', t_on=0.12, on_output=edzed.Event(rlogger, etype='log'))
     nlogger = TimeLogger('nlogger')
-    nmono = edzed.Timer('ntimer', t_on=0.12, on_output=edzed.Event(nlogger), restartable=False)
+    nmono = edzed.Timer(
+        'ntimer', t_on=0.12, on_output=edzed.Event(nlogger, etype='log'), restartable=False)
 
     async def tester():
         await asyncio.sleep(0.05)
@@ -110,7 +112,7 @@ async def test_restartable(circuit):
 async def test_duration(circuit):
     """Test variable timer duration."""
     logger = TimeLogger('logger')
-    mono = edzed.Timer('timer', t_on=0.2, on_output=edzed.Event(logger))
+    mono = edzed.Timer('timer', t_on=0.2, on_output=edzed.Event(logger, 'log'))
 
     async def tester():
         mono.event('start')
@@ -122,6 +124,7 @@ async def test_duration(circuit):
 
     await edzed.run(tester())
     LOG = [
+        (0, False),
         (0, True), (200, False),    # 200 ms
         (250, True), (300, False),  # 50 ms
         (350, True), (550, False),  # 200 ms

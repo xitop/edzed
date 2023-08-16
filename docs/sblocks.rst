@@ -35,16 +35,13 @@ This section lists sequential blocks offered by the ``edzed`` library.
 Inputs
 ======
 
-Feeding data into the circuit
------------------------------
+Pushing external data into the circuit
+--------------------------------------
 
 .. important::
 
-  The data input entry point is :meth:`SBlock.event`.
-
-  Always check if the circuit is ready before forwarding external
-  events to blocks. If not ready, the result is undefined!
-  Refer to :meth:`Circuit.is_ready`.
+  Data are transported by events. To push new data use :meth:`ExtEvent.send`,
+  refer to :ref:`external events<External events>`.
 
 Depending on your application's needs, any sequential block
 may serve as a part of the circuit's input interface.
@@ -265,6 +262,16 @@ any network communication is a typical example of blocking I/O.
   a new ``'put'`` event arrives before the processing of the previous one
   has finished:
 
+  ======  ===================
+  mode    event handling
+  ======  ===================
+  cancel  the latest one only
+  wait    sequential (FIFO)
+  start   concurrent
+  ======  ===================
+
+  In detail:
+
   - mode='cancel' or just 'c' (**c**\ancel before start)
 
     In this mode the task processing the previous event will be cancelled
@@ -343,12 +350,6 @@ any network communication is a typical example of blocking I/O.
   Starting with Python 3.9 asyncio provides
   `to_thread <https://docs.python.org/3/library/asyncio-task.html#asyncio.to_thread>`_
   with similar functionality, but different usage.
-
-  .. versionchanged:: 22.3.1
-
-    ``InExecutor`` can now pass keyword arguments to *func*. Previous versions
-    were limited to passing positional arguments only and the limitation was not documented.
-
 
 
 Initialization helper

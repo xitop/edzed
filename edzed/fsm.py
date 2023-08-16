@@ -21,7 +21,7 @@ from typing import Any, Optional, Literal
 from . import addons
 from . import block
 from . import utils
-from .exceptions import add_note, EdzedCircuitError, EdzedUnknownEvent
+from .exceptions import add_note, EdzedCircuitError, EdzedInvalidState, EdzedUnknownEvent
 from .utils import looptimes
 
 
@@ -130,11 +130,11 @@ class FSM(addons.AddonPersistence, block.SBlock):
             cls._ct_default_state = next(iter(cls.TIMERS))  # the first key
 
         for state in cls._ct_states:
-            block.checkname(state, "FSM state name")
+            block.check_name(state, "FSM state name")
         cls._ct_chainlimit = 3 * len(cls._ct_states)
 
         for event, from_states, next_state in cls.EVENTS:
-            block.checkname(event, "FSM event name")
+            block.check_name(event, "FSM event name")
             if event in cls._ct_handlers:
                 raise ValueError(
                     f"Ambiguous event '{event}': "
@@ -172,11 +172,11 @@ class FSM(addons.AddonPersistence, block.SBlock):
             if name in valid_names and callable(method):
                 cb_dict[name] = method
 
-    def __init_subclass__(cls, *args, **kwargs):
+    def __init_subclass__(cls, *args, **kwargs) -> None:
         """
         Build control tables.
         """
-        # call super().__init_subclass__ first, we will later check for possible
+        # call super().__init_subclass__ first, we will then check for possible
         # event name clashes with the _ct_handlers
         super().__init_subclass__(*args, **kwargs)
 
@@ -190,7 +190,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
     def __init__(
             self, *args,
             on_notrans: None|block.Event|Sequence[block.Event] = None,
-            **kwargs):
+            **kwargs) -> None:
         """
         Create FSM.
 
@@ -278,6 +278,8 @@ class FSM(addons.AddonPersistence, block.SBlock):
 
         Returned data can be restored with _restore_state.
         """
+        if self._state is block.UNDEF:
+            raise EdzedInvalidState(f"get_state() on uninitialized FSM {self}")
         timer = self._active_timer
         if timer is None or timer.cancelled():
             exp_timestamp = None
@@ -334,6 +336,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
     def _start_timer(
             self, duration: Optional[int|float|str], timed_event: str|block.EventType) -> None:
         """Start the timer."""
+        assert self._state is not block.UNDEF   # starting a timer implies a timed state
         if duration is not None:
             duration = utils.time_period(duration)
         else:
@@ -361,6 +364,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
 
     def _send_events(self, trigger_type: Literal['on_enter', 'on_exit']) -> None:
         """Send events triggered by 'on_enter_STATE' or 'on_exit_STATE'."""
+        assert self._state is not block.UNDEF   # we are entering or exiting a defined state
         state_events = self._state_events[trigger_type]
         state = self._state
         try:
@@ -433,11 +437,13 @@ class FSM(addons.AddonPersistence, block.SBlock):
             newstate = etype.state
             self._check_state(newstate)
         else:
-            if etype not in self._ct_events:
+            if not isinstance(etype, str) or etype not in self._ct_events:
                 raise EdzedUnknownEvent(f"{self}: Unknown event type {etype!r}")
-            assert isinstance(etype, str)   # mypy type narrowing
+            assert self._state is not block.UNDEF, \
+                f"A non-Goto event was sent to an uninitialized FSM {self} " \
+                 "(ext_event() bypassed?)"
             try:
-                newstate = self._ct_transition[(etype, self.state)]
+                newstate = self._ct_transition[(etype, self._state)]
             except KeyError:
                 newstate = self._ct_transition.get((etype, None), None)
             if newstate is None:
@@ -449,7 +455,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
             if self.is_initialized() and not all(self._run_cb('cond', etype)):
                 self.log_debug(
                     "not executing event %s (%s -> %s), condition not satisfied",
-                    etype, self.state, newstate)
+                    etype, self._state, newstate)
                 return False
 
         if self._fsm_event_active:
@@ -467,6 +473,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
         self._fsm_event_active = True
         try:
             if self.is_initialized():
+                assert self._state is not block.UNDEF   # because is_initialized
                 self._run_cb('exit', self._state)
                 self._send_events('on_exit')
                 self._stop_timer()

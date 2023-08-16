@@ -22,17 +22,35 @@ def test_filter(circuit):
     src = edzed.Input('src', on_output=edzed.Event(dest, efilter=even_numbers_only), initdef=0)
     init(circuit)
 
+    src_put = edzed.ExtEvent(src).send
     assert src.output == 0
     assert dest.output == 0
-    src.put(1)
+    src_put(1)
     assert src.output == 1
     assert dest.output == 0
-    src.put(8)
+    src_put(8)
     assert src.output == 8
     assert dest.output == 8
-    src.put(33)
+    src_put(33)
     assert src.output == 33
     assert dest.output == 8
+
+
+def test_incorrect_filter(circuit):
+    """Test a bogus event filter."""
+    def incorrect_filter_3(data):
+        if data['value'] == 3:
+            data[3] = 3     # non-string key!
+        return data
+
+    dest = edzed.Input('dest', initdef=None)
+    src = edzed.Input('src', on_output=edzed.Event(dest, efilter=incorrect_filter_3), initdef=0)
+    init(circuit)
+
+    eput = edzed.ExtEvent(src)
+    eput.send(0)
+    with pytest.raises(TypeError):
+        eput.send(3)
 
 
 def test_filter_pipe(circuit):
@@ -60,7 +78,7 @@ def test_filter_pipe(circuit):
     dest = EventMemory('dest')
     init(circuit)
 
-    src.put('V')
+    edzed.ExtEvent(src).send('V')
     assert dest.output == (
         'put', {'source': 'src', 'trigger': 'output', 'value': 'V', 'new': 'XYZ??'})
 
@@ -110,7 +128,7 @@ def test_dataedit_filter(circuit):
     dest = EventMemory('dest')
     init(circuit)
 
-    src.put('V')
+    edzed.ExtEvent(src).send('V')
     assert dest.output == ('put', {'source': 'src', 'value': 'V', 'saved': 'YES'})
 
 
@@ -144,7 +162,7 @@ def test_chained_dataedit(circuit):
     dest = EventMemory('dest')
     init(circuit)
 
-    src.put('V')
+    edzed.ExtEvent(src).send('V')
     assert dest.output == ('put', {'a':1, 'src': 'crs', 'trigger': 'output'})
 
 def test_dataedit_add_output(circuit):
@@ -161,13 +179,15 @@ def test_dataedit_add_output(circuit):
     init(circuit)
 
     CDATA = {'source': 'src', 'trigger': 'output'}
-    src.put(4)
+    src_put = edzed.ExtEvent(src).send
+    add_put = edzed.ExtEvent(add).send
+    src_put(4)
     assert dest.output[1] == {**CDATA, 'previous': 3, 'value': 4, 'self': 4, 'A': 12}
-    add.put('old')
-    add.put('new')
-    src.put(5)
+    add_put('old')
+    add_put('new')
+    src_put(5)
     assert dest.output[1] == {**CDATA, 'previous': 4, 'value': 5, 'self': 5, 'A': 'new'}
-    src.put(6)
+    src_put(6)
     assert dest.output[1] == {**CDATA, 'previous': 5, 'value': 6, 'self': 6, 'A': 'new'}
 
 
@@ -185,13 +205,14 @@ def test_dataedit_modify_reject(circuit):
         initdef=3)
     init(circuit)
 
+    src_put = edzed.ExtEvent(src).send
     CDATA = {'source': 'src', 'trigger': 'output'}
-    src.put(911)
+    src_put(911)
     after911 = {**CDATA, 'previous': 3, 'value': 911}
     assert dest.output[1] == after911
-    src.put(-4)
+    src_put(-4)
     assert dest.output[1] == after911
-    src.put(4)
+    src_put(4)
     assert dest.output[1] == {**CDATA, 'previous': -4, 'value': 4}
 
 
@@ -257,10 +278,10 @@ def test_edge_detector(circuit):
     assert cnt.output == 2  # 2 times the initial rising edge of S2R1F10 and S2R1F1
 
     for inp, seq, result, args in setup:
-        cnt.put(0)
+        cnt.event('put', value=0)
         assert cnt.output == 0
         for val in seq:
-            inp.put(val)
+            inp.event('put', value=val)
         assert cnt.output == result, f"failed for {inp.name}, (rise, fall) = {args}"
 
 
@@ -273,12 +294,13 @@ def test_not_from_undef(circuit):
         initdef=1)
     init(circuit)
 
+    src_put = edzed.ExtEvent(src).send
     assert src.output == 1
     assert dest.output is None  # UNDEF -> 1 suppressed by the filter
-    src.put(3)
+    src_put(3)
     assert src.output == 3
     assert dest.output == 3
-    src.put(5)
+    src_put(5)
     assert src.output == 5
     assert dest.output == 5
 
@@ -298,7 +320,7 @@ def test_delta(circuit):
     init(circuit)
 
     for num in (0, 1, 0, 2, 3.69, 3.71, 5, 6, 7, 8, 15, 13.5, 16.5, 12):
-        src.put(num)
+        src.event('put', value=num)
     assert trace == [0, 2, 3.71, 6, 8, 15, 12]
     assert dest.output == 12
 
@@ -328,19 +350,20 @@ def test_ifoutput(circuit):
     assert not increment2.send(src)
     assert cnt2.output == 0
 
-    enable.put(False)
+    enable_put = edzed.ExtEvent(enable).send
+    enable_put(False)
     inv.eval_block()
     assert not increment.send(src)
     assert cnt.output == 2
     assert increment2.send(src)
     assert cnt2.output == 1
-    enable.put(0)
+    enable_put(0)
     inv.eval_block()
     assert not increment.send(src)
     assert cnt.output == 2
     assert increment2.send(src)
     assert cnt2.output == 2
-    enable.put(1)
+    enable_put(1)
     inv.eval_block()
     assert increment.send(src)
     assert cnt.output == 3

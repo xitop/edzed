@@ -14,8 +14,9 @@ The main differences are:
 .. csv-table::
   :header: "combinational", "sequential"
 
-  "has **inputs**", "does not have inputs"
-  "does not have an internal state", "has an **internal state** (memory, time) and thus requires initialization"
+  "has **inputs** connected to other blocks", "no inputs"
+  "no internal state", "has an **internal state** (memory, time) and thus requires initialization"
+  "the output depends on input values", "the output depends on the internal state"
   "does not accept events", "reacts to **events**"
   "can generate events only on output change", "can generate events also on internal state changes"
 
@@ -132,7 +133,8 @@ Constants
 
   A pseudo-block with a constant *value* on its output. ``Const`` objects
   are not registered as members of the circuit and are not derived from
-  the :class:`Block` base class.
+  the :class:`Block` base class. A ``Const`` object can hold any value
+  except the :const:`UNDEF`.
 
   .. attribute:: name
     :type: str
@@ -140,6 +142,7 @@ Constants
     The automatically generated block's name.
 
   .. attribute:: output
+    :type: Any
 
     Block's constant output value, a read-only property.
 
@@ -170,11 +173,11 @@ The output of a combinational block depends only on its present input values.
 
     To connect a single named input, add a keyword argument::
 
-      name=<single_input>  # defined below
+      name=single_input  # defined below
 
     To connect a group::
 
-      name=<multiple_inputs>  # a sequence (tuple, list, ...) of single inputs
+      name=(input1, input2, ...)  # a sequence (tuple, list, ...) of single inputs
 
     A single input could be connected:
 
@@ -299,7 +302,7 @@ The internal state consists of all data a sequential block maintains
 in order to correctly perform the task it was designed to.
 
 In its simplest form is the internal state equal to the output value.
-Such blocks (e.g. :class:`Input`) act like a memory cell.
+Such blocks (e.g. the :class:`Input`) act like a memory cell.
 
 The internal state is affected by:
 
@@ -309,8 +312,8 @@ The internal state is affected by:
   readouts of sensors and gauges
 
 
-Initialization
---------------
+Initialization rules
+--------------------
 
 By definition a block is deemed initialized when its output
 is not :const:`UNDEF`. The output is closely related to the internal

@@ -77,7 +77,8 @@ class TimeLogger(edzed.AddonAsync, edzed.SBlock):
     """
     Maintain a log with relative timestamps in milliseconds since start.
 
-    Usage: logger.put('log entry')
+    Usage: - logger.log('log entry'), or
+           - send a 'log' event with value='log entry'
     """
 
     def __init__(self, *args, mstart=False, mstop=False, select=DEFAULT_SELECT, **kwargs):
@@ -92,10 +93,15 @@ class TimeLogger(edzed.AddonAsync, edzed.SBlock):
         self.tlog.append((int(1000 * (time.monotonic() - self._ts) + 0.5), data))
 
     def _event(self, etype, data):
-        if etype != 'put':
+        if etype != 'log':
             return NotImplemented
         self._append(self._select(data))
         return None
+
+    def log(self, value, **data):
+        data['value'] = value
+        data['source'] = 'n/a'
+        return self.event('log', **data)
 
     def start(self):
         super().start()

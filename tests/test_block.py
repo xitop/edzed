@@ -14,12 +14,11 @@ from .utils import *
 
 
 def test_undef():
-    """Undef is a always false and is a singleton."""
+    """Check UNDEF"""
     undef = edzed.UNDEF
-    assert not undef  # bool value is false
-    assert str(undef) == '<UNDEF>'
-    undeftype = type(undef)
-    assert undeftype() is undeftype()   # singleton
+    assert bool(undef) is False
+    assert str(undef) == repr(undef) == '<UNDEF>'
+    assert type(undef) == edzed.block._UndefType
 
 
 def test_const():
@@ -34,6 +33,15 @@ def test_const():
     UNHASHABLE = [0]
     cu1 = edzed.Const(UNHASHABLE)
     assert cu1.output == UNHASHABLE
+
+
+def test_no_undef_const():
+    """Const() does not accept UNDEF."""
+    edzed.Const(False)
+    edzed.Const(None)
+    edzed.Const('')
+    with pytest.raises(ValueError):
+        edzed.Const(edzed.UNDEF)
 
 
 def test_reset_circuit(circuit):

@@ -17,7 +17,6 @@ Creating edzed applications
 ===========================
 
 .. toctree::
-  :maxdepth: 2
 
   software
   intro

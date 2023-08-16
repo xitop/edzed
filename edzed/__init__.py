@@ -15,7 +15,7 @@ Docs: https://edzed.readthedocs.io/en/latest/
 Home: https://github.com/xitop/edzed/
 """
 
-__version_info__ = (23, 2, 14)
+__version_info__ = (23, 8, 13)
 __version__ = '.'.join(str(n) for n in __version_info__)
 
 # pylint: disable=wildcard-import,undefined-variable

@@ -1,5 +1,7 @@
 .. currentmodule:: edzed
 
+**--- INFORMATION FOR DEVELOPERS ---**
+
 ==========================
 Creating sequential blocks
 ==========================
@@ -11,7 +13,8 @@ Topics to be considered during the planning phase:
 - how will be the internal state initialized?
 - how to calculate the output from the internal state?
 - what events will be accepted?
-- what data is expected for particular events?
+- what data is expected and which value should be returned
+  for each particular event?
 
 Checklist for creating a new SBlock:
 
@@ -27,9 +30,9 @@ SBlock initialization
 
 The goal is to set the internal state and the output.
 
-Let's recap the :ref:`initialization order <Initialization>`
-with links to corresponding sections added. Each block defines only those steps that are
-appropriate to its functionality.
+Let's recap the :ref:`initialization order <Initialization rules>`
+with links to corresponding sections added. Each block defines only those steps
+that are appropriate to its functionality.
 
 1. from persistent data
      see: :class:`AddonPersistence` and :meth:`SBlock._restore_state`
@@ -50,7 +53,8 @@ appropriate to its functionality.
 .. method:: SBlock.get_state() -> Any
   :noindex:
 
-  Return the internal state.
+  Return the internal state. Raise an :exc:`EdzedInvalidState`
+  when called before a successful initialization.
 
   The default implementation assumes the state is equal to the output.
 
@@ -78,13 +82,55 @@ appropriate to its functionality.
   Defining this method automatically enables
   :class:`SBlock`\'s keyword argument *initdef*.
 
-  .. versionchanged:: 22.3.1
-    the *value* parameter is now positional-only.
 
-Event handlers
+Event handling
 ==============
 
-There are two ways to handle :ref:`events <Events>`:
+Dispatching events to handlers
+------------------------------
+
+Taking delivery of an event by its destination block is implemented
+in the :meth:`SBlock.event` method.
+
+.. method:: SBlock.event(etype: str|EventType, /, **data) -> Any
+
+  .. note::
+
+    Changed in version 23.8.25:
+
+    This method used to be an event entry point for external events,
+    but now is ``SBlock.event()`` deemed internal. Application code
+    should not call it directly. To forward an external event,
+    :meth:`ExtEvent.send` should be used instead.
+
+  Handle the incoming event of :ref:`type<Event types>` *etype* with attached *data*
+  by dispatching it to the respective handler. Return the handler's exit value.
+  Evaluate conditional events (see the :class:`EventCond`) before further processing.
+  Raise :exc:`EdzedUnknownEvent` if there is no handler for the *etype*.
+
+  ``event()`` may return a value of any type. It is useful as a reply to
+  an external event, but it is unused in the case of internal events.
+  Other circuit blocks ignore the returned value.
+
+  .. warning::
+
+    If an exception other than an unknown event type or a trivial parameter error
+    is raised during the event handling, the simulation will be aborted even if
+    the caller catches the exception with a ``try-except`` construct.
+
+
+.. method:: SBlock.put(value: Any, **data) -> Any
+
+  This was a shortcut for ``event('put', value=value, ...)``.
+
+  .. versionchanged:: 23.8.25
+
+    This function is now deprecated and will be removed in the future.
+
+Event handlers
+--------------
+
+There are two ways to define handlers for incoming :ref:`events <Events>`:
 
 1. Add specialized event handlers.
 
@@ -135,16 +181,13 @@ There are two ways to handle :ref:`events <Events>`:
               return None
 
           # let the parent handle everything else,
-          # the base class simply raises :exc:`EdzedUnknownEvent`
+          # the base class simply raises the EdzedUnknownEvent
           return super()._event(event, data)
 
-Do not confuse the internal method :meth:`_event` with the API method :meth:`event`.
-The latter should be left untouched.
-The :meth:`SBlock.event` is responsible for:
+    Note: Do not confuse the event handler ``_event()`` with the event dispatcher
+    :meth:`event`. The latter should be left untouched.
 
-- resolving the conditional events (see :class:`EventCond`)
-- dispatching events to a proper handler
-- aborting the simulation on error
+----
 
 .. note::
 
@@ -152,6 +195,10 @@ The :meth:`SBlock.event` is responsible for:
 
     def _event_ETYPE(self, **data):  # as keyword args
     def _event(self, etype, data):   # as a dict
+
+.. important::
+
+  A block must ignore any additional data items.
 
 
 Setting the output
@@ -316,9 +363,6 @@ Persistent state add-on
 
   Note that :meth:`_restore_state` is sometimes identical with
   :meth:`SBlock.init_from_value`.
-
-  .. versionchanged:: 22.3.1
-    the *state* parameter is now positional-only.
 
 .. attribute:: SBlock.key
   :type: str
@@ -490,7 +534,7 @@ An input block like :class:`Input`, but without data validation::
 
   class Input(edzed.AddonPersistence, edzed.SBlock):
       def init_from_value(self, value):
-          self.put(value)
+          self.event('put', value=value)
 
       def _event_put(self, *, value, **_data):
           self.set_output(value)

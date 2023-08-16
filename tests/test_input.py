@@ -43,10 +43,8 @@ def test_events(circuit):
     assert inp.output == 1
     inp.event('put', value=2, junk=-1)  # extra keys ignored
     assert inp.output == 2
-    inp.put(3)              # shortcut for .event('put', value=X)
+    inp.put(3)              # shortcut for .event('put', value=X), deprecated since 23.8.25
     assert inp.output == 3
-    inp.put(4, junk=-1)     # extra keys ignored
-    assert inp.output == 4
     with pytest.raises(TypeError):
         inp.event('put')    # missing value
     with pytest.raises(edzed.EdzedUnknownEvent):
@@ -70,10 +68,11 @@ def test_check(circuit):
     inp = edzed.Input('input', check=lambda x: x % 5 == 0, initdef=5)
     init(circuit)
 
+    inp_put = edzed.ExtEvent(inp).send
     assert inp.output == 5
-    assert inp.put(25) is True
+    assert inp_put(25) is True
     assert inp.output == 25
-    assert inp.put(68) is False
+    assert inp_put(68) is False
     assert inp.output == 25
 
 
@@ -129,5 +128,5 @@ def test_validators(circuit):
     for inp, acc_list, out_list in zip(inputs, ACCEPTED, OUTPUT):
         inp.event('put', value=inp.initdef)     # reset to default
         for val, acc, out in zip(VALUES, acc_list, out_list):
-            assert inp.put(val) is acc
+            assert inp.event('put', value=val) is acc
             assert inp.output == out

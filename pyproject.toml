@@ -38,3 +38,7 @@ packages = ['edzed', 'edzed.blocklib', 'edzed.utils']
 # this feature is still BETA
 [tool.setuptools.dynamic]
 version = {attr = 'edzed.__version__'}
+
+[tool.mypy]
+enable_error_code = ['ignore-without-code']
+warn_unused_ignores = true

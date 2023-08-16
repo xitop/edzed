@@ -1,5 +1,7 @@
 .. currentmodule:: edzed
 
+**--- INFORMATION FOR DEVELOPERS ---**
+
 =============================
 Creating combinational blocks
 =============================

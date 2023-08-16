@@ -52,7 +52,7 @@ html_theme = 'nature'
 #html_theme = 'default'
 
 html_theme_options = {
-    'sidebarwidth': '320px',
+    'sidebarwidth': '360px',
     }
 
 # Add any paths that contain custom static files (such as style sheets) here,

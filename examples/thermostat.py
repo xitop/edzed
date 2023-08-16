@@ -25,8 +25,7 @@ edzed.Compare(
 
 edzed.OutputFunc(
     'heater',
-    func=output_heater, on_error=None
-    )
+    func=output_heater, on_error=None)
 
 if __name__ == '__main__':
     print('Press ctrl-C to stop\n')

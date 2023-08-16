@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import edzed
 from edzed.demo import cli_repl
 

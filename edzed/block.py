@@ -13,9 +13,10 @@ from collections.abc import (
     Callable, Coroutine, Iterator, Mapping, MutableMapping, Sequence, Set)
 import dataclasses as dc
 import difflib
+import enum
 import logging
 import sys
-from typing import Any, cast, Optional
+from typing import Any, Optional, ClassVar, Final
 import weakref
 
 from .exceptions import EdzedCircuitError, EdzedInvalidState, EdzedUnknownEvent
@@ -23,7 +24,7 @@ from .exceptions import EdzedCircuitError, EdzedInvalidState, EdzedUnknownEvent
 
 __all__ = [
     'UNDEF', 'Const', 'Block', 'CBlock', 'SBlock',
-    'Event', 'EventType', 'EventCond', 'event_tuple', 'checkname',
+    'Event', 'ExtEvent', 'EventType', 'EventCond', 'event_tuple', 'check_name',
     ]
 
 P3_9 = sys.version_info >= (3, 9)
@@ -32,29 +33,22 @@ P3_10 = sys.version_info >= (3, 10)
 _logger = logging.getLogger(__package__)
 
 
-class _UndefType:
-    """
-    Type for uninitialized circuit block's output value (UNDEF).
-
-    UNDEF is a singleton.
-    """
-
-    __slots__ = ()
-    _instance = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
+# See PEP 484 - Support for singleton types in unions
+class _UndefType(enum.Enum):
+    UNDEF = None
 
     def __bool__(self):
         return False
 
     def __repr__(self):
-        return "<UNDEF>"
+        return '<UNDEF>'
+
+    def __str__(self):
+        return '<UNDEF>'
 
 
-UNDEF = _UndefType()
+# Uninitialized circuit block's output or state value
+UNDEF: Final = _UndefType.UNDEF
 
 
 class Const:
@@ -86,7 +80,9 @@ class Const:
             cls._instances[const] = new
         return new
 
-    def __init__(self, const: Any):
+    def __init__(self, const: Any) -> None:
+        if const is UNDEF:
+            raise ValueError("<UNDEF> is not a valid value.")
         self._output = const
 
     @property
@@ -101,7 +97,7 @@ class Const:
         return f"<{type(self).__name__} {self.output!r}>"
 
 
-def checkname(name: Any, nametype: str) -> None:
+def check_name(name: Any, nametype: str) -> None:
     """Raise if name is not valid."""
     if not isinstance(name, str):
         raise TypeError(f"{nametype} must be a string, but got {name!r}")
@@ -148,7 +144,7 @@ class Block:
             on_output: None|Event|Sequence[Event] = None,
             _reserved: bool = False,
             debug: bool = False,
-            **x_kwargs):
+            **x_kwargs) -> None:
         """Create new block. Add it to the circuit."""
         self.circuit = simulator.get_circuit()
         if name is None:
@@ -159,7 +155,7 @@ class Block:
                 if blk.name.startswith(prefix))
             name = prefix + str(cnt)
         else:
-            checkname(name, "block name")
+            check_name(name, "block name")
             if name.startswith('_') and not _reserved:
                 raise ValueError(f"{name!r} is a reserved name (starting with an underscore")
         self.name = name
@@ -167,7 +163,8 @@ class Block:
         is_sblock = isinstance(self, SBlock)
         if not is_sblock and not is_cblock:
             raise TypeError("Can't instantiate abstract Block class")
-        assert not (is_sblock and is_cblock)
+        if is_sblock and is_cblock:
+            raise TypeError("A block cannot be both sequential and combinational")
         for key, value in x_kwargs.items():
             if not key.startswith('x_') and not key.startswith('X_'):
                 raise TypeError(
@@ -279,7 +276,7 @@ class CBlock(Block, metaclass=abc.ABCMeta):
 
         __slots__ = ['_blk']
 
-        def __init__(self, blk: CBlock):
+        def __init__(self, blk: CBlock) -> None:
             self._blk = blk
 
         def __getitem__(self, name: str) -> Any:
@@ -294,14 +291,14 @@ class CBlock(Block, metaclass=abc.ABCMeta):
             except KeyError:
                 raise AttributeError(f"{self._blk} has no input {name!r}") from None
 
-    def __init_subclass__(cls, *args, **kwargs):
+    def __init_subclass__(cls, *args, **kwargs) -> None:
         """Verify that no SBlock add-ons were added to a CBlock."""
         if issubclass(cls, Addon):
             # DO NOT catch this error until https://bugs.python.org/issue38085 is fixed
             raise TypeError(f"{cls.__name__}: SBlock add-ons are not compatible with a CBlock")
         super().__init_subclass__(*args, **kwargs)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         self.iconnections: set[Block] = set()   # will be populated by Circuit._finalize()
         self.inputs: dict[str, Any] = {}
             # {"name": input(s)} where input is either:
@@ -460,7 +457,7 @@ class SBlock(Block):
 
     _ct_handlers: dict[str, Callable]   # event handling methods _event_NAME
 
-    def __init_subclass__(cls, *args, **kwargs):
+    def __init_subclass__(cls, *args, **kwargs) -> None:
         """
         Verify that all add-ons precede the SBlock in the class hierarchy.
 
@@ -490,12 +487,13 @@ class SBlock(Block):
     def __init__(
             self, *args,
             on_every_output: None|Event|Sequence[Event] = None,
-            **kwargs):
+            **kwargs) -> None:
         if self.has_method('init_from_value'):
             self.initdef = kwargs.pop('initdef', UNDEF)
         self._event_active = False      # guard against event recursion
         self._every_output_events = event_tuple(on_every_output)
         # completed Circuit.init_sblock initialization steps (2 in total)
+        # value -1 or -2 means initialization step 1 or 2 respectively is in progress
         self.init_steps_completed = 0
         super().__init__(*args, **kwargs)
 
@@ -520,15 +518,15 @@ class SBlock(Block):
     # pylint: disable=unused-argument
     def _event(self, etype: str|EventType, data: Mapping[str, Any]) -> Any:
         """
-        Handle an event.
+        The default event handler. Not to be called directly.
 
-        This is the default handler.
+        The base class does not recognize any events.
         """
         raise EdzedUnknownEvent(f"{self}: Unknown event type {etype!r}")
 
     def event(self, etype: str|EventType, /, **data) -> Any:
         """
-        Error handling wrapper.
+        An entry point for events.
 
         Evaluate so called conditional events. See the EventCond class.
 
@@ -545,11 +543,13 @@ class SBlock(Block):
         simulator is no longer ready, but cannot distinguish internal
         and external events.
         """
-        Event.typecheck(etype)
-        if data:
-            self.log_debug("got event %r, data: %s", etype, data)
-        else:
-            self.log_debug("got event %r", etype)
+        if isinstance(etype, str):
+            if not etype:
+                raise ValueError("Event name must not be empty")
+        elif not isinstance(etype, EventType):
+            raise TypeError(
+                f"Event type must be either a string or an EventType, but got {etype!r}")
+        self.log_debug("got event %r, data: %s", etype, data)
         if self._event_active:
             raise EdzedCircuitError(f"{self}: Forbidden recursive event() call")
         self._event_active = True
@@ -560,6 +560,13 @@ class SBlock(Block):
                 if cond_etype is None:
                     return None
                 etype = cond_etype
+            if 0 <= self.init_steps_completed < 2:
+                # a destination block may be uninitialized, because events
+                # may be generated during the initialization process
+                self.log_debug("pending event, initializing early")
+                # the initialization may be carried out with an event, let's enable it
+                with self._enable_event:    # type: ignore[attr-defined]
+                    self.circuit.init_sblock(self, full=True)
             if isinstance(etype, str):
                 handler = type(self)._ct_handlers.get(etype) # pylint: disable=protected-access
             else:
@@ -573,7 +580,7 @@ class SBlock(Block):
             except EdzedUnknownEvent:
                 raise
             except Exception as err:
-                assert err.__traceback__ is not None        # mypy
+                assert err.__traceback__ is not None
                 if err.__traceback__.tb_next is not None:
                     # The traceback has more than just one level, i.e. the handler function
                     # call itself succeded. Errors like missing arguments are thus ruled out
@@ -607,7 +614,7 @@ class SBlock(Block):
 
         __slots__ = ['_block', '_event_saved']
 
-        def __init__(self, block: SBlock):
+        def __init__(self, block: SBlock) -> None:
             self._block = block
             self._event_saved: bool
 
@@ -621,6 +628,7 @@ class SBlock(Block):
         def __exit__(self, *exc_info):
             self._block._event_active = self._event_saved
 
+    # 23.8.25: deprecated
     def put(self, value: Any, **data) -> Any:
         """put(x) is a shortcut for event('put', value=x)."""
         return self.event('put', **data, value=value)
@@ -632,18 +640,23 @@ class SBlock(Block):
         The default implementation assumes the state is equal output.
         Must be redefined for more complex SBlocks.
         """
+        if self._output is UNDEF:
+            raise EdzedInvalidState(f"get_state() on uninitialized block {self}")
         return self._output
 
-    def init_regular(self) -> None:
+    def init_regular(self) -> Any:
         """
         Initialize the internal state and the output.
+
+        The return value is ignored.
         """
 
     # optional methods (can't get the arg type annotation right)
     # init_async and stop_async accept no args, init_from_value expects 1 arg
-    init_async: Callable[..., Coroutine[Any, Any, None]] = Block.dummy_async_method
-    stop_async: Callable[..., Coroutine[Any, Any, None]] = Block.dummy_async_method
-    init_from_value: Callable = Block.dummy_method
+    # in all three cases the return value is ignored
+    init_async: ClassVar[Callable[..., Coroutine[Any, Any, Any]]] = Block.dummy_async_method
+    stop_async: ClassVar[Callable[..., Coroutine[Any, Any, Any]]] = Block.dummy_async_method
+    init_from_value: ClassVar[Callable[..., Any]] = Block.dummy_method
 
     def get_conf(self) -> dict[str, Any]:
         conf = super().get_conf()
@@ -690,7 +703,7 @@ EFilter = Callable[[MutableMapping], Any]
 
 class Event:
     """
-    Define event settings.
+    An internal (block to block) event.
     """
 
     def __init__(
@@ -700,7 +713,7 @@ class Event:
             *,
             efilter: None|EFilter|Sequence[EFilter] = None,
             repeat: Optional[int|float|str] = None,
-            count: Optional[int] = None):
+            count: Optional[int] = None) -> None:
         if repeat is not None:
             destname = dest if isinstance(dest, str) else dest.name
             dest = sblocks1.Repeat(
@@ -710,10 +723,21 @@ class Event:
         elif count is not None:
             raise ValueError("Argument 'count' is valid only with 'repeat'")
         self.typecheck(etype)
-        self.dest = dest
-        self.etype = etype
+        self._dest = dest
+        self._etype = etype
         self._filters = efilter_tuple(efilter)
-        simulator.get_circuit().resolve_name(self, 'dest', SBlock)
+        simulator.get_circuit().resolve_name(self, '_dest', SBlock)
+
+    @property
+    def dest(self) -> SBlock:
+        if isinstance(self._dest, str):
+            raise EdzedInvalidState(
+                f"{self}: destination block object not available in an unfinalized circuit")
+        return self._dest
+
+    @property
+    def etype(self) -> str|EventType:
+        return self._etype
 
     @classmethod
     def abort(cls) -> Event:
@@ -721,46 +745,112 @@ class Event:
 
     @staticmethod
     def typecheck(etype: Any) -> None:
-        """Raise if etype is not a valid event type value."""
         if isinstance(etype, str):
             if not etype:
-                raise ValueError("event name must be a non-empty string")
+                raise ValueError("Event name must be a non-empty string")
         elif not isinstance(etype, EventType):
-            raise TypeError(f"event type must be a string or EventType, but got {etype!r}")
+            raise TypeError(f"Event type must be a string or EventType, but got {etype!r}")
 
     def send(self, source: Block, /, **data) -> bool:
         """
-        Apply filters and send the event to the dest block.
+        Apply filters and send the event to the destination block.
 
         Add sender block's name to the event data as 'source'.
 
         Return True if sent, False if rejected by a filter.
         """
-        dest = cast(SBlock, self.dest)
-        if dest.circuit is not source.circuit:
-            raise EdzedCircuitError(f"event destination {dest} is not in the current circuit")
+        dest = self._dest
+        # in a finalized circuit there are no references by name
+        assert isinstance(dest, SBlock), \
+            f"Incorrect destination type in {self}, circuit not finalized?"
+        if not source.circuit is dest.circuit is simulator.get_circuit():
+            raise EdzedCircuitError(
+                f"{self}: source {source} and/or destination not in the current circuit")
         data['source'] = source.name
         for efilter in self._filters:
             retval = efilter(data)
-            if isinstance(retval, dict):
+            if isinstance(retval, MutableMapping):
+                for key in retval:
+                    if not isinstance(key, str):
+                        raise TypeError(
+                            f"Event filter {efilter.__name__} returned non-string key {key!r} "
+                            f"(value {retval[key]})")
                 data = retval
             elif not retval:
                 source.log_debug(f"Not sending event {self} (rejected by a filter)")
                 return False
-        if dest.init_steps_completed < 2:
-            # a destination block may be uninitialized, because events
-            # may be generated during the initialization process
-            dest.log_debug("pending event, initializing early")
-            source.circuit.init_sblock(dest, full=True)
         source.log_debug("sending event %s", self)
-        dest.event(self.etype, **data)
+        dest.event(self._etype, **data)
         return True
 
     def __str__(self):
-        dest = self.dest
+        dest = self._dest
         # give correct result even before resolving the dest name to the dest block
-        dest_name = dest if isinstance(dest, str) else dest.name
-        return f"<{type(self).__name__} dest='{dest_name}', event='{self.etype}'>"
+        dest_name = dest if not isinstance(dest, Block) else dest.name
+        return f"<{type(self).__name__} dest='{dest_name}', event='{self._etype}'>"
+
+
+class ExtEvent:
+    """
+    An event with an external source.
+
+    Main differences to the internal Event:
+        - usable after the circuit initialization
+        - no filters
+        - .send() returns the event handler's exit value
+    """
+    def __init__(self, dest: str|SBlock, etype: str = 'put', source: str = '_ext_'):
+        if isinstance(dest, str):
+            dest_block = simulator.get_circuit().findblock(dest)
+        elif isinstance(dest, Block):
+            dest_block = dest
+        else:
+            raise TypeError(
+                f"Expected was a destination block object or its name, but got {dest!r}")
+        if not isinstance(dest_block, SBlock):
+            raise TypeError(f"Cannot send events to a non-sequential block {dest_block}")
+        if not isinstance(etype, str) or not etype:
+            raise TypeError("External event type must be a non-empty string")
+        if not isinstance(source, str):
+            raise TypeError("Default source must be a string")
+        self._dest = dest_block
+        self._etype = etype
+        self._source = source if source.startswith("_ext_") else "_ext_" + source
+
+    @property
+    def dest(self) -> SBlock:
+        return self._dest
+
+    @property
+    def etype(self) -> str:
+        return self._etype
+
+    def send(self, value=UNDEF, **data) -> Any:
+        """
+        Send the event to the destination block.
+
+        Add sender's name (with '_ext_' prepended) to the event
+        data as 'source'.
+
+        Return the event handler's exit value.
+        """
+        if not simulator.get_circuit().is_ready():
+            raise EdzedInvalidState("The circuit simulation is shutting down or not running")
+        if value is not UNDEF:
+            data['value'] = value
+        try:
+            source = data['source']
+        except KeyError:
+            data['source'] = self._source
+        else:
+            if not isinstance(source, str):
+                raise TypeError(f"Event source must be a string, but got {source!r}")
+            if not source.startswith("_ext_"):
+                data['source'] = "_ext_" + source
+        return self._dest.event(self._etype, **data)
+
+    def __str__(self):
+        return f"<{type(self).__name__} dest='{self._dest.name}', event='{self._etype}'>"
 
 
 def _to_tuple(args: Any, validator: Callable[[Any], Any]) -> tuple:

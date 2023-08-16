@@ -37,16 +37,17 @@ async def test_etype(circuit):
 async def test_repeat(circuit):
     """Test the event repeating."""
     logger = TimeLogger('logger', select=lambda data: (data['repeat'], data['value']))
-    rpt = edzed.Repeat('repeat', dest=logger, interval=0.05)
+    rpt = edzed.Repeat('repeat', dest=logger, etype='log', interval=0.05)
 
     async def tester():
+        erpt = edzed.ExtEvent(rpt, 'log')
         await circuit.wait_init()
         await asyncio.sleep(0.1)
         assert rpt.output == 0
-        rpt.put('A')
+        erpt.send('A')
         await asyncio.sleep(0.18)
         assert rpt.output == 3
-        rpt.put('B')
+        erpt.send('B')
         assert rpt.output == 0
         await asyncio.sleep(0.12)
         assert rpt.output == 2
@@ -68,16 +69,17 @@ async def test_repeat(circuit):
 async def test_count(circuit):
     """Test the event count limit."""
     logger = TimeLogger('logger', select=lambda data: (data['repeat'], data['value']))
-    rpt = edzed.Repeat('repeat', dest=logger, interval=0.02, count=3)
+    rpt = edzed.Repeat('repeat', etype='log', dest=logger, interval=0.02, count=3)
 
     async def tester():
+        erpt = edzed.ExtEvent(rpt, 'log')
         await circuit.wait_init()
         await asyncio.sleep(0.1)
         assert rpt.output == 0
-        rpt.put('A')
+        erpt.send('A')
         await asyncio.sleep(0.16)
         assert rpt.output == 3
-        rpt.put('B')
+        erpt.send('B')
         await asyncio.sleep(0.16)
         assert rpt.output == 3
 
@@ -98,7 +100,7 @@ async def test_count(circuit):
 
 async def test_auto_repeat(circuit):
     """Test the automatic repeat"""
-    edzed.Input('src', initdef=7, on_output=edzed.Event('logger', repeat=0.05))
+    edzed.Input('src', initdef=7, on_output=edzed.Event('logger', 'log', repeat=0.05))
     logger = TimeLogger('logger', select=lambda data: (data['repeat'], data['value']))
     rpt = next(circuit.getblocks(edzed.Repeat)) # there's only one
 

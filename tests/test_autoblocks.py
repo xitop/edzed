@@ -30,8 +30,9 @@ def test_invert(circuit):
     assert sum(1 for blk in circuit.getblocks()) == 5
     invert = circuit.findblock('_not_src')
 
+    srcput = edzed.ExtEvent(src, 'put').send
     for value in (True, False, True, False):
-        src.put(value)
+        srcput(value)
         invert.eval_block()
         id1.eval_block()
         id2.eval_block()

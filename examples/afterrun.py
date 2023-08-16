@@ -32,7 +32,9 @@ if __name__ == '__main__':
     print("""\
 An after-run FSM demo.
 
-1. start with: e ar start
+1. start with sending the event 'start'
+   to the block named 'ar':
+      e ar start
    the output goes from False to True
 2. wait few seconds (runtime T)
 3. stop with: e ar stop

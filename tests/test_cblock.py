@@ -284,8 +284,9 @@ def test_compare(circuit):
     TEST1 = (8.1,  7.5,  6.0,   7.5,   100,  7.5,  7.0,  6.999, 7.0,   7.5,   9.0,  777)
     CMP1 =  (True, True, False, False, True, True, True, False, False, False, True, True)
 
+    inp_put = edzed.ExtEvent(inp).send
     for t, c in zip(TEST1, CMP1):
-        inp.put(t)
+        inp_put(t)
         cmp1.eval_block()
         assert cmp1.output == c
     assert inp.output == 777    # tested with all values?
@@ -294,7 +295,7 @@ def test_compare(circuit):
     CMP3 =  (True, False, True, True, True, False, True)
 
     for t, c in zip(TEST3, CMP3):
-        inp.put(t)
+        inp_put(t)
         cmp3.eval_block()
         assert cmp3.output == c
     assert inp.output == 777
@@ -310,8 +311,8 @@ def test_and_or(circuit):
     xor_gate2 = edzed.Xor('XOR2').connect(inp0, inp1, True)
     init(circuit)
     for v0, v1 in ((0, 0), (0, 1), (1, 0), (1, 1)):
-        inp0.put(v0)
-        inp1.put(v1)
+        edzed.ExtEvent(inp0).send(v0)
+        edzed.ExtEvent(inp1).send(v1)
         for gate in and_gate, or_gate, xor_gate1, xor_gate2:
             gate.eval_block()
             assert isinstance(gate.output, bool)
@@ -345,7 +346,7 @@ def test_invert(circuit):
     assert notsrc.iconnections == {src}
     assert notsrc.oconnections == {src2}
     for value in (True, False, True, False):
-        src.put(value)
+        edzed.ExtEvent(src).send(value)
         notsrc.eval_block()
         src2.eval_block()
         assert notsrc.output is not value

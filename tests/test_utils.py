@@ -62,11 +62,11 @@ def test_timelogger_tool(circuit):
     """Check if we can rely on the TimeLogger."""
     logger = TimeLogger('logger')
     init(circuit)
-    logger.put('A')
+    logger.log('A')
     time.sleep(0.1)
-    logger.put('B')
+    logger.log('B')
     time.sleep(0.05)
-    logger.put('C')
+    logger.log('C')
     logger.compare([(0, 'A'), (100, 'B'), (150, 'C')])
 
 

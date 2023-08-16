@@ -34,8 +34,8 @@ listed here.
 .. attribute:: Block.oconnections
   :type: set[CBlock]
 
-  Set of all blocks where the output is connected to. Undefined before
-  the circuit finalization - see :meth:`Circuit.finalize`.
+  Set of all blocks where the output is connected to. The contents of the set
+  are undefined before the circuit finalization - see :meth:`Circuit.finalize`.
 
 For other attributes common to all blocks refer to the base class :class:`Block`.
 
@@ -45,8 +45,12 @@ Inspecting SBlocks
 .. method:: SBlock.get_state() -> Any
 
   Return the :ref:`internal state<Internal state>`.
-  Undefined before a successful block initialization - see
-  :meth:`Block.is_initialized` below and :meth:`Circuit.wait_init`
+
+  .. warning::
+  
+    The internal state is usually not defined before a successful initialization. Do not
+    call ``get_state()`` on uninitialized blocks. It may raise or trigger assertion errors.
+    See related :meth:`Block.is_initialized` below and :meth:`Circuit.wait_init`.
 
   The format and semantics of returned data depends on the block type.
 
@@ -63,15 +67,14 @@ Inspecting SBlocks
     This method is defined for all blocks, but the test
     is helpful for sequential blocks only.
 
-
 Inspecting CBlocks
 ------------------
 
 .. attribute:: CBlock.iconnections
   :type: set[Block]
 
-  A set of all blocks connected to inputs. Undefined before the circuit
-  finalization - see :meth:`Circuit.finalize`.
+  A set of all blocks connected to inputs. The contents of the set are
+  undefined before the circuit finalization - see :meth:`Circuit.finalize`.
 
 .. attribute:: CBlock.inputs
   :type: dict[str, Block|Const|tuple[Block|Const, ...]]
@@ -89,8 +92,8 @@ Inspecting CBlocks
   can be obtained with :meth:`Block.get_conf`; extract
   the ``'inputs'`` value from the result.
 
-  The contents is undefined before the circuit finalization - see
-  :meth:`Circuit.finalize`.
+  The contents of the dict are undefined before the circuit finalization
+  - see :meth:`Circuit.finalize`.
 
 .. seealso:: :ref:`Input signatures`
 

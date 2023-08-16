@@ -51,7 +51,7 @@ async def test_duration(circuit):
     logger = TimeLogger('logger', mstop=True)
     freq = PWM(
         'vclock', comment="25Hz variable duty cycle (pulse width modulation",
-        initdef='on_0', on_output=edzed.Event(logger))
+        initdef='on_0', on_output=edzed.Event(logger, 'log'))
 
     async def tester():
         await asyncio.sleep(0.115)      # 3 periods 20:20 ms

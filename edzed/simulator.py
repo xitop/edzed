@@ -72,7 +72,7 @@ class _BlockResolver:
 
     __slots__ = ('_unresolved', '_resolve_function')
 
-    def __init__(self, resolve_function: Callable[[str], block.Block]):
+    def __init__(self, resolve_function: Callable[[str], block.Block]) -> None:
         self._unresolved: list[tuple[Any, str, type[block.Block]]] = []
         self._resolve_function = resolve_function
 
@@ -119,7 +119,7 @@ class Circuit:
     In this implementation, circuit blocks can be added, but not removed.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._blocks: dict[str, block.Block] = {}
             # all blocks belonging to this circuit by name
         self._simtask: Optional[asyncio.Task] = None
@@ -185,7 +185,7 @@ class Circuit:
     async def wait_init(self) -> None:
         """Wait until a running circuit is fully initialized."""
         await self._check_started()
-        assert self._simtask is not None    # mypy type narrowing
+        assert self._simtask is not None
         await asyncio.wait(
             [asyncio.create_task(self._init_done.wait()), self._simtask],
             return_when=asyncio.FIRST_COMPLETED)
@@ -203,7 +203,7 @@ class Circuit:
             # there is an even bigger problem
             raise EdzedInvalidState("The circuit was shut down")
         if self._finalized:
-            raise EdzedInvalidState("No changes allowed in a finalized circuit")
+            raise EdzedInvalidState("Not allowed in a finalized circuit")
 
     def set_persistent_data(self, persistent_dict: Optional[MutableMapping[str, Any]]) -> None:
         """Setup the persistent state data storage."""
@@ -455,12 +455,14 @@ class Circuit:
         steps = blk.init_steps_completed
         try:
             if steps == 0:
+                blk.init_steps_completed = -1
                 if isinstance(blk, addons.AddonPersistence) and blk.persistent:
                     blk.init_from_persistent_data()
                     if blk.is_initialized():
                         blk.log_debug("initialized from saved state")
                 blk.init_steps_completed = 1
             if steps == 1 or steps == 0 and full:
+                blk.init_steps_completed = -2
                 blk.init_regular()
                 if not blk.is_initialized() and blk.has_method('init_from_value') \
                         and blk.initdef is not block.UNDEF:
@@ -505,7 +507,9 @@ class Circuit:
         """
         async_blocks = {
             blk for blk in blocks.intersection(self.getblocks(addons.AddonAsync))
-            if blk.has_method('stop_async') and blk.stop_timeout > 0.0}
+            if blk.has_method('stop_async')
+                and blk.stop_timeout > 0.0} # type: ignore[attr-defined]
+                                            # .stop_async() implies .stop_timeout
         sync_blocks = blocks.difference(async_blocks)
 
         # 1. async blocks
@@ -522,7 +526,7 @@ class Circuit:
                     blk,
                     asyncio.create_task(
                         blk.stop_async(), name=f"edzed: stop_async for block {blk.name!r}"),
-                    blk.stop_timeout
+                    blk.stop_timeout        # type: ignore[attr-defined]
                 ) for blk in async_blocks]
             self.log_debug("Waiting for async cleanup")
             await self._run_tasks("stop", wait_tasks)
@@ -679,7 +683,7 @@ class Circuit:
                     blk.save_persistent_state()
                 self.persistent_dict['edzed-stop-time'] = time.time()
             await self._stop_sblocks(started_blocks)
-        assert self._error is not None  # mypy type narrowing
+        assert self._error is not None
         raise self._error
 
     def abort(self, exc: BaseException) -> None:
@@ -704,7 +708,8 @@ class Circuit:
         if not isinstance(exc, BaseException):
             # one more reason to abort
             exc = TypeError(f'abort(): expected an exception, got {exc!r}')
-        _logger.warning("called abort(%r)", exc)
+        level = logging.INFO if isinstance(exc, asyncio.CancelledError) else logging.WARNING
+        _logger.log(level, "called abort(%r)", exc)
         self._error = exc
         if self._simtask is not None and not self._simtask.done():
             self._simtask.cancel()
@@ -714,7 +719,7 @@ class Circuit:
         Stop the simulation and wait until it finishes.
         """
         await self._check_started()
-        assert self._simtask is not None    # mypy type narrowing
+        assert self._simtask is not None
         if self.is_current_task():
             raise EdzedInvalidState("Cannot await the simulator task from the simulator task.")
         self.abort(asyncio.CancelledError('shutdown'))
@@ -775,6 +780,12 @@ async def run(*coroutines: Coroutine, catch_sigterm: bool = True) -> None:
         return
 
     simtask = asyncio.create_task(circuit.run_forever(), name="edzed: simulation task")
+    # start the simtask before supporting tasks to ensure that the circuit is ready
+    await asyncio.sleep(0)
+    if simtask.done():
+        # unexpected error, do not bother to start supporting tasks
+        catch_sigterm = False
+        coroutines = ()
     tasks =  [
         asyncio.create_task(coro, name=f"edzed: supporting task #{i}")
         for i, coro in enumerate(coroutines, start=1)

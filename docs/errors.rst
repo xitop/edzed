@@ -21,13 +21,14 @@ Exceptions
 
 .. exception:: EdzedInvalidState
 
-  This exception is raised for calls that are made in a wrong situation,
-  e.g. when trying to start a simulation when it is already running.
+  This exception is raised for calls that were made in a wrong situation,
+  e.g. when trying to start a simulation when it is already running or
+  when attempting an operation on an uninitialized block.
 
 .. exception:: EdzedUnknownEvent
 
   This specific exception is raised when :meth:`SBlock.event` is called
-  with an event type that the block does not accept.
+  with an event type that the block does not recognize.
 
 Error checking in asyncio
 =========================

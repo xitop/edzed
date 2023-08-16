@@ -104,18 +104,18 @@ async def test_maintask(circuit):
 async def test_task_monitoring(circuit):
     """Test the task monitoring with is_service=False (default)."""
     async def coro(waitstates, fail=False):
-        logger.put(f"start {waitstates}")
+        logger.log(f"start {waitstates}")
         await asyncio.sleep(waitstates * 0.05)
         if fail:
             raise RuntimeError("test error #999")
-        logger.put(f"stop {waitstates}")
+        logger.log(f"stop {waitstates}")
 
     class Worker(edzed.AddonMainTask, edzed.SBlock):
         async def _maintask(self):
             for i in range(1, 7):
                 self._create_monitored_task(coro(i, i == 4))
             await asyncio.sleep(0.25) # will be cancelled at T=200 ms
-            logger.put("notreached")
+            logger.log("notreached")
         def init_regular(self):
             self.set_output(False)
 

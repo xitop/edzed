@@ -13,7 +13,7 @@ from __future__ import annotations
 from collections.abc import Callable, Generator, Sequence
 import re
 import time
-from typing import Optional
+from typing import ClassVar, Optional
 
 from ..utils.tconst import *   # pylint: disable=wildcard-import
 
@@ -366,8 +366,8 @@ class _Interval:
 
     # https://en.wikipedia.org/wiki/Interval_(mathematics)#Terminology
     # the subintervals are always left-closed
-    _RCLOSED_INTERVAL: bool # are the subintervals also right-closed?
-    _convert: Callable[[str|Sequence], tuple[int]]
+    _RCLOSED_INTERVAL: ClassVar[bool] # are the subintervals also right-closed?
+    _convert: ClassVar[Callable[[str|Sequence], tuple[int]]]
 
     def __init__(
             self,

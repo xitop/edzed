@@ -70,7 +70,7 @@ class Input(_Validation, addons.AddonPersistence, block.SBlock):
             self._validate(self.initdef)
 
     def init_from_value(self, value: Any) -> None:
-        self.put(value)
+        self.event('put', value=value)
 
     def _event_put(self, *, value: Any, **_data) -> bool:
         try:
@@ -404,11 +404,10 @@ class OutputFunc(block.SBlock):
             for ev in self._on_error:
                 ev.send(self, trigger='error', error=err)
             return ('error', err)
-        else:
-            self.log_debug("output function returned: %r", result)
-            for ev in self._on_success:
-                ev.send(self, trigger='success', value=result)
-            return ('result', result)
+        self.log_debug("output function returned: %r", result)
+        for ev in self._on_success:
+            ev.send(self, trigger='success', value=result)
+        return ('result', result)
 
     def init_regular(self) -> None:
         """Initialize the internal state."""

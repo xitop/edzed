@@ -129,7 +129,7 @@ async def t1sec(circuit, dynamic):
         "1sec",
         times=None if dynamic else targ,
         on_output=(
-            edzed.Event(logger),
+            edzed.Event(logger, 'log'),
             edzed.Event('_ctrl', 'shutdown', efilter=edzed.Edge(fall=True))
             )
         )

@@ -23,7 +23,7 @@ pytestmark = pytest.mark.asyncio
 async def output_func(circuit, *, log, v2=2, on_error=None, mstop=True, **kwargs):
     def worker(arg):
         v = 12//arg
-        logger.put(v)
+        logger.log(v)
         return 100+v
 
     inp = edzed.Input('inp', initdef=6, on_output=edzed.Event('echo'))
@@ -31,14 +31,15 @@ async def output_func(circuit, *, log, v2=2, on_error=None, mstop=True, **kwargs
     edzed.OutputFunc('echo', func=worker, on_error=on_error, **kwargs)
 
     async def tester():     # will be cancelled on simulation error
+        inp_put = edzed.ExtEvent(inp).send
         await asyncio.sleep(0.05)
-        inp.put(v2)
+        inp_put(v2)
         await asyncio.sleep(0.05)
-        inp.put(3)
+        inp_put(3)
 
     try:
         await edzed.run(tester())
-        logger.put("END")
+        logger.log("END")
     finally:
         logger.compare(log)
 
@@ -69,7 +70,10 @@ async def test_on_success(circuit):
         (100, '--stop--'),
         (100, 'END')
         ]
-    await output_func(circuit, on_success=edzed.Event('logger', efilter=check_trigger), log=LOG)
+    await output_func(
+        circuit,
+        on_success=edzed.Event('logger', etype='log', efilter=check_trigger),
+        log=LOG)
 
 
 async def test_on_error_ignore(circuit):
@@ -108,7 +112,7 @@ async def test_on_error_custom(circuit):
     await output_func(
         circuit, v2=0, log=LOG,
         on_error=edzed.Event(
-            'logger',
+            'logger', 'log',
             efilter=(check_trigger, lambda data: {'value': str(data['error'])})
             )
         )
@@ -134,5 +138,5 @@ async def test_stop(circuit):
     vlog = TimeLogger('vlog', mstop=True)
     await output_func(
         circuit, v2=12, stop_data=dict(value=12), log=LOG,
-        on_success=edzed.Event('vlog'))
+        on_success=edzed.Event('vlog', 'log'))
     vlog.compare(VLOG)

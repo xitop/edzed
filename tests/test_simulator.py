@@ -103,9 +103,9 @@ async def test_wait_init(circuit):
     async def tester():
         await asyncio.sleep(0)
         assert inp.output is edzed.UNDEF
-        logger.put('before')
+        logger.log('before')
         await circuit.wait_init()
-        logger.put('after')
+        logger.log('after')
         assert inp.output == 'response'
     await edzed.run(tester())
 
@@ -156,7 +156,7 @@ async def test_instability_2(circuit):
     await circuit.wait_init()
     assert ctrl.output is not edzed.UNDEF
     # so far so good, but now make it instable
-    ctrl.put(True)
+    ctrl.event('put', value=True)
     with pytest.raises(edzed.EdzedCircuitError, match="instability"):
         await asyncio.wait_for(simtask, timeout=1.0)
 
@@ -347,7 +347,7 @@ async def test_sigterm(circuit):
     """Test cancellation by SIGTERM."""
     logger = TimeLogger('logger')
     edzed.Input('inp', initdef='start', on_output=edzed.Event('echo'))
-    edzed.OutputFunc('echo', func=logger.put, on_error=None, stop_data={'value': 'cleanup'})
+    edzed.OutputFunc('echo', func=logger.log, on_error=None, stop_data={'value': 'cleanup'})
 
     async def send_sigterm_to_self():
         assert signal.getsignal(signal.SIGTERM) != signal.SIG_DFL   # handler installed
@@ -357,7 +357,7 @@ async def test_sigterm(circuit):
             await asyncio.sleep(1)
         except asyncio.CancelledError:
             await asyncio.sleep(0.03)
-            logger.put('cancelled')
+            logger.log('cancelled')
             return
         raise RuntimeError("should have been cancelled")
 
@@ -380,9 +380,9 @@ async def test_supporting_task_error(circuit):
         try:
             await asyncio.sleep(n/1000)
         except asyncio.CancelledError:
-            logger.put(f'cancel-{n}')
+            logger.log(f'cancel-{n}')
             return
-        logger.put(f'crash-{n}')
+        logger.log(f'crash-{n}')
         raise RuntimeError("crash")
 
     logger = TimeLogger('logger', mstop=True)

@@ -3,7 +3,7 @@ import edzed
 
 edzed.Timer(
     'clk', comment="clock generator",
-    t_on=0.5, t_off=0.5, on_output=edzed.Event('out'))
+    t_period=1.0, on_output=edzed.Event('out'))
 
 def output_print(value):
     if value:

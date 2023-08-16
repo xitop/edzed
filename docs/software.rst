@@ -11,7 +11,8 @@ it on Windows and run the unit tests, please report the result.
 
 Edzed needs Python 3.8 or newer. No third party libraries are required.
 
-Unit tests require ``pytest`` with the ``pytest-asyncio`` plugin.
+Unit tests require ``pytest`` with the ``pytest-asyncio``
+and ``pytest-forked`` plugins.
 
 
 Installing
@@ -29,4 +30,5 @@ Alternatively install from github with::
 
   python3 -m pip install --upgrade git+https://github.com/xitop/edzed.git
 
-Not all github releases are uploaded to PyPi.
+Releases containing only negligible code changes are sometimes
+not uploaded to PyPi.

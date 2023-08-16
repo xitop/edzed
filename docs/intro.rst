@@ -19,7 +19,7 @@ idealized digital circuit.
 The ``edzed`` code in an application is naturally divided into two main parts:
 
 - assemble a circuit from individual blocks
-- run the simulation task
+- run the simulation task and optional supporting tasks
 
 Being a library means there is no function out of the box.
 In order to create an usable system, the developer needs to:
@@ -32,50 +32,48 @@ In order to create an usable system, the developer needs to:
 Connecting with the outside world
 =================================
 
-Connecting inputs
------------------
-
-The main three cases are:
-
-- the circuit - or its part - does not read external input data. For example
-  if its activity is entirely based on date and time. Needless to say that no
-  special input handling code is required for this case.
-
-- the circuit - or its part - actively polls for the input data. For example it reads
-  data from a sensor in regular intervals. The developer must write a custom function
-  (may be asynchronous) for each type of input device connected this way.
-
-- the circuit should react to incoming events or request. This requires a supporting
-  asynchronous task that:
-
-  - listens for incoming events or requests, for instance on a network socket,
-    on the command line like the included :ref:`CLI demo tool`, etc.,
-  - authenticates the event source (if applicable)
-  - validates and preprocesses the data (if applicable)
-  - and finally sends the event to the circuit
-
-  The task may also handle monitoring or supervising of the circuit, like retrieving
-  the internal state, turning debugging on/off, updating time schedules, shutting down, etc.
-
-  For this purpose the developer has to write an async coroutine that will be run together
-  with the circuit simulation.
-
 Connecting outputs
 ------------------
 
-The developer needs to write a custom function (may be asynchronous) for each type of
-controlled output device. The circuit will invoke the function when programmed conditions
-are met.
+The developer should provide a custom function (may be asynchronous) for each type of
+controlled output device. The circuit's output block for that device will invoke the
+function each time it receives a new value.
 
 For simple testing and learning often a simple ``print`` statement will do. This is
 what we use in our examples.
 
+Connecting inputs
+-----------------
 
+In general, there are two data flow models called *pull* and *push*.
+
+1. *Pull* - The input block actively polls for the input data. For example it reads
+   data from a sensor in some intervals. The developer should provide a custom function
+   (may be asynchronous) for each type of input device connected this way.
+
+2. *Push* - The input block reacts to incoming events or requests. This is the most common case
+   and it requires a supporting asynchronous task acting as an interface between
+   one or more external systems and the circuit. The application developer should
+   provide an async coroutine that will be run together with the circuit simulation.
+   This supporting task usually consists of a loop that:
+
+  - listens for an incoming event or request, for instance on a network socket
+    or on the command line like the included :ref:`CLI demo tool`, etc.,
+  - performs checks and preprocessing as required by the particular application
+  - if the event is accepted, forwards it to the circuit
+    and returns the reply (a result value or an error message)
+
+  The supporting task may also handle monitoring or supervising of the circuit, like retrieving
+  the internal state, turning debugging on/off, updating time schedules, shutting down, etc.
+  Multiple supporting tasks may exist, if necessary.
+
+  
 Examples
-========
+--------
 
 **"Hello, world!"**
 
+The examples below show I/O techniques mentioned in the previous section.
 In order to produce simple working examples, we have to mock input data
 sources and use print statements instead of real outputs.
 
@@ -89,7 +87,11 @@ Run with: ``python3 examplefile.py``, press the ``ctrl-C`` key to terminate.
 Don't worry if you don't understand all the details, ``edzed`` comes
 with a comprehensive documentation.
 
-----
+Example 1: no inputs
+++++++++++++++++++++
+
+No block in this example reads external input data. The activity is entirely based on date
+and time. No special input handling code is required for this case, of course.
 
 Simply print "tick/tock" (the clock sound) in 1 second pace::
 
@@ -98,7 +100,7 @@ Simply print "tick/tock" (the clock sound) in 1 second pace::
 
   edzed.Timer(
       'clk', comment="clock generator",
-      t_on=0.5, t_off=0.5, on_output=edzed.Event('out'))
+      t_period=1.0, on_output=edzed.Event('out'))
 
   def output_print(value):
       if value:
@@ -113,9 +115,12 @@ Simply print "tick/tock" (the clock sound) in 1 second pace::
       print('Press ctrl-C to stop\n')
       asyncio.run(edzed.run())
 
-----
 
-A thermostat example::
+Example 2: polling a sensor
++++++++++++++++++++++++++++
+
+In this thermostat example a readout from a sensor is made in regular intervals,
+i.e. the data is pulled into the circuit::
 
   import asyncio
   import random
@@ -144,12 +149,53 @@ A thermostat example::
 
   edzed.OutputFunc(
       'heater',
-      func=output_heater, on_error=None
-      )
+      func=output_heater, on_error=None)
 
   if __name__ == '__main__':
       print('Press ctrl-C to stop\n')
       asyncio.run(edzed.run())
+
+Example 3: with a supporting task
++++++++++++++++++++++++++++++++++
+
+In the final example, an external system pushes its data to the circuit.
+The circuit itself is not shown. A basic skeleton of a supporting task
+could look like this::
+
+  # warning: pseudo-code!
+  async def my_interface():
+      conn = control_connection   # e.g. a network socket
+      circuit = edzed.get_circuit()
+      while True:
+          inp = await conn.read_request()
+          try:
+              cmd = parse(inp)
+              if is_event(cmd):
+                  # pass an external event to the circuit
+                  event = edzed.ExtEvent(cmd.block, cmd.event)
+                  result = event.send('control_connection', **cmd.data)
+              elif is_query(cmd):
+                  # query a circuit block (debugging, monitoring, ...)
+                  blk = circuit.findblock(cmd.block)
+                  # get the requested information using functions like
+                  # blk.get_state(), blk.get_conf(), blk.output, etc.
+                  result = ...
+              elif is_control_command(cmd)
+                  # control the circuit using functions like
+                  # circuit.set_debug(), circuit.shutdown(), etc.
+                  result = ...
+              else:
+                  raise ValueError("Incorrect input")
+          except Exception as exc:
+              await conn.reply_with_error(exc)
+          else:
+              await conn.reply_with_result(result)
+
+The application consists of the simulator and the supporting task.
+Both must be started with::
+
+  if __name__ == '__main__':
+      asyncio.run(edzed.run(my_interface()))
 
 .. module:: edzed.demo
 
@@ -186,7 +232,6 @@ to pass by pushing it, but only if it was unlocked with a coin.
 It does not allow to pass twice nor to pay twice::
 
   import asyncio
-  import logging
   import edzed
   from edzed.demo import cli_repl
 
@@ -306,7 +351,6 @@ We recommend to run this example with block debug messages turned on
 ::
 
   import asyncio
-  import logging
   import edzed
   from edzed.demo import cli_repl
 

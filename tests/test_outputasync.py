@@ -27,12 +27,12 @@ async def output_async(
         test_error=False, mstop=True, on_error=None, **kwargs):
 
     async def wait120(arg):
-        logger.put(f'start {arg}')
+        logger.log(f'start {arg}')
         if test_error:
             # pylint: disable=pointless-statement
             1/0     # BOOM!
         await asyncio.sleep(0.12)
-        logger.put(f'stop {arg}')
+        logger.log(f'stop {arg}')
         return f'ok {arg}'
 
     inp = edzed.Input('inp', initdef='i1', on_output=edzed.Event('echo'))
@@ -40,16 +40,17 @@ async def output_async(
     edzed.OutputAsync('echo', coro=wait120, on_error=on_error, **kwargs)
 
     async def tester():     # will be cancelled on simulation error
+        ev = edzed.ExtEvent(inp, 'put')
         await asyncio.sleep(t1)
-        inp.put('i2')
+        ev.send('i2')
         if t2 > 0.0:
             await asyncio.sleep(t2)
-        inp.put('i3')
+        ev.send('i3')
         await asyncio.sleep(0.05)
 
     try:
         await edzed.run(tester())
-        logger.put("END")
+        logger.log("END")
     finally:
         logger.compare(log)
 
@@ -69,7 +70,7 @@ async def test_cmode(circuit):
         mode='c',
         log=LOG,
         on_cancel=edzed.Event(
-            'logger',
+            'logger', 'log',
             efilter=lambda data: {'value': f"cancel {data['put']['value']}"}),
         )
 
@@ -126,12 +127,13 @@ async def test_cmode_wmode_output(circuit):
     async def tester():
         await circuit.wait_init()
         for blk in (ctest, wtest):
+            blk_put = edzed.ExtEvent(blk).send
             assert blk.output == 0  # idle
-            blk.put(blk)
+            blk_put(blk)
             assert blk.output == 0
-            blk.put(blk)
-            blk.put(blk)
-            blk.put(blk)
+            blk_put(blk)
+            blk_put(blk)
+            blk_put(blk)
             assert blk.output == 0
 
     await edzed.run(tester())
@@ -151,9 +153,9 @@ async def test_smode_output(circuit):
     ]
 
     async def otest(n):
-        logger.put(f"{n} start {stest.output}")
+        logger.log(f"{n} start {stest.output}")
         await asyncio.sleep(0.14)
-        logger.put(f"{n} stop {stest.output}")
+        logger.log(f"{n} stop {stest.output}")
 
     logger = TimeLogger('logger', mstop=True)
     stest = edzed.OutputAsync('stest', mode='start', coro=otest, on_error=None)
@@ -162,11 +164,11 @@ async def test_smode_output(circuit):
         await circuit.wait_init()
         assert stest.output == 0
         for i in range(3):
-            stest.put(i)
+            stest.event('put', value=i)
             await asyncio.sleep(0.05)
 
     await edzed.run(tester())
-    logger.put('END')
+    logger.log('END')
     assert stest.output == 0
     logger.compare(LOG)
 
@@ -184,9 +186,9 @@ async def test_smode_stop_timeout(circuit):
     ]
 
     async def otest(n):
-        logger.put(f"{n} start {stest.output}")
+        logger.log(f"{n} start {stest.output}")
         await asyncio.sleep(0.18)
-        logger.put(f"{n} stop {stest.output}")
+        logger.log(f"{n} stop {stest.output}")
 
     logger = TimeLogger('logger', mstop=True)
     stest = edzed.OutputAsync('stest', mode='s', coro=otest, on_error=None, stop_timeout=0.05)
@@ -195,12 +197,12 @@ async def test_smode_stop_timeout(circuit):
         await circuit.wait_init()
         assert stest.output == 0
         for i in range(3):
-            stest.put(i)
+            stest.event('put', value=i)
             await asyncio.sleep(0.05)
 
     await edzed.run(tester())
     assert stest.output == 0
-    logger.put('END')
+    logger.log('END')
 
     logger.compare(LOG)
 
@@ -244,7 +246,10 @@ async def test_guard_time_after_error(circuit):
         ]
     await output_async(
         circuit, mode='c', test_error=True, guard_time=0.13, log=LOG,
-        on_error=edzed.Event('logger', efilter=lambda data: {'value': str(data['error'])}))
+        on_error=edzed.Event(
+            'logger', 'log',
+            efilter=lambda data: {'value': str(data['error'])})
+        )
 
 
 async def test_guard_time_too_long(circuit):
@@ -277,7 +282,7 @@ async def test_on_success(circuit):
         ]
     await output_async(
         circuit, mode='w',
-        on_success=edzed.Event('logger', efilter=check_trigger),
+        on_success=edzed.Event('logger', 'log', efilter=check_trigger),
         log=LOG)
 
 
@@ -322,7 +327,7 @@ async def test_on_error_custom(circuit):
         ]
     await output_async(
         circuit, mode='c', test_error=True, log=LOG,
-        on_error=edzed.Event('logger', efilter=(
+        on_error=edzed.Event('logger', 'log', efilter=(
             check_trigger,
             lambda data: {'value': str(data['error'])}
             )
@@ -348,7 +353,7 @@ async def test_cmode_stop(circuit):
     vlog = TimeLogger('vlog')
     await output_async(
         circuit, mode='c', stop_data={'value': 'CLEANUP'}, t1=0.15, log=LOG,
-        on_success=edzed.Event('vlog'))
+        on_success=edzed.Event('vlog', 'log'))
     vlog.compare(VLOG)
 
 
@@ -377,7 +382,7 @@ async def test_smode_stop(circuit):
     vlog = TimeLogger('vlog')
     await output_async(
         circuit, mode='s', stop_data={'value': 'CLEANUP'}, t1=0.04, t2=0.04, log=LOG,
-        on_success=edzed.Event('vlog'))
+        on_success=edzed.Event('vlog', 'log'))
     vlog.compare(VLOG)
 
 
@@ -395,13 +400,13 @@ async def test_executor(circuit):
     blocks = [
         edzed.OutputAsync(
             str(i), mode='c', coro=edzed.InExecutor(blocking),
-            on_success=edzed.Event(log), on_error=edzed.Event.abort())
+            on_success=edzed.Event(log, etype='log'), on_error=edzed.Event.abort())
         for i in range(THREADS)]
 
     async def tester():
         await circuit.wait_init()
         for i, blk in enumerate(blocks):
-            blk.put(i)
+            blk.event('put', value=i)
             await asyncio.sleep(0.005)
         await asyncio.sleep(0.17)
 
@@ -417,24 +422,24 @@ async def test_executor_args(circuit):
 
     LOG = [(40, 123), (60, 120), (80, 789), (100, 780)]
 
-    log = TimeLogger('log')
+    logger = TimeLogger('log')
     out1 = edzed.OutputAsync(
         "out1", mode='wait', coro=edzed.InExecutor(blocking),
         f_args=('a', 'b'), f_kwargs=('c'),
-        on_success=edzed.Event(log), on_error=edzed.Event.abort())
+        on_success=edzed.Event(logger, 'log'), on_error=edzed.Event.abort())
     out2 = edzed.OutputAsync(
         "out2", mode='wait', coro=edzed.InExecutor(blocking),
         f_args=('a', 'b'),  # no kwargs
-        on_success=edzed.Event(log), on_error=edzed.Event.abort())
+        on_success=edzed.Event(logger, 'log'), on_error=edzed.Event.abort())
 
 
     async def tester():
         await circuit.wait_init()
-        out1.put(None, a=1, b=2, c=3)
-        out1.put(None, a=7, b=8, c=9)
+        out1.event('put', value=None, a=1, b=2, c=3)
+        out1.event('put', value=None, a=7, b=8, c=9)
         await asyncio.sleep(0.02)
-        out2.put(None, a=1, b=2, c=3)
-        out2.put(None, a=7, b=8, c=9)
+        out2.event('put', value=None, a=1, b=2, c=3)
+        out2.event('put', value=None, a=7, b=8, c=9)
 
     await edzed.run(tester())
-    log.compare(LOG)
+    logger.compare(LOG)
