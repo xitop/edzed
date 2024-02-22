@@ -2,9 +2,7 @@
 Test the persistent state.
 """
 
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-# pylint: disable=wildcard-import, unused-wildcard-import
+# pylint: disable=missing-class-docstring
 
 import time
 
@@ -12,7 +10,10 @@ import pytest
 
 import edzed
 
-from .utils import *
+# pylint: disable=unused-argument
+# pylint: disable-next=unused-import
+from .utils import fixture_circuit
+from .utils import init
 
 
 def test_keys(circuit):
@@ -42,7 +43,7 @@ def test_save_state_nosync(circuit):
     init(circuit)
 
     assert inp.output == 99
-    assert storage == {}
+    assert not storage
     inp.save_persistent_state()     # state must be saved explicitly
     assert storage == {inp.key: 99}
     inp.event('put', value=3.14)

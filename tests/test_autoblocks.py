@@ -2,16 +2,13 @@
 Test automatically created blocks.
 """
 
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-# pylint: disable=wildcard-import, unused-wildcard-import
-# pylint: disable=unidiomatic-typecheck
-
 import pytest
 
 import edzed
 
-from .utils import *
+# pylint: disable-next=unused-import
+from .utils import fixture_circuit
+from .utils import init, Noop
 
 def test_invert(circuit):
     """Shortcut '_not_blk' creates an inverter block connected to blk."""
@@ -55,6 +52,7 @@ def test_control_block_1(circuit):
     Noop('dummy').connect('_ctrl')
     init(circuit)
     ctrl = circuit.findblock('_ctrl')
+    # pylint: disable-next=unidiomatic-typecheck
     assert type(ctrl) is edzed.ControlBlock
 
 
@@ -63,4 +61,5 @@ def test_control_block_2(circuit):
     Noop('dummy', on_output=edzed.Event('_ctrl', 'abort'))
     init(circuit)
     ctrl = circuit.findblock('_ctrl')
+    # pylint: disable-next=unidiomatic-typecheck
     assert type(ctrl) is edzed.ControlBlock

@@ -2,17 +2,16 @@
 Test the InputExp block.
 """
 
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-# pylint: disable=wildcard-import, unused-wildcard-import
-
 import asyncio
 
 import pytest
 
 import edzed
 
-from .utils import *
+# pylint: disable=unused-argument
+# pylint: disable-next=unused-import
+from .utils import fixture_circuit
+from .utils import TimeLogger
 
 pytest_plugins = ('pytest_asyncio',)
 pytestmark = pytest.mark.asyncio
@@ -71,7 +70,7 @@ async def ptest(circuit, delay, slog):
     circuit = edzed.get_circuit()
     circuit.set_persistent_data(state)
     logger = TimeLogger('logger')
-    ie2 = edzed.InputExp(
+    edzed.InputExp(
         'ie', duration=0.25, expired="exp", initdef="ok2", persistent=True,
         on_output=edzed.Event(logger, 'log'))
     await edzed.run(test_sleep(0.3))

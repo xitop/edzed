@@ -2,23 +2,24 @@
 Test the TimeDate block as much as possible in short time.
 """
 
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-# pylint: disable=wildcard-import, unused-wildcard-import
-
 import asyncio
+import sys
+import datetime as dt
 import time
 
 import pytest
 
 import edzed
 from edzed.utils import MONTH_NAMES
-from edzed.blocklib.timeinterval import HMS, MD
 
-from .utils import *
-
+# pylint: disable=unused-argument
+# pylint: disable-next=unused-import
+from .utils import fixture_circuit
+from .utils import timelimit, TimeLogger
 
 pytest_plugins = ('pytest_asyncio',)
+
+P3_11 = sys.version_info >= (3, 11)
 
 
 @pytest.mark.asyncio
@@ -42,24 +43,37 @@ async def test_args(circuit):
     """Test the equivalence of string and numeric formats."""
     kwargs = {
         'dates': [[[6,21], [12,20]]],
-        'times': [[[1,30,0], [2,45,0]], [[17,1,10], [17,59,10]]],
-        'weekdays': [1,5],
+        'times': [[[1,30], [2,45,0]], [[17,1,10,50_000], [17,59,10,0]]],
+        'weekdays': [1,7],
     }
     td_str = edzed.TimeDate(
-        'str_args', dates='21.jun-20.dec', times='1:30-2:45, 17:01:10-17:59:10', weekdays='15')
+        'str_args',
+        dates='21.jun-20.dec', times='1:30-2:45, 17:01:10.05/17:59:10', weekdays='17')
     td_num = edzed.TimeDate(
         'num_args', **kwargs)
+    if P3_11:
+        td_iso = edzed.TimeDate(
+            'iso_args',
+            dates='--0621 - --1220',
+            times='T0130-T0245, T17:01:10.05/17:59:10.00',
+            weekdays='01')  # both 0 and 7 mean a Sunday
+    else:
+        td_iso = td_str
+
+    for interval in kwargs['times']:
+        for endpoint in interval:
+            endpoint.extend([0] * (4-len(endpoint)))    # right-pad to 4 ints
 
     async def tester():
         await circuit.wait_init()
-        assert td_str.get_state() == td_num.get_state() == kwargs
+        assert td_str.get_state() == td_num.get_state() == td_iso.get_state() == kwargs
 
     await edzed.run(tester())
 
 
 async def _test6(circuit, *p6):
-    yes1, yes2, no1, no2, ying, yang = \
-        [edzed.TimeDate(f"tmp_{i}", **kw) for i, kw in enumerate(p6)]
+    yes1, yes2, no1, no2, ying, yang = [
+        edzed.TimeDate(f"tmp_{i}", **kw)for i, kw in enumerate(p6)]
 
     async def tester():
         await circuit.wait_init()
@@ -74,37 +88,35 @@ async def _test6(circuit, *p6):
 
 @pytest.mark.asyncio
 async def test_times(circuit):
-    now = HMS()
-    other_month = MONTH_NAMES[13 - MD().month]
+    now = dt.datetime.today()
+    other_month = MONTH_NAMES[13 - now.month]
     await _test6(
         circuit,
-        {'times': '0:0-0:0'},
-        {'times': f"{now}-{(now.hour+1) % 24}:{now.minute}"},
+        {'times': '0:0 / 0:0'},
+        {'times': f"{now.time()}-{(now.hour+1) % 24}:{now.minute}"},
         {'times': '0:0-0:0', 'dates': f'1.{other_month}-25.{other_month}'},
         {'times': f"{(now.hour+1) % 24}:{now.minute}-{(now.hour+2) % 24}:{now.minute}"},
-        {'times': '0:0:0-12:0:0'},
+        {'times': '0:0:0 - 12:0:0'},
         {'times': '12:0-0:0'},
         )
 
 
 @pytest.mark.asyncio
 async def test_dates(circuit):
-    now = MD()
-    def mname0(mnum):
-        return MONTH_NAMES[1 + mnum]
+    now = dt.date.today()
     await _test6(
         circuit,
         {'dates': ' jan 1 - dec 31 '},
-        {'dates': f"{now}-{mname0((now.month+1) % 12)}.15"},
-        {'dates': 'jan 1 - dec 31', 'weekdays': ''},
-        {'dates': f"{mname0((now.month+1) % 12)} 1-{mname0((now.month+2) % 12)} 20"},
+        {'dates': f"{now.day}.{MONTH_NAMES[now.month]}-{MONTH_NAMES[(now.month+1) % 12]}.15"},
+        {'dates': 'jan 1-dec 31', 'weekdays': ''},
+        {'dates': f"{MONTH_NAMES[(now.month+1) % 12]} 1-{MONTH_NAMES[(now.month+2) % 12]} 20"},
         {'dates': '21.dec.-20.jun.'},
-        {'dates': '21.jun-20.dec'},
+        {'dates': '21.jun / 20.dec'},
         )
 
 @pytest.mark.asyncio
 async def test_weekdays(circuit):
-    other_hour = (HMS().hour + 3) % 24
+    other_hour = (dt.datetime.now().hour + 3) % 24
     await _test6(
         circuit,
         {'weekdays': '6712345'},
@@ -116,17 +128,18 @@ async def test_weekdays(circuit):
         )
 
 
-async def t1sec(circuit, dynamic):
-    """Activate for the next one second."""
+async def tfsec(circuit, dynamic):
+    """Activate for a fraction of a second."""
+    def time_from_timestamp(ts: float) -> dt.time:
+        return dt.datetime.fromtimestamp(ts).time()
+
     logger = TimeLogger('logger', mstop=True)
     timelimit(3.0, error=True)
     now = time.time()
-    now_sec = HMS(time.localtime(now)).seconds()
-    ms = now % 1
-    delay = 1 if ms < 0.950 else 2   # leave at least 50ms for circuit setup
-    targ = f"{HMS(now_sec+delay)}-{HMS(now_sec+delay+1)}"
+    targ = f"{time_from_timestamp(now+0.35)}/{time_from_timestamp(now+0.75)}"
+
     s1 = edzed.TimeDate(
-        "1sec",
+        "short",
         times=None if dynamic else targ,
         on_output=(
             edzed.Event(logger, 'log'),
@@ -138,25 +151,25 @@ async def t1sec(circuit, dynamic):
         if dynamic:
             await circuit.wait_init()
             s1.event('reconfig', times=targ)
-        await asyncio.sleep(9)  # cancellation expected
+        await asyncio.sleep(5)  # cancellation expected
 
     await edzed.run(tester())
 
     LOG = [
         (0, False),
-        (1000*(delay - ms), True),
-        (1000*(delay + 1 - ms), False),
-        (1000*(delay + 1 - ms), '--stop--'),
+        (350, True),
+        (750, False),
+        (750, '--stop--'),
         ]
     logger.compare(LOG)
 
 @pytest.mark.asyncio
-async def test_1sec_static(circuit):
-    await t1sec(circuit, False)
+async def test_fsec_static(circuit):
+    await tfsec(circuit, False)
 
 @pytest.mark.asyncio
-async def test_1sec_dynamic(circuit):
-    await t1sec(circuit, True)
+async def test_fsec_dynamic(circuit):
+    await tfsec(circuit, True)
 
 
 def test_no_initdef(circuit):
@@ -167,15 +180,17 @@ def test_no_initdef(circuit):
 @pytest.mark.asyncio
 async def test_cron(circuit):
     """Test the cron service, internal state."""
-    targ = [[[1,2,3], [2,3,4]]]
+    targ = [[[1,2,3,5000], [2,3,4,0]]]
     td = edzed.TimeDate("local", times=targ, dates="apr.1")
-    std = str(td)
-    td2 = edzed.TimeDate("local2", weekdays="67")
-    std2 = str(td2)
+    edzed.TimeDate("local2", weekdays="67")
     cron = circuit.findblock('_cron_local')
 
-    tdu = edzed.TimeDate("utc", utc=True, times="10:11:12-13:14:15, 14:15-16:17")
-    stdu = str(tdu)
+    tdu = edzed.TimeDate(
+        "utc",
+        utc=True,
+        times="10:11:12-131415.0, T141500-T1617" if P3_11
+            else "10:11:12-13:14:15, 14:15-16:17",
+        )
     cronu = circuit.findblock('_cron_utc')
 
     async def tester():
@@ -184,7 +199,9 @@ async def test_cron(circuit):
         assert td.get_state() == td.initdef == tinit
 
         assert cron.event('get_schedule') == {
-            '00:00:00': ['local', 'local2'], '01:02:03': ['local'], '02:03:04': ['local']}
+            '00:00:00': ['local', 'local2'],
+            '01:02:03.005000': ['local'],
+            '02:03:04': ['local']}
         assert cronu.event('get_schedule') == {
             '00:00:00': ['utc'], '10:11:12': ['utc'], '13:14:15': ['utc'],
             '14:15:00': ['utc'], '16:17:00': ['utc']}
@@ -194,7 +211,7 @@ async def test_cron(circuit):
         assert td.get_state() == {'times': None, 'dates': None, 'weekdays': None}
         assert td.initdef == tinit
 
-        conf = {'times': [[[20,20,0], [8,30,0]]], 'dates': None, 'weekdays': [4]}
+        conf = {'times': [[[20,20,0,0], [8,30,0,0]]], 'dates': None, 'weekdays': [4]}
         tdu.event('reconfig', **conf)
         assert cronu.event('get_schedule') == {
             '00:00:00': ['utc'], '08:30:00': ['utc'], '20:20:00': ['utc']}
@@ -207,7 +224,7 @@ def test_parse():
     parse = edzed.TimeDate.parse
     assert parse(None, None, None) == {'times': None, 'dates': None, 'weekdays': None}
     assert parse("17:0:30-18:14", "Nov30", "134") == {
-        'times': [[[17,0,30], [18,14,0]]],
+        'times': [[[17,0,30,0], [18,14,0,0]]],
         'dates': [[[11,30], [11,30]]],
         'weekdays': [1,3,4]
         }

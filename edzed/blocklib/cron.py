@@ -1,8 +1,8 @@
 """
-Call the 'recalc' method of all registered blocks at given times of day.
+Call the .recalc() method of all registered blocks at given times of day.
 
-Intervals given by time, date, and weekdays are implemented on top
-of this low-level service.
+Blocks acting on given time, date and weekdays are implemented
+on top of this low-level service.
 
 - - - - - -
 Docs: https://edzed.readthedocs.io/en/latest/
@@ -13,33 +13,22 @@ from __future__ import annotations
 
 import asyncio
 import bisect
-from dataclasses import dataclass
+import datetime as dt
 import time
 from typing import NoReturn
 
 from .. import addons
 from .. import block
-from .. import utils
-from . import timeinterval as ti
+from ..utils.tconst import SEC_PER_HOUR, SEC_PER_MIN, SEC_PER_DAY
+from ..utils.flag import Flag
 
-# HMS is an abbreviation for clock time hour, minute, second
-# MD is an abbreviation for month, day
-# see edzed.utils.timeinterval for details
-
-_MAX_TRACKING_ERROR = 2.0   # max. acceptable scheduler's error in seconds, must be >= 1.0
-
-
-@dataclass(frozen=True)
-class TimeData:
-    """Time in various represenations."""
-    __slots__ = ['hms', 'tstruct', 'subsec']
-    hms: ti.HMS
-    tstruct: time.struct_time
-    subsec: float
-
+# time tracking accuracy (in seconds)
+_TT_OK = 0.001          # desired accuracy
+_TT_WARNING = 0.1       # log a warning when exceeded
+_TT_ERROR = 2.5         # do a reset when exceeded
 
 # hourly wake-ups for precise time tracking and early detection of DST changes
-SET24 = frozenset(ti.HMS([hour, 0, 0]) for hour in range(24))
+_SET24 = frozenset(dt.time(hour, 0, 0) for hour in range(24))
 
 
 class Cron(addons.AddonMainTask, block.SBlock):
@@ -52,126 +41,190 @@ class Cron(addons.AddonMainTask, block.SBlock):
 
     def __init__(self, *args, utc: bool, **kwargs):
         super().__init__(*args, **kwargs)
-        self._timefunc = time.gmtime if utc else time.localtime
-        self._alarms: dict[ti.HMS, set[block.SBlock]] = {}
+        self._utc = bool(utc)
+        self._alarms: dict[dt.time, set[block.SBlock]] = {}
         self._queue: asyncio.Queue
-        self._needs_reload = False
+        self._needs_reload = Flag(False)
+
+    def dtnow(self) -> dt.datetime:
+        """Return the current date/time."""
+        if self._utc:
+            # dt.datetime.utcnow() is deprecated (Python 3.12),
+            # but we need to keep all date/time object timezone naive
+            # in order to make them mutually comparable
+            #
+            # dt.UTC (an alias for dt.timezone.utc) was introduced
+            # in Python 3.11
+            return dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
+        return dt.datetime.now()
 
     def reload(self) -> None:
         """Reload the configuration after add_block/remove_block calls."""
-        if self._needs_reload:
-            if self._mtask is not None:
-                self._queue.put_nowait(None)    # wake up the task, value does not matter
-            self._needs_reload = False
+        if self._needs_reload.test_clear() and self._mtask is not None:
+            self._queue.put_nowait(None)    # wake up the task, value does not matter
 
-    def add_block(self, hms: ti.HMS, blk: block.SBlock) -> None:
+    def _check_tz(self, time_of_day: dt.time) -> dt.time:
         """
-        Add a block to be activated at given HMS.
+        Check if the time zone is left unspecified.
 
-        The block's 'recalc' method will be called at given time H:M:S
-        and also when this service is started or reloaded.
+        Exception: in UTC mode accept the UTC zone, but remove it. (undocumented)
+        """
+        if not isinstance(time_of_day, dt.time):
+            raise TypeError(
+                f"time_of_day should be a datetime.time object, but got {time_of_day!r}")
+        if time_of_day.tzinfo is None:
+            return time_of_day
+        if time_of_day.tzinfo == dt.timezone.utc and self._utc:
+            # silently ignore
+            return time_of_day.replace(tzinfo=None)
+        raise ValueError("time_of_day must not contain timezone data")
 
-        A TimeData object will be passed to the blk as its
+    def add_block(self, time_of_day: dt.time, blk: block.SBlock) -> None:
+        """
+        Add a block to be activated at given time.
+
+        The block's 'recalc' method will be called at given time
+        and also when this service is started, reset or reloaded.
+
+        A datetime.datetime object will be passed to the blk as its
         only argument.
 
-        Don't forget to reload() after the last change.
+        Don't forget to reload() cron after the last change.
         """
         if not hasattr(blk, 'recalc'):
-            raise TypeError("{blk} is not compatible with the cron internal service")
-        if not isinstance(hms, ti.HMS):
-            raise TypeError(f"argument 'hms': expected an HMS object, got {hms!r}")
-        if hms in self._alarms:
-            self._alarms[hms].add(blk)
+            raise TypeError("{blk} is not compatible with the cron service")
+        time_of_day = self._check_tz(time_of_day)
+        if time_of_day in self._alarms:
+            self._alarms[time_of_day].add(blk)
         else:
-            self._alarms[hms] = {blk}
-            if hms not in SET24:
-                self._needs_reload = True
+            self._alarms[time_of_day] = {blk}
+            self._needs_reload.OR(time_of_day not in _SET24)
 
-    def remove_block(self, hms: ti.HMS, blk: block.SBlock) -> None:
+    def remove_block(self, time_of_day: dt.time, blk: block.SBlock) -> None:
         """
-        Remove a blk for given HMS if it was registered.
+        Remove a blk for given time if it was registered.
 
         Do nothing if a registration was not found.
 
         A reload after the last change is recommended, but not
         strictly necessary.
         """
-        if hms not in self._alarms:
+        time_of_day = self._check_tz(time_of_day)
+        if time_of_day not in self._alarms:
             return
-        self._alarms[hms].discard(blk)
-        if not self._alarms[hms]:
-            del self._alarms[hms]
-            if hms not in SET24:
-                self._needs_reload = True
-
-    def get_current_time(self) -> TimeData:
-        """Return the current time/date."""
-        now = time.time()
-        tstruct = self._timefunc(now)
-        return TimeData(
-            hms=ti.HMS(tstruct),
-            tstruct=tstruct,
-            subsec=now % 1,     # don't want to import math just for the modf()
-            )
+        self._alarms[time_of_day].discard(blk)
+        if not self._alarms[time_of_day]:
+            del self._alarms[time_of_day]
+            self._needs_reload.OR(time_of_day not in _SET24)
 
     async def _maintask(self) -> NoReturn:
         """Recalculate registered blocks according to the schedule."""
-        reset = False
-        reload = True
+        overhead = _TT_OK   # initial value, will be adjusted
+                            # the sleeptime is reduced by this value
+        reset = Flag(False)
+        reload = Flag(True)     # reload will also initialize the index
+        short_sleep = False     # alternative sleep function used => do not compute overhead
         while True:
-            # in outer loop:
-            # - reset: DST begin/end or other computer clock related reason
-            # - reload: self._alarms has changed
-            now = self.get_current_time()
-            if now.tstruct.tm_year < 2020:
-                # this software did not exist back then
-                raise RuntimeError("System clock is not set correctly.")
-            if reset:
-                for blk in set.union(*self._alarms.values()):    # all blocks
-                    blk.recalc(now)     # type: ignore[attr-defined]
-            if reload:
-                timetable = sorted(set.union(set(self._alarms), SET24))
+            if reload.test_clear():
+                timetable = sorted(_SET24.union(self._alarms))
                 tlen = len(timetable)
-            next_idx = bisect.bisect_left(timetable, now.hms)
-            reset = reload = False
-            while True:
-                # in inner loop: cycle through the timetable; break out to the outer loop
-                # for a reset if time tracking is not accurate or for reload
-                if next_idx == tlen:
-                    next_idx = 0
-                next_hms = timetable[next_idx]
-                self.log_debug("next wakeup at %s", next_hms)
-                now = self.get_current_time()
-                sleeptime = next_hms.seconds_from(now.hms) - now.subsec
-                try:
-                    await asyncio.wait_for(self._queue.get(), sleeptime)
-                except asyncio.TimeoutError:
-                    pass
-                else:
-                    reload = True
-                    break
-                now = self.get_current_time()
-                if now.hms != next_hms:
-                    # wrong time!
-                    diff = now.hms.seconds_from(next_hms) + now.subsec
-                    if diff > utils.SEC_PER_DAY / 2:
-                        diff -= utils.SEC_PER_DAY
-                    # diff > 0 = too late, diff < 0 = too early
-                    reset = abs(diff) > _MAX_TRACKING_ERROR
-                    self.log_warning(
-                        "expected time: %s.000, current time: %s.%s, difference: %.3fs ",
-                        next_hms, now.hms, format(now.subsec, '.3f')[2:], diff)
-                    if reset:
-                        self.log_warning("Resetting due to a time tracking error.")
+                self.log_debug("time schedule reloaded")
+                index = None
+
+            nowdt = self.dtnow()
+            nowt = nowdt.time()
+            if index is None:
+                index = bisect.bisect_left(timetable, nowt) % tlen
+            wakeup = timetable[index]
+            self.log_debug("wakeup time: %s", wakeup)
+
+            # sleep until the wakeup time:
+            # step 0 - compute the delay until wakeup time
+            #        - sleep
+            # step 1 - check the current time, adjust overhead estimate,
+            #            A: finish if the time is correct, or
+            #            B: add a tiny sleep if woken up too early, because
+            #               continuing before wakeup time is not acceptable
+            #            C: do a reset if the time is way off
+            # step 2 - check time after 1B,
+            #            A: finish if the time is correct
+            #            B: do a reset otherwise
+            for step in range(3):
+                # datetime.time does not support time arithmetic
+                sleeptime = (SEC_PER_HOUR*(wakeup.hour - nowt.hour)
+                    + SEC_PER_MIN*(wakeup.minute - nowt.minute)
+                    + (wakeup.second - nowt.second)
+                    + (wakeup.microsecond - nowt.microsecond)/ 1_000_000.0)
+                if nowt.hour == 23 and wakeup.hour == 0:
+                    # wrap around midnight (relying on hourly wakeups in SET24)
+                    sleeptime += SEC_PER_DAY
+                # sleeptime: negative = after the alarm time; positive = before the alarm time
+                if step == 0:
+                    self.log_debug("sleep until wakeup: %.3f sec", sleeptime)
+                if step > 1 or sleeptime < 0:
+                    diff = abs(sleeptime)
+                    if self.debug:
+                        self.log_debug(
+                            "step %d, diff %.2f ms %s, estimated overhead: %.2f ms",
+                            step, 1000*diff,
+                            'EARLY' if sleeptime > 0 else 'late', 1000*overhead)
+                    if diff > _TT_WARNING:
+                        self.log_warning(
+                            "expected time: %s, current time: %s, diff: %.2f ms.",
+                            wakeup, nowt, 1000*diff)
+                    if reset.OR((step == 2 and sleeptime > 0) or diff > _TT_ERROR):
                         break
-                    if diff < 0.0:
-                        # too early, everything should be fine after another sleep
-                        continue
-                if next_hms in self._alarms:
-                    # recalc may alter the set we are iterating
-                    for blk in list(self._alarms[next_hms]):
-                        blk.recalc(now)     # type: ignore[attr-defined]
-                next_idx += 1
+                    if step == 1 and not short_sleep and not -_TT_OK <= sleeptime <= 0:
+                        overhead -= (sleeptime + _TT_OK/2) * 0.5    # average of new and old
+                    if sleeptime <= 0:
+                        break
+                    if self.debug:
+                        self.log_debug("additional sleep %.2f ms", 1000*sleeptime)
+
+                if sleeptime == 0.0:
+                    pass    # how likely is this?
+                elif sleeptime <= _TT_OK/2:
+                    short_sleep = True
+                    # breaking the asyncio rules for max time tracking accuracy:
+                    # doing a blocking sleep, but only for a fraction of a millisecond
+                    time.sleep(sleeptime)
+                elif sleeptime <= overhead:
+                    short_sleep = True
+                    await asyncio.sleep(sleeptime)
+                else:
+                    short_sleep = False
+                    try:
+                        await asyncio.wait_for(self._queue.get(), sleeptime - overhead)
+                    except asyncio.TimeoutError:
+                        pass
+                    else:
+                        reload.set()
+                        break
+                nowdt = self.dtnow()
+                nowt = nowdt.time()
+
+            if reset.test_clear():
+                # DST begin/end or other computer clock related reason
+                if (not self._utc
+                        and nowdt.isoweekday() >= 6
+                        and abs(diff - SEC_PER_HOUR) <= _TT_ERROR
+                        ):
+                    self.log_warning("Apparently a DST (summer time) clock change has occured.")
+                self.log_warning("Resetting due to a time tracking problem.")
+                for blk in set.union(*self._alarms.values()):    # all blocks
+                    assert hasattr(blk, 'recalc')
+                    blk.recalc(nowdt)
+                index = None
+                continue
+            if reload:
+                continue
+
+            if wakeup in self._alarms:
+                # .recalc() may alter the set we are iterating over
+                for blk in list(self._alarms[wakeup]):
+                    assert hasattr(blk, 'recalc')
+                    blk.recalc(nowdt)
+            index = (index + 1) % tlen
 
     def init_regular(self) -> None:
         self.set_output(None)
@@ -183,5 +236,5 @@ class Cron(addons.AddonMainTask, block.SBlock):
     def _event_get_schedule(self, **_data) -> dict[str, list[str]]:
         """Return the internal scheduling data for debugging or monitoring."""
         return {
-            str(hms): sorted(blk.name for blk in blkset)
-            for hms, blkset in self._alarms.items()}
+            str(time_of_day): sorted(blk.name for blk in blkset)
+            for time_of_day, blkset in self._alarms.items()}

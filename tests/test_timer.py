@@ -2,18 +2,16 @@
 Test the Timer block.
 """
 
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-# pylint: disable=wildcard-import, unused-wildcard-import
-
 import asyncio
 
 import pytest
 
 import edzed
 
-from .utils import *
-
+# pylint: disable=unused-argument
+# pylint: disable-next=unused-import
+from .utils import fixture_circuit
+from .utils import init, TimeLogger
 
 pytest_plugins = ('pytest_asyncio',)
 
@@ -47,8 +45,8 @@ async def test_clock(circuit):
     """Test a trivial clock signal generator."""
     logger1 = TimeLogger('logger1')
     logger2 = TimeLogger('logger2')
-    clock1 = edzed.Timer('timer1', t_on=0.05, t_off=0.1, on_output=edzed.Event(logger1, 'log'))
-    clock2 = edzed.Timer('timer2', t_period=0.25, on_output=edzed.Event(logger2, 'log'))
+    edzed.Timer('timer1', t_on=0.05, t_off=0.1, on_output=edzed.Event(logger1, 'log'))
+    edzed.Timer('timer2', t_period=0.25, on_output=edzed.Event(logger2, 'log'))
 
     await edzed.run(asyncio.sleep(0.8))
     LOG1 = [
@@ -154,7 +152,7 @@ async def test_output(circuit):
 @pytest.mark.asyncio
 async def test_no_busy_loop(circuit):
     """Busy loop (zero period clock) is detected as chained events."""
-    timer = edzed.Timer('timer', t_on=0, t_off=0)
+    edzed.Timer('timer', t_on=0, t_off=0)
 
     with pytest.raises(edzed.EdzedCircuitError, match="infinite loop?"):
         await edzed.run()
@@ -171,4 +169,5 @@ def test_period(circuit):
     a = edzed.Timer('timer a', t_on=1, t_off=1)
     b = edzed.Timer('timer b', t_period='2s')
 
+    # pylint: disable=protected-access
     assert a._duration == b._duration == {'on': 1.0, 'off': 1.0}

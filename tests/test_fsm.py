@@ -2,15 +2,17 @@
 Test FSM blocks.
 """
 
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-# pylint: disable=wildcard-import, unused-wildcard-import
+# pylint: disable=missing-class-docstring, protected-access
+# pylint: disable=unused-variable
 
 import pytest
 
 import edzed
 
-from .utils import *
+# pylint: disable=unused-argument
+# pylint: disable-next=unused-import
+from .utils import fixture_circuit
+from .utils import init, EventMemory
 
 
 def test_events_syntax(circuit):
@@ -409,8 +411,11 @@ def test_context(circuit):
             return True
 
     afsm = Simple(
+        # pylint is confused about DataEdit usage
+        # pylint: disable-next=no-value-for-parameter
         'A', on_enter_st1=edzed.Event('B', 'ev01', efilter=edzed.DataEdit.add(sent_to='B')))
     bfsm = Simple(
+        # pylint: disable-next=no-value-for-parameter
         'B', on_enter_st1=edzed.Event('C', 'ev01', efilter=edzed.DataEdit.add(sent_to='C')))
     cfsm = Simple('C')
 

@@ -1,9 +1,6 @@
 """
 Test internal utilities and also modules from edzed.utils
 """
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-# pylint: disable=wildcard-import, unused-wildcard-import
 
 import time
 
@@ -12,7 +9,11 @@ import pytest
 from edzed import utils
 from edzed.blocklib.sblocks2 import _args_as_string
 
-from .utils import *
+# note the difference: we are using '.utils' and we are testing 'edzet.utils'
+# pylint: disable=unused-argument
+# pylint: disable-next=unused-import
+from .utils import fixture_circuit
+from .utils import compare_logs, init, TimeLogger
 
 
 def test_compare_logs(circuit):
@@ -90,14 +91,27 @@ def test_tconst():
 def test_timeunits():
     convert = utils.convert
     assert isinstance(convert('1m'), float)
-    assert convert('') == 0.0
     assert convert('10.5') == convert('10.5s') == convert('0m10.5') == 10.5
-    for arg in ('20h15m10', ' 20 h 15 m 10 ', '19H75M10.000', '20h910'):
-        assert convert(arg) == 72910.0
-    assert convert('1d') == convert('24h') == utils.SEC_PER_DAY
-    for arg in ('1 0 0s', 'hello', '15m1h', '1.5d', '.', '0..1s', '5e-2'):
+    assert convert('1.5D') == convert('36.0h') == convert('1D720m') == 36*utils.SEC_PER_HOUR
+    assert convert('P1.5D') == convert('PT36H') == convert('P1DT720M') == 1.5*utils.SEC_PER_DAY
+    assert convert('PT10.5S') == convert('PT10.5S') == convert('P0DT0H10.50S') == 10.5
+    for duration in [
+            '20h15m10', ' 20 h 15 m 10 ', '19H75M10.000', '20h910',
+            'PT20H15M10S', 'PT19H75M10.000S', 'PT20H910S',
+            ]:
+        assert convert(duration) == 72910.0
+
+    for duration in [
+            '1d', '1.0d', '24h', '20h 240m', 'P1.0D', 'PT24H', 'P0DT86400S'
+            ]:
+        assert convert(duration) == utils.SEC_PER_DAY
+
+    for duration in [
+            '', '1 0 0s', 'hello', '15m1h', '.', '0..1s', '5e-2', '0.5h0.5m'
+            'PT', 'P0s', 'P1Y', 'P1M'
+            ]:
         with pytest.raises(ValueError):
-            convert(arg)
+            convert(duration)
 
 
 def test_timestr():
@@ -154,7 +168,6 @@ def test_timestr_sep():
                         assert timestr(convert(tstr), sep=sep) == sepstr
 
 def test_timestr_approx():
-    convert = utils.convert
     timestr = utils.timestr_approx
     # type int
     assert timestr(0) == '0s'

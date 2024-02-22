@@ -61,3 +61,4 @@ target/
 # text editor
 *.sublime-workspace
 *.sublime-project
+*.swp

@@ -42,15 +42,15 @@ class AddonPersistence(Addon, metaclass=abc.ABCMeta):
             *args,
             persistent: bool = False,
             sync_state: bool = True,
-            expiration: Optional[int|float|str] = None,
+            expiration: Optional[float|str] = None,
             **kwargs) -> None:
-        self.persistent = bool(persistent)
-        self.sync_state = bool(sync_state)
-        self.expiration = utils.time_period(expiration)
+        self.persistent: bool = bool(persistent)
+        self.sync_state: bool = bool(sync_state)
+        self.expiration: float = utils.time_period(expiration)
         super().__init__(*args, **kwargs)
         # str(self) (as defined in superclass!) is used as a key instead of
         # just the name, because it contains also the block type name.
-        self.key = str(self)
+        self.key: str = str(self)
 
     def event(self, etype: str|block.EventType, /, **data) -> Any:
         """Save persistent state after a possible state change."""
@@ -106,8 +106,7 @@ class AddonPersistence(Addon, metaclass=abc.ABCMeta):
         except Exception as err:
             self.log_warning("Persistent data retrieval error: %s", err)
             return
-        exp = self.expiration
-        if exp is not None:
+        if (exp := self.expiration) is not None:
             if exp <= 0.0:
                 return
             ts = self.circuit.persistent_ts
@@ -148,6 +147,8 @@ class AddonAsync(Addon):
         All timeouts are in seconds (int or float). Value None or a
         missing argument are replaced by the default timeout.
         """
+        self.init_timeout: float
+        self.stop_timeout: float
         init = self.has_method('init_async')
         if init:
             self.init_timeout = utils.time_period(kwargs.pop('init_timeout', None))
@@ -173,7 +174,7 @@ class AddonAsync(Addon):
         """
         A coroutine wrapper delivering exceptions to the simulator.
 
-        Couroutines marked as services (is_service=True) are supposed
+        Coroutines marked as services (is_service=True) are supposed
         to run until cancelled - even a normal exit is treated as an error.
 
         Cancellation is not considered an error.

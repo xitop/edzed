@@ -2,15 +2,16 @@
 Test CBlocks functionality.
 """
 
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-# pylint: disable=wildcard-import, unused-wildcard-import
+# pylint: disable=missing-class-docstring
 
 import pytest
 
 import edzed
 
-from .utils import *
+# pylint: disable=unused-argument
+# pylint: disable-next=unused-import
+from .utils import fixture_circuit
+from .utils import init, Noop
 
 
 def test_connect_only_once(circuit):
@@ -111,6 +112,7 @@ def test_no_cross_circuit_inputs(circuit):
     msg1 = edzed.Const("hello!")
     init(circuit)
 
+    # pylint: disable=unused-variable
     edzed.reset_circuit()
     noop2 = Noop('noop').connect(noop1)
     circuit2 = edzed.get_circuit()

@@ -9,9 +9,10 @@ Home: https://github.com/xitop/edzed/
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, MutableMapping
+import functools
 import logging
 import types
-from typing import Any, cast
+from typing import Any
 
 from .. import block
 from .. import simulator
@@ -65,7 +66,7 @@ class Delta:
     Event filter for numeric values.
     """
 
-    def __init__(self, delta: int|float):
+    def __init__(self, delta: float):
         self._delta = delta
         self._last = block.UNDEF
 
@@ -87,7 +88,8 @@ class IfOutput:
         simulator.get_circuit().resolve_name(self, '_ctrl_blk')
 
     def __call__(self, data: Mapping) -> Mapping|None:
-        return data if cast(block.Block, self._ctrl_blk).output else None
+        assert isinstance(self._ctrl_blk, block.Block)      # a name should be resolved
+        return data if self._ctrl_blk.output else None
 
 
 class IfNotIitialized:
@@ -100,24 +102,29 @@ class IfNotIitialized:
         simulator.get_circuit().resolve_name(self, '_ctrl_blk', block_type=block.SBlock)
 
     def __call__(self, data: Mapping) -> Mapping|None:
-        return None if cast(block.SBlock, self._ctrl_blk).is_initialized() else data
+        assert isinstance(self._ctrl_blk, block.SBlock)     # a name should be resolved
+        return None if self._ctrl_blk.is_initialized() else data
 
 
-class dualmethod(classmethod):
+class _dualmethod:
     """
     Dual (class/instance) method decorator.
 
-    When the decorated method is called as a class method,
-    create an instance on the fly.
+    When the decorated method is called as a class method, create
+    an instance on the fly (see note below). Otherwise don't do
+    anything special.
 
-    When called as an instance method, proceed normally,
-    i.e. as if not decorated.
+    Note: no arguments can be passed to the constructor.
     """
+
+    def __init__(self, method):
+        functools.update_wrapper(self, method)
 
     def __get__(self, instance, cls):
         if instance is None:
             instance = cls()
-        return self.__func__.__get__(instance, cls)     # pylint: disable=no-member
+        # pylint: disable-next=no-member
+        return self.__wrapped__.__get__(instance, cls)  # type: ignore[attr-defined]
 
 
 class DataEdit:
@@ -127,18 +134,16 @@ class DataEdit:
     Methods may be chained.
     """
 
-    def __init__(self):
-        self._editlist = []
+    def __init__(self) -> None:
+        self._editlist: list[Callable[[MutableMapping[str, Any]], Any]] = []
 
-    # @dualmethod confuses pylint a little
-    # pylint: disable=bad-classmethod-argument, no-member
-    @dualmethod
+    @_dualmethod
     def add(self, **kwargs) -> DataEdit:
         """Add key=value pairs. Existing values will be overwritten."""
         self._editlist.append(lambda data: {**data, **kwargs})
         return self
 
-    @dualmethod
+    @_dualmethod
     def add_output(self, key: str, source: str|block.Block) -> DataEdit:
         """Add key=block's output. Existing value will be overwritten."""
         # cannot store the 'source' as an instance attribute, because
@@ -149,7 +154,7 @@ class DataEdit:
         self._editlist.append(lambda data: {**data, key: src.block.output})
         return self
 
-    @dualmethod
+    @_dualmethod
     def copy(self, src: str, dst: str) -> DataEdit:
         """Copy data[src] to data[dst]."""
         def _edit(data: MutableMapping) -> MutableMapping:
@@ -158,7 +163,7 @@ class DataEdit:
         self._editlist.append(_edit)
         return self
 
-    @dualmethod
+    @_dualmethod
     def delete(self, *args: str) -> DataEdit:
         """Delete listed keys. Non-existing keys are ignored."""
         def _edit(data: MutableMapping) -> MutableMapping:
@@ -171,7 +176,7 @@ class DataEdit:
     DELETE = object()
     REJECT = object()
 
-    @dualmethod
+    @_dualmethod
     def modify(self, key: str, func: Callable[[Any], Any]) -> DataEdit:
         """Apply the func to a value identified by key."""
         def _edit(data: MutableMapping) -> MutableMapping|None:
@@ -187,7 +192,7 @@ class DataEdit:
         self._editlist.append(_edit)
         return self
 
-    @dualmethod
+    @_dualmethod
     def permit(self, *args) -> DataEdit:
         """Delete all but listed keys."""
         def _edit(data: MutableMapping) -> MutableMapping:
@@ -198,7 +203,7 @@ class DataEdit:
         self._editlist.append(_edit)
         return self
 
-    @dualmethod
+    @_dualmethod
     def rename(self, src, dst) -> DataEdit:
         """Rename key: data[src] -> data[dst]."""
         def _edit(data: MutableMapping) -> MutableMapping:
@@ -208,7 +213,7 @@ class DataEdit:
         self._editlist.append(_edit)
         return self
 
-    @dualmethod
+    @_dualmethod
     def setdefault(self, **kwargs) -> DataEdit:
         """Add key=value pairs only if key is missing."""
         self._editlist.append(lambda data: {**kwargs, **data})

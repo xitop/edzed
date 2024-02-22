@@ -2,17 +2,16 @@
 Test the Repeat block
 """
 
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-# pylint: disable=wildcard-import, unused-wildcard-import
-
 import asyncio
 
 import pytest
 
 import edzed
 
-from .utils import *
+# pylint: disable=unused-argument
+# pylint: disable-next=unused-import
+from .utils import fixture_circuit
+from .utils import timelimit, TimeLogger
 
 
 pytest_plugins = ('pytest_asyncio',)
@@ -28,7 +27,7 @@ async def test_poll(circuit):
         return n
 
     logger = TimeLogger('logger')
-    out = edzed.ValuePoll(
+    edzed.ValuePoll(
         'out',
         func=acq,
         interval='0m0.05s',
@@ -53,7 +52,7 @@ async def test_async(circuit):
         q.put_nowait(v)
 
     logger = TimeLogger('logger')
-    out = edzed.ValuePoll(
+    edzed.ValuePoll(
         'out',
         func=q.get,
         interval='0m0.05s',
@@ -76,7 +75,7 @@ async def test_undef(circuit):
         return n if n not in (1, 3, 6) else edzed.UNDEF
 
     logger = TimeLogger('logger')
-    out = edzed.ValuePoll(
+    edzed.ValuePoll(
         'out',
         func=acq,
         interval=0.03,
@@ -109,7 +108,7 @@ async def test_undef(circuit):
 async def test_init_timeout(circuit):
     """Test the initialization time_out."""
     logger = TimeLogger('logger')
-    out = edzed.ValuePoll(
+    edzed.ValuePoll(
         'out',
         func=lambda: edzed.UNDEF,   # it never delivers
         interval=10,                # don't care
@@ -123,7 +122,7 @@ async def test_init_timeout(circuit):
 async def test_init_failure(circuit):
     """Test failed init."""
     logger = TimeLogger('logger', mstop=True)
-    out = edzed.ValuePoll(
+    edzed.ValuePoll(
         'out',
         func=lambda: edzed.UNDEF,   # func never delivers
         interval=10,                # don't care
@@ -139,7 +138,7 @@ async def test_async_init_timeout(circuit):
         await asyncio.sleep(0.1)
         return 3
     logger = TimeLogger('logger')
-    out = edzed.ValuePoll(
+    edzed.ValuePoll(
         'out',
         func=w3,
         interval=10,                # don't care
@@ -156,7 +155,7 @@ async def test_async_init_timeout_failure(circuit):
         await asyncio.sleep(0.1)
         return 3
     logger = TimeLogger('logger')
-    out = edzed.ValuePoll(
+    edzed.ValuePoll(
         'out',
         func=w3,
         interval=10,                # don't care

@@ -1,448 +1,358 @@
 """
-This module defines:
-    - HMS class representing an idealized local clock time
-    - MD class representing a date within a year
-    - intervals using the HMS or MD objects as endpoints:
-        - TimeInterval defines fixed time intervals within a day,
-        - DateInterval defines fixed periods in a year.
-      Intervals support the operation "value in interval".
+This module defines time/date intervals.
+
+It is built on top of the datetime (dt) module:
+    - time of day -> dt.time
+    - date without a year -> dt.date with year set to a dummy value
+    - date -> dt.date
+    - full date+time -> dt.datetime
+
+Intervals use those objects as endpoints:
+    - TimeInterval defines time intervals within a day,
+    - DateInterval defines periods in a year.
+    - DateTimeInterval defines non-recurring intervals.
+
+All intervals support the operation "value in interval".
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Generator, Sequence
+from collections.abc import Callable, Sequence
+import datetime as dt
 import re
-import time
-from typing import ClassVar, Optional
+from typing import Generic, Literal, overload, TypeVar, Union
 
-from ..utils.tconst import *   # pylint: disable=wildcard-import
+from ..utils.tconst import MONTH_NAMES
+
+# types accepted as inputs for: date/time, range (sub-interval), interval
+# using Union, because T1|T2 is not supported in Python 3.9
+IDT_Type = Union[Sequence[int], str]            # length: time = 1..4; date = 2; datetime = 5..7
+IDT_RangeType = Union[str, Sequence[IDT_Type]]  # length = 1 (right-closed intervals only) or 2
+IDT_IntervalType = Union[str, Sequence[IDT_RangeType], set[IDT_RangeType]]
+
+# normalized types
+NDT_Type = list[int]                    # sequence length: time = 4; date = 2, datetime = 7
+NDT_RangeType = list[NDT_Type]
+NDT_IntervalType = list[NDT_RangeType]
+
+# real data type (result of conversions, source for exports)
+DateTimeType = TypeVar("DateTimeType", dt.time, dt.date, dt.datetime)
 
 
-DAYS = (0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
-# match group 1 = stripped match
-RE_YEAR = re.compile(r'\s*(\d{4,})\s*', flags=re.ASCII)
-RE_MONTH = re.compile(r'\s*([A-Z]{3,})\.?\s*', flags=re.ASCII|re.IGNORECASE)
-RE_TIME = re.compile(r'\s*(\d{1,2}\s*:\s*\d{1,2}(\s*:\s*\d{1,2})?)\s*', flags=re.ASCII)
-RE_DAY = re.compile(r'\s*(\d{1,2})\.?\s*', flags=re.ASCII)
-
-
-def _cut(match: re.Match) -> str:
+@overload
+def _match_pattern(
+        string: str, pattern: re.Pattern[str]
+        ) -> tuple[str, None|tuple[str, ...]]:
+    ...
+@overload
+def _match_pattern(
+        string: str, pattern: re.Pattern[str], errmsg: None
+        ) -> tuple[str, None|tuple[str, ...]]:
+    ...
+@overload
+def _match_pattern(
+        string: str, pattern: re.Pattern[str], errmsg: str
+        ) -> tuple[str, tuple[str, ...]]:
+    ...
+def _match_pattern(
+        string: str, pattern: re.Pattern[str], errmsg: None|str = None
+        ) -> tuple[str, None|tuple[str, ...]]:
     """
-    Cut matched characters from the searched string.
-    Join the remaining pieces with a space.
+    Try to match the string with the pattern.
+
+    Return value has two items:
+        - match found - string with the matched part removed, all match groups in a tuple
+        - no match - unmodified string, None
     """
-    string, start, end = match.string, match.start(), match.end()
+    if not (match := pattern.search(string)):
+        if errmsg:
+            raise ValueError(errmsg)
+        return string, None
+
+    start, end = match.start(), match.end()
     if start == 0:
-        return string[end:]
-    if end == len(string):
-        return string[:start]
-    return ' '.join((string[:start], string[end:]))
+        string = string[end:]
+    elif end == len(string):
+        string = string[:start]
+    else:
+        # join the remaining pieces with a space
+        string = ' '.join((string[:start], string[end:]))
+    return string, match.groups()
 
 
-# pylint: disable=invalid-name
-def _ydt_convert(
-        string: str, y:bool=False, d:bool=False, t:bool=False
-        ) -> tuple[int|None, int|None, int|None, int|None, int|None, int|None]:
-    """
-    Convert string to year (if y), month, day (if d), hour, minute, second (if t).
+def _name_to_month(name: str) -> int:
+    capitalized_name = name.capitalize()
+    for i, month_name in enumerate(MONTH_NAMES):
+        # real start at index 1 = January;
+        if i > 0 and month_name.startswith(capitalized_name):
+            return i
+    raise ValueError(f"invalid month name: {name!r}")
 
-    Return (year, month, day, hour, min, sec) with integer values or
-    None for not-converted values. The result is not fully validated.
-    """
 
-    year = month = day = None
-    hms: Sequence[int|None] = [None, None, None]
-    if t:
-        match = RE_TIME.search(string)
-        if not match:
-            raise ValueError("missing time (H:M or H:M:S)")
-        hms = _to_intlist(match.group(1).split(':'))
-        if len(hms) == 2:
-            hms.append(0)
-        string = _cut(match)
-    if y:
-        match = RE_YEAR.search(string)
-        if not match:
-            raise ValueError("missing year")
-        year = int(match.group(1))
-        string = _cut(match)
-    if d:
-        match = RE_MONTH.search(string)
-        if not match:
-            raise ValueError("missing month")
-        name = match.group(1).capitalize()
-        for i, mname in enumerate(MONTH_NAMES):
-            # real start at index 1 = January;
-            if i > 0 and mname.startswith(name):
-                month = i
-                break
+# _RE_YMD and _RE_MONTH now accept Unicode characters in the month name,
+# but non-english names are not supported yet. They are using:
+#  - [^\W\d_] as a workaround for unsupported [[:alpha:]]
+#  - [0-9] instead of \d, because re.ASCII flag cannot be set.
+
+# HH:MM  HH:M:SS HH:MM:SS.sss  HH:MM:SS,sss  (one or two digits for H, M, S)
+_RE_TIME = re.compile(r'(\d{1,2}:\d{1,2}(:\d{1,2})?([.,]\d+)?)', flags=re.ASCII)
+
+# YYYY-MM-DD  YYYY-month-DD
+_RE_YMD = re.compile(r'([0-9]{4})-([^\W\d_]{3,}|[0-9]{2})-([0-9]{2})')
+
+_RE_YEAR = re.compile(r'(\d{4})', flags=re.ASCII)
+_RE_ISO_DM = re.compile(
+    r'--(\d{2})-?(\d{2})', flags=re.ASCII)  # --MMDD --MM-DD (not valid ISO 8601, see the docs)
+_RE_MONTH = re.compile(r'([^\W\d_]{3,})\.?')
+_RE_DAY = re.compile(r'(\d{1,2})\.?', flags=re.ASCII)
+
+@overload
+def _convert_str(string: str, with_time: Literal[False]) -> dt.date:
+    """Convert a date without year (month and day only)"""
+@overload
+def _convert_str(string: str, with_time: Literal[True]) -> dt.datetime:
+    """Convert a complete date+time"""
+def _convert_str(string: str, with_time: bool) -> dt.date|dt.datetime:
+    original_string = string
+
+    got_dm = False
+    mgroups: None | tuple[str, ...]
+    if with_time:
+        string, mgroups = _match_pattern(string, _RE_TIME, "missing time")
+        dt_time = convert_time_str(mgroups[0])
+
+        string, mgroups = _match_pattern(string, _RE_YMD)
+        if mgroups:
+            got_dm = True
+            year = int(mgroups[0])
+            try:
+                month = int(mgroups[1])
+            except ValueError:
+                month = _name_to_month(mgroups[1])
+            day = int(mgroups[2])
         else:
-            raise ValueError(f"invalid month name: {match.group(1)!r}")
-        string = _cut(match)
-    if d:
-        match = RE_DAY.search(string)
-        if not match:
-            raise ValueError("missing day of month")
-        day = int(match.group(1))
-        string = _cut(match)
+            string, mgroups = _match_pattern(string, _RE_YEAR, "missing year")
+            year = int(mgroups[0])
+
+    if not got_dm:
+        string, mgroups = _match_pattern(string, _RE_ISO_DM)
+        if mgroups:
+            month = int(mgroups[0])
+            day = int(mgroups[1])
+        else:
+            string, mgroups = _match_pattern(string, _RE_MONTH, "missing month")
+            month = _name_to_month(mgroups[0])
+            string, mgroups = _match_pattern(string, _RE_DAY, "missing day of month")
+            day = int(mgroups[0])
+
+    string = string.strip()
     if string:
-        raise ValueError(f"offending part: {string!r}")
+        raise ValueError(
+            f"Could not convert {original_string!r}, offending part: {string!r}")
 
-    return (year, month, day, *hms)
+    if with_time:
+        return convert_datetime_seq([year, month, day, *export_dt(dt_time)])
+    return convert_date_seq([month, day])
 
 
-def ydt_convert(
-        string: str, *args, **kwargs
-        ) -> tuple[int|None, int|None, int|None, int|None, int|None, int|None]:
+_DT_ATTRS = "year month day hour minute second microsecond".split()
+_ATTRS = {
+    dt.time: _DT_ATTRS[3:],
+    dt.date: _DT_ATTRS[1:3],
+    dt.datetime: _DT_ATTRS
+}
+
+def export_dt(dt_object: DateTimeType, ) -> NDT_Type:
+    """Export a date/time object."""
+    return [getattr(dt_object, attr) for attr in _ATTRS[type(dt_object)]]
+
+
+### time
+def convert_time_seq(time_seq: Sequence[int]) -> dt.time:
+    """[hour, minute=0, second=0, microsecond=0] -> time of day"""
+    if not 1 <= len(time_seq) <= 4:
+        raise ValueError(
+            f"{time_seq} not in expected format: "
+            "[hour, minute=0, second=0, µs=0]")
+    # mypy is overlooking that the time_seq cannot have more than 4 items
+    return dt.time(*time_seq, tzinfo=None)      # type: ignore[misc, arg-type]
+
+
+def convert_time_str(time_str: str) -> dt.time:
+    """string -> time of day"""
+    time_str = time_str.strip()
     try:
-        return _ydt_convert(string, *args, **kwargs)
-    except Exception as err:
-        raise ValueError(f"Could not convert {string!r}: {err}") from None
-
-
-def _validate(
-        y: Optional[int] = None,
-        md: Optional[Sequence[int]] = None,
-        hms: Optional[Sequence[int]] = None
-        ) -> None:
-    """Raise on year/date/time validation error."""
-    if y is not None:
-        if y < 1970:
-            # just a precaution, not a strict requirement
-            raise ValueError(f"year {y} before start of the Unix Epoch (January 1, 1970)")
-    if md is not None:
-        month, day = md
-        if not 1 <= month <= 12:
-            raise ValueError(f"Invalid month number: {month}")
-        if not 1 <= day <= DAYS[month]:
-            raise ValueError(f"Invalid day in month number: {day}")
-    if hms is not None:
-        # leap second H:M:60 is accepted
-        if not 0 <= hms[0] < 24 or not 0 <= hms[1] < 60 or not 0 <= hms[2] <= 60:
-            raise ValueError(f"Time {hms} not between 0:0:0 and 23:59:59")
-
-
-def _to_intlist(seq: Sequence) -> list[int]:
-    try:
-        return [int(x) for x in seq]
-    except TypeError:
-        raise TypeError(f"Cannot convert this type: {seq!r}") from None
+        dt_time = dt.time.fromisoformat(time_str)
     except ValueError:
-        raise ValueError(f"Cannot convert this value: {seq!r}") from None
+        pass
+    else:
+        if dt_time.tzinfo is not None:
+            raise ValueError(f"{time_str!r}: time zones are not supported")
+        return dt_time
+    for fmt in ("%H:%M", "%H:%M:%S", "%H:%M:%S.%f", "%H:%M:%S,%f"):
+        try:
+            return dt.datetime.strptime(time_str, fmt).time()
+        except ValueError:
+            pass
+    raise ValueError(f"Invalid time of date string: {time_str!r}")
 
 
-class HMS(tuple):
-    """
-    HMS stands for hour, minute, second. It is a 3-tuple representing
-    a clock time within a day, always between (0,0,0) and (23,59,59).
+### date
+_DUMMY_YEAR = 404
+# 404 is a leap year (allows Feb 29) and is not similar
+# to anything related to modern date values
 
-    It can be directly compared with other tuples of the same format.
+def convert_date_seq(date_seq: Sequence[int]) -> dt.date:
+    """[month, day] -> date (without year)"""
+    if len(date_seq) != 2:
+        raise ValueError(f"{date_seq} not in expected format: [month, day]")
+    return dt.date(_DUMMY_YEAR, *date_seq)
 
-    Individual fields are accessible as hour, minute and second
-    attributes.
-    """
 
-    def __new__(
-            cls,
-            hms: Optional[HMS|time.struct_time|int|str|Sequence[int]] = None):
-        """
-        HMS() or HMS(None) = use the current local time of day
-        HMS(hms) = return the existing instance
-        HMS(time.struct_time) = use the provided time
-        HMS(integer) = convert the seconds counted from midnight 00:00:00
-        HMS(string) = convert from "HH:MM" or "HH:MM:SS" format
-        HMS(sequence with 2 elements) = use as hour and minute value
-        HMS(sequence with 3 elements) = use as hour, minute, and second
-        """
-        if isinstance(hms, cls):
-            # OK, it is immutable
-            return hms
-        if hms is None:
-            hms = time.localtime()
-        hms3: Sequence[int]
-        if isinstance(hms, time.struct_time):
-            hms3 = (hms.tm_hour, hms.tm_min, hms.tm_sec)
-        elif isinstance(hms, int):
-            seconds = hms % SEC_PER_DAY
-            hours, seconds = divmod(seconds, SEC_PER_HOUR)
-            minutes, seconds = divmod(seconds, SEC_PER_MIN)
-            hms3 = (hours, minutes, seconds)
+def convert_date_str(date_str: str) -> dt.date:
+    """string -> date (without year)"""
+    return _convert_str(date_str.strip(), with_time=False)
+
+
+def date_to_string(date: dt.date) -> str:
+    """date -> 'MMM DD' string"""
+    assert date.year == _DUMMY_YEAR
+    return f"{MONTH_NAMES[date.month][:3]} {date.day}"
+
+
+### datetime
+def convert_datetime_seq(datetime_seq: Sequence[int]) -> dt.datetime:
+    """[year, month, day, hour, minute, second=0, microsecond=0] -> datetime"""
+    if not 5 <= len(datetime_seq) <= 7:
+        raise ValueError(
+            f"{datetime_seq} not in expected format: "
+            "[year, month, day, hour, minute, second=0, µs=0]")
+    # mypy is overlooking that the time_seq cannot have more than 7 items
+    return dt.datetime(*datetime_seq, tzinfo=None)      # type: ignore[misc, arg-type]
+
+
+def convert_datetime_str(datetime_str: str) -> dt.datetime:
+    """string -> datetime"""
+    datetime_str = datetime_str.strip()
+    if 'T' in datetime_str: # not accepting date without time of day
+        try:
+            dt_datetime = dt.datetime.fromisoformat(datetime_str)
+        except ValueError:
+            pass
         else:
-            if isinstance(hms, str):
-                hms3 = ydt_convert(hms, t=True)[3:6]
-            else:
-                hms3 = _to_intlist(hms)
-                if len(hms3) == 2:
-                    hms3.append(0)
-                elif len(hms3) != 3:
-                    raise ValueError(f"Invalid time specification: {hms!r}")
-            _validate(hms=hms3)
-        return super().__new__(cls, hms3)
-
-    @property
-    def hour(self) -> int:
-        return self[0]
-
-    @property
-    def minute(self) -> int:
-        return self[1]
-
-    @property
-    def second(self) -> int:
-        return self[2]
-
-    def seconds(self) -> int:
-        """Return seconds counted from 00:00:00."""
-        return self[0]*SEC_PER_HOUR + self[1]*SEC_PER_MIN + self[2]
-
-    def seconds_from(self: HMS, other: HMS) -> int:
-        """
-        Return seconds from other HMS to this HMS.
-
-        The result is always >= 0:
-            HMS('10:30').seconds_from(HMS('9:30')) ==  1 * SEC_PER_HOUR
-        because 10:30 is one hour after 9:30, but:
-            HMS('9:30').seconds_from(HMS('10:30')) == 23 * SEC_PER_HOUR
-        because 9:30 is 23 hours after 10:30.
-        """
-        sec = self.seconds() - other.seconds()
-        return sec + SEC_PER_DAY if sec < 0 else sec
-
-    def __str__(self):
-        return f"{self.hour:02d}:{self.minute:02d}:{self.second:02d}"
-
-    def __repr__(self):
-        cls = type(self)
-        return f"{cls.__module__}.{cls.__qualname__}('{self}')"
+            if dt_datetime.tzinfo is not None:
+                raise ValueError(f"{datetime_str!r}: time zones are not supported")
+            return dt_datetime
+    return _convert_str(datetime_str, with_time=True)
 
 
-class MD(tuple):
+_RANGE_SEPARATORS = ['/', ' - ', '-']    # high to low priority
+_DELIMITER = ';'
+_DELIMITER_LEGACY = ','
+class _Interval(Generic[DateTimeType]):
     """
-    MD stands for month and day. It is a 2-tuple representing a calendar
-    date, i.e. always between (1,1) and (12,31).
+    The common part of Date/Time Intervals.
 
-    It can be directly compared with other tuples of the same format.
-
-    Individual fields are accessible as day and month attributes.
-    """
-
-    def __new__(cls, md: Optional[MD|time.struct_time|str|Sequence[int]] = None):
-        """
-        MD() or MD(None) = use the current local date
-        MD(md) = return the existing instance
-        MD(time.struct_time) = use the provided date
-        MD(string) = convert from a string
-        MD(sequence with 2 elements) = use as day and month numeric values
-
-        When building from a string, the month must be written as a three
-        letter English acronym in order to avoid ambiguities. The rules:
-            - day = 1 or 2 digits
-            - month = 3 letters in lower, upper or mixed case
-            - there may be one period (full stop) appended
-              directly to the day or the month
-            - the date consists of day and month in this or in
-              reversed order
-            - leading, trailing whitespace and any whitespace between
-              the day and the month is ignored
-        Examples:
-            09.Jun   9.jun.   9JUN   09 Jun   Jun9   JUN 09   Jun.9.
-        """
-        if isinstance(md, cls):
-            # OK, it is immutable
-            return md
-        if md is None:
-            md = time.localtime()
-        md2: Sequence[int]
-        if isinstance(md, time.struct_time):
-            md2 = (md.tm_mon, md.tm_mday)
-        else:
-            if isinstance(md, str):
-                md2 = ydt_convert(md, d=True)[1:3]
-            else:
-                md2 = _to_intlist(md)
-                if len(md) != 2:
-                    raise ValueError(f"Invalid month, day specification: {md!r}")
-            _validate(md=md2)
-        return super().__new__(cls, md2)
-
-    @property
-    def month(self) -> int:
-        return self[0]
-
-    @property
-    def day(self) -> int:
-        return self[1]
-
-    def __str__(self):
-        """Output format is 'Jun.09'"""
-        return f'{MONTH_NAMES[self.month][:3]}.{self.day:02d}'
-
-    def __repr__(self):
-        cls = type(self)
-        return f"{cls.__module__}.{cls.__qualname__}('{self}')"
-
-
-class YDT(tuple):
-    """
-    YDT stands for year, date (as in MD) and time (as in HMS).
-    It is a 6-tuple of integers: (year, month, date, hour, minute, second).
-
-    It can be directly compared with other tuples of the same format.
-
-    Individual fields are accessible as attributes.
-    """
-
-    def __new__(cls, ydt: Optional[YDT|time.struct_time|str|Sequence[int]] = None):
-        """
-        YDT() or YDT(None) = use the current local date and time
-        YDT(ydt) = return the existing instance
-        YDT(time.struct_time) = use the provided time
-        YDT(string) = convert from a string
-        YDT(sequence with 5 elements) = use as year, month, day, hour and minute value
-        YDT(sequence with 6 elements) = use as year, ... second
-        """
-        if isinstance(ydt, cls):
-            # OK, it is immutable
-            return ydt
-        if ydt is None:
-            ydt = time.localtime()
-        ydt6: Sequence[int]
-        if isinstance(ydt, time.struct_time):
-            ydt6 = tuple(ydt[0:6])
-        else:
-            if isinstance(ydt, str):
-                ydt6 = ydt_convert(ydt, y=True, d=True, t=True)
-            else:
-                ydt6 = _to_intlist(ydt)
-                if len(ydt6) == 5:
-                    ydt6.append(0)
-                elif len(ydt6) != 6:
-                    raise ValueError(f"Invalid date and time specification: {ydt!r}")
-                _validate(y=ydt6[0], md=ydt6[1:3], hms=ydt6[3:6])
-        return super().__new__(cls, ydt6)
-
-    @property
-    def year(self) -> int:
-        return self[0]
-
-    @property
-    def month(self) -> int:
-        return self[1]
-
-    @property
-    def day(self) -> int:
-        return self[2]
-
-    @property
-    def hour(self) -> int:
-        return self[3]
-
-    @property
-    def minute(self) -> int:
-        return self[4]
-
-    @property
-    def second(self) -> int:
-        return self[5]
-
-    def __str__(self):
-        return f"{self.year} {MONTH_NAMES[self.month][:3]}.{self.day:02d} " \
-               f"{self.hour:02d}:{self.minute:02d}:{self.second:02d}"
-
-    def __repr__(self):
-        cls = type(self)
-        return f"{cls.__module__}.{cls.__qualname__}('{self}')"
-
-
-SEPCHAR = ','
-RANGECHAR = '-'
-class _Interval:
-    """
-    The common part of TimeInterval and DateInterval.
-
-    Warning: time/date intervals do not follow strict mathematical
+    Warning: time/date intervals do not follow the strict mathematical
     interval definition.
     """
 
     # https://en.wikipedia.org/wiki/Interval_(mathematics)#Terminology
     # the subintervals are always left-closed
-    _RCLOSED_INTERVAL: ClassVar[bool] # are the subintervals also right-closed?
-    _convert: ClassVar[Callable[[str|Sequence], tuple[int]]]
+    _RCLOSED_INTERVAL: bool     # are the subintervals right-closed?
+    _convert_str: Callable[[str], DateTimeType]
+    _convert_seq: Callable[[Sequence[int]], DateTimeType]
+    _export: Callable[[DateTimeType], NDT_Type] = export_dt
+    _str: Callable[[DateTimeType], str] = str
 
-    def __init__(
-            self,
-            ivalue: Optional[_Interval|str|Sequence[Sequence[Sequence[int]]]] = None):
+    def __init__(self, ivalue: IDT_IntervalType):
         """
-        _Interval() = empty interval
-        _Interval(interval) = copy of interval
-        _Interval('string') = converted from a string containing comma
-            separated ranges:
-                "FROM1-TO1,FROM2-TO2".
-            If _RCLOSED_INTERVAL is True a single value is accepted
-            as well, e.g.:
-                "FROM1-TO1,VALUE2"
-            is equivalent to "FROM1-TO1, VALUE2-VALUE2".
-            The input string may contain whitespace around any value.
-        _Interval([[from1, to1], [from2, to2], ...]) = create from
-            a sequence of pairs
+        Usage: with comma or colon separated string type ranges or
+        with a sequence of ranges:
+            _Interval('subinterval1, subinterval2, ...')
+            _Interval([subinterval1, subinterval2, ...])
+
+        where each range (subinterval) is a pair of endpoints
+        "from-to" or "from/to"(string) or [from, to] (sequence).
+        If the interval is right-closed, a single value is accepted
+        as both 'from' and 'to' endpoints.
+
+        After splitting into endpoints, each value (str or sequence)
+        is converted to time/date according to the actual interval type.
+
+        The string value may contain whitespace around any endpoint.
         """
-        self._interval: list[Sequence[Sequence[int]]]
-        if ivalue is None:
-            self._interval = []
-            return
-        if isinstance(ivalue, type(self)):
-            # pylint: disable=protected-access
-            self._interval = ivalue._interval.copy()
-            return
-        convert = type(self)._convert
+        self._interval: list[tuple[DateTimeType, DateTimeType]]
         if isinstance(ivalue, str):
-            self._interval = []
-            ivalue = ivalue.strip()
-            if not ivalue:
-                return
-            for rstr in ivalue.split(SEPCHAR):
-                try:
-                    split_here = rstr.index(RANGECHAR, 1, -1)
-                except ValueError:
-                    if not self._RCLOSED_INTERVAL:
-                        raise ValueError(f"Invalid range {rstr!r}") from None
-                    low = high = convert(rstr)
-                else:
-                    low = convert(rstr[:split_here])
-                    high = convert(rstr[split_here+1:])
-                self._interval.append((low, high))
-            return
-        if isinstance(ivalue, Sequence):
-            if not all(
-                    len(interval) == 2
-                    and all(
-                        isinstance(endpoint, Sequence) and not isinstance(endpoint, str)
-                        for endpoint in interval)
-                    for interval in ivalue
-                    ):
-                raise ValueError("Incorrect structure of the ivalue sequence")
-            self._interval = [(convert(low), convert(high)) for low, high in ivalue]
-            return
-        raise TypeError("Invalid ivalue argument")
-
-    def range_endpoints(self) -> Generator:
-        """Yield all range start and stop values."""
-        for low, high in self._interval:
-            yield low
-            yield high
+            delimiter = _DELIMITER if _DELIMITER in ivalue else _DELIMITER_LEGACY
+            ivalue = ivalue.split(delimiter)
+            if ivalue and not ivalue[-1].strip():
+                del ivalue[-1]
+        elif not isinstance(ivalue, (Sequence, set)):
+            raise TypeError(f"Unsupported argument type: {type(ivalue).__name__}")
+        self._interval = sorted(self._parse_range(subint) for subint in ivalue)
 
     @staticmethod
-    def _cmp_open(low, item, high) -> bool:
+    def _convert(
+            value: IDT_Type,
+            convert_str: Callable[[str], DateTimeType],
+            convert_seq: Callable[[Sequence[int]], DateTimeType]
+            ) -> DateTimeType:
+        """Convert with the right function."""
+        if isinstance(value, str):
+            return convert_str(value)
+        if isinstance(value, Sequence):
+            assert not isinstance(value, str)   # for mypy
+            return convert_seq(value)
+        raise TypeError(
+            f"Unsupported type: {type(value).__name__}; "
+            f"cannot convert {value!r} to date/time")
+
+    def _parse_range(self, rng: IDT_RangeType) -> tuple[DateTimeType, DateTimeType]:
+        convert_str = type(self)._convert_str
+        if isinstance(rng, str):
+            for sep in _RANGE_SEPARATORS:
+                if len(parts := rng.split(sep)) == 2:
+                    return (convert_str(parts[0]), convert_str(parts[1]))
+            if self._RCLOSED_INTERVAL:
+                endpoint = convert_str(rng)
+                return (endpoint, endpoint)
+            raise ValueError(f"Invalid range {rng!r}")
+        if isinstance(rng, Sequence):
+            convert_seq = type(self)._convert_seq
+            if (length := len(rng)) == 2:
+                # sequence items could be also strings
+                return (
+                    self._convert(rng[0], convert_str, convert_seq),
+                    self._convert(rng[1], convert_str, convert_seq))
+            if length == 1 and self._RCLOSED_INTERVAL:
+                # undocumented for sequences, only for strings
+                endpoint = self._convert(rng[0], convert_str, convert_seq)
+                return (endpoint, endpoint)
+            raise ValueError("A range cannot have {length} endpoints: {rng}")
+        raise TypeError(f"Invalid range {rng!r}")
+
+    def range_endpoints(self) -> set[DateTimeType]:
+        """return all unique range start and stop values."""
+        enpoints = set()
+        for start, stop in self._interval:
+            enpoints.add(start)
+            enpoints.add(stop)
+        return enpoints
+
+    @staticmethod
+    def _cmp_open(low: DateTimeType, item: DateTimeType, high: DateTimeType) -> bool:
         """
         The ranges are left-closed and right-open intervals, i.e.
         value is in interval if and only if start <= value < stop
         """
         if low < high:
             return low <= item < high
-        return low <= item or item < high   # low <= item < MAX or MIN <= item < high
+        # low <= item < MAX or MIN <= item < high
+        return low <= item or item < high
 
     @staticmethod
-    def _cmp_closed(low, item, high) -> bool:
+    def _cmp_closed(low: DateTimeType, item: DateTimeType, high: DateTimeType) -> bool:
         """
         The ranges are closed intervals, i.e.
         value is in interval if and only if start <= value <= stop
@@ -451,67 +361,73 @@ class _Interval:
             return low <= item <= high
         return low <= item or item <= high
 
-    def _cmp(self, *args) -> bool:
+    def _cmp(self, *args: DateTimeType) -> bool:
         return (self._cmp_closed if self._RCLOSED_INTERVAL else self._cmp_open)(*args)
 
-    def __contains__(self, item):
+    def __contains__(self, item: DateTimeType) -> bool:
         return any(self._cmp(low, item, high) for low, high in self._interval)
 
-    def as_list(self) -> list[list[list[int]]]:
+    def as_list(self) -> NDT_IntervalType:
         """
         Return the intervals as a nested list of integers.
 
-        The output is suitable as an input argument.
+        The output is a list of endpoint pairs. Each endpoint is a list
+        of integers. The output is suitable as an input argument.
         """
-        return [[list(low), list(high)] for low, high in self._interval]
+        export = type(self)._export
+        return [[export(start), export(stop)] for start, stop in self._interval]
 
-    def __str__(self):
-        def fmt(low, high):
-            if self._RCLOSED_INTERVAL and low == high:
-                return str(low)
-            return f"{low}{RANGECHAR}{high}"
-        return f'{SEPCHAR} '.join(fmt(low, high) for low, high in self._interval)
+    def _range_string(self, start: DateTimeType, stop: DateTimeType) -> str:
+        to_string = type(self)._str
+        if self._RCLOSED_INTERVAL and start == stop:
+            return to_string(start) + _DELIMITER
+        return f"{to_string(start)} {_RANGE_SEPARATORS[0]} {to_string(stop)}{_DELIMITER}"
 
-    def __repr__(self):
+    def as_string(self) -> str:
+        return ' '.join(self._range_string(start, stop) for start, stop in self._interval)
+
+    def __str__(self) -> str:
         cls = type(self)
-        return f"{cls.__module__}.{cls.__qualname__}('{self}')"
+        return f"{cls.__qualname__}('{self.as_string()}')"
+
+    def __repr__(self) -> str:
+        cls = type(self)
+        return f"{cls.__module__}.{cls.__qualname__}('{self.as_string()}')"
 
 
-class TimeInterval(_Interval):
+class TimeInterval(_Interval[dt.time]):
     """
     List of time ranges.
-
-    See the HMS class for time formats.
 
     The whole day is 00:00 - 00:00.
     """
 
     _RCLOSED_INTERVAL = False
-    _convert = HMS
+    _convert_seq = convert_time_seq
+    _convert_str = convert_time_str
 
 
-class DateInterval(_Interval):
+class DateInterval(_Interval[dt.date]):
     """
     List of date ranges and single dates.
-
-    See the MD class for date formats.
     """
 
     _RCLOSED_INTERVAL = True
-    _convert = MD
+    _convert_seq = convert_date_seq
+    _convert_str = convert_date_str
+    _str = date_to_string
 
 
-class DateTimeInterval(_Interval):
+class DateTimeInterval(_Interval[dt.datetime]):
     """
-    List of date+time ranges.
-
-    See the YDT class.
+    List of datetime ranges.
     """
 
     _RCLOSED_INTERVAL = False
-    _convert = YDT
+    _convert_seq = convert_datetime_seq
+    _convert_str = convert_datetime_str
 
     @staticmethod
-    def _cmp_open(low: YDT, item: YDT, high: YDT) -> bool:
-        """Compare function for non-repeating intervals."""
+    def _cmp_open(low: dt.datetime, item: dt.datetime, high: dt.datetime) -> bool:
+        """Compare function for non-recurring intervals."""
         return low <= item < high

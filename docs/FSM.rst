@@ -223,7 +223,7 @@ and ``False`` for rejected FSM events.
 
   The timer duration may be given as:
     - number of seconds (int, float), negative values are replaced with 0.0
-    - a :ref:`string with time units<Time intervals with units>`
+    - a :ref:`string with time units<Time durations with units>`
     - :const:`INF_TIME`
     - ``None``, i.e. the duration is not set here
       and must be obtained from other source

@@ -2,9 +2,7 @@
 Test the name to block resolver.
 """
 
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-# pylint: disable=wildcard-import, unused-wildcard-import
+# pylint: disable=protected-access
 
 import types
 
@@ -12,7 +10,8 @@ import pytest
 
 import edzed
 
-from .utils import *
+# pylint: disable-next=unused-import
+from .utils import fixture_circuit
 
 
 def test_resolver_basic(circuit):
@@ -51,7 +50,7 @@ def test_resolver_type_checking1(circuit):
 
 def test_resolver_type_checking2(circuit):
     """Unsuccessful type check."""
-    tmr = edzed.Timer('tmr_name')
+    edzed.Timer('tmr_name')
 
     t = types.SimpleNamespace(c='tmr_name')
     circuit.resolve_name(t, 'c', edzed.Input)

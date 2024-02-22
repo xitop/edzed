@@ -3,17 +3,16 @@ Test the OutputFunc block.
 Part 1/2 - async
 """
 
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-# pylint: disable=wildcard-import, unused-wildcard-import
-
 import asyncio
 
 import pytest
 
 import edzed
 
-from .utils import *
+# pylint: disable=unused-argument
+# pylint: disable-next=unused-import
+from .utils import fixture_circuit
+from .utils import TimeLogger
 
 
 pytest_plugins = ('pytest_asyncio',)
@@ -137,6 +136,6 @@ async def test_stop(circuit):
         ]
     vlog = TimeLogger('vlog', mstop=True)
     await output_func(
-        circuit, v2=12, stop_data=dict(value=12), log=LOG,
+        circuit, v2=12, stop_data={"value": 12}, log=LOG,
         on_success=edzed.Event('vlog', 'log'))
     vlog.compare(VLOG)

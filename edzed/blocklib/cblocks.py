@@ -61,16 +61,19 @@ class FuncBlock(block.CBlock):
 
 
 class And(FuncBlock):
+    """Logical AND"""
     def __init__(self, *args, **kwargs):
         super().__init__(*args, func=all, unpack=False, **kwargs)
 
 
 class Or(FuncBlock):
+    """Logical OR"""
     def __init__(self, *args, **kwargs):
         super().__init__(*args, func=any, unpack=False, **kwargs)
 
 
 class Xor(FuncBlock):
+    """Logical XOR"""
     def __init__(self, *args, **kwargs):
         super().__init__(
             *args,

@@ -268,7 +268,7 @@ Sequential blocks
           Expiration time measured since the program stop. An expired
           state is disregarded. Expiration value may be ``None``,
           number of seconds, or
-          a :ref:`string with time units<Time intervals with units>`.
+          a :ref:`string with time units<Time durations with units>`.
 
           The *expiration* value defaults to ``None`` which means
           that the saved state never expires.
@@ -289,7 +289,7 @@ Sequential blocks
 
       The timeout values must be given as a number of seconds,
       ``None`` for the default timeout, or
-      a :ref:`string with time units<Time intervals with units>`.
+      a :ref:`string with time units<Time durations with units>`.
 
       The timeouts should be explicitly set. A warning is logged,
       when the default is used.

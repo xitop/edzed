@@ -53,8 +53,8 @@ class Counter(addons.AddonPersistence, block.SBlock):
 
     def __init__(
             self, *args,
-            modulo: Optional[int|float] = None,
-            initdef: int|float = 0,
+            modulo: Optional[float] = None,
+            initdef: float = 0,
             **kwargs):
         """
         Set the optional modulo and the initial counter value (default = 0).
@@ -64,21 +64,21 @@ class Counter(addons.AddonPersistence, block.SBlock):
         self._mod = modulo
         super().__init__(*args, initdef=initdef, **kwargs)
 
-    def _setmod(self, value: int|float) -> int|float:
+    def _setmod(self, value: float) -> float:
         output = value if self._mod is None else value % self._mod
         self.set_output(output)
         return output
 
-    def _event_inc(self, *, amount: int|float = 1, **_data) -> int|float:
+    def _event_inc(self, *, amount: float = 1, **_data) -> float:
         return self._setmod(self._output + amount)
 
-    def _event_dec(self, *, amount: int|float = 1, **_data) -> int|float:
+    def _event_dec(self, *, amount: float = 1, **_data) -> float:
         return self._setmod(self._output - amount)
 
-    def _event_put(self, *, value: int|float, **_data) -> int|float:
+    def _event_put(self, *, value: float, **_data) -> float:
         return self._setmod(value)
 
-    def _event_reset(self, **_data) -> int|float:
+    def _event_reset(self, **_data) -> float:
         return self._setmod(self.initdef)
 
     init_from_value = _setmod
@@ -94,7 +94,7 @@ class Repeat(addons.AddonMainTask, block.SBlock):
             self, *args,
             dest: str|block.SBlock,
             etype: str|block.EventType = 'put',
-            interval: int|float|str,
+            interval: float|str,
             count: Optional[int] = None,
             **kwargs):
         if isinstance(etype, block.EventCond):
@@ -157,7 +157,7 @@ class ValuePoll(addons.AddonMainTask, addons.AddonAsyncInit, block.SBlock):
     A source of measured or computed values.
     """
 
-    def __init__(self, *args, func: Callable[[], Any], interval: int|float|str, **kwargs):
+    def __init__(self, *args, func: Callable[[], Any], interval: float|str, **kwargs):
         self._func = func
         self._interval = utils.time_period(interval)
         if self._interval is None or self._interval <= 0.0:

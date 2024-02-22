@@ -9,13 +9,14 @@ Home: https://github.com/xitop/edzed/
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Coroutine, Iterator, Iterable, MutableMapping, Set
+from collections.abc import Callable, Coroutine, Iterable, MutableMapping, Set
+# from collections.abc Iterator
 import fnmatch
 import logging
 import operator
 import signal
 import time
-from typing import Any, NoReturn, Optional, overload
+from typing import Any, NoReturn, Optional, overload, TypeVar
 
 from . import addons
 from . import block
@@ -36,7 +37,7 @@ _current_circuit: Optional[Circuit] = None
 
 def get_circuit() -> Circuit:
     """Get the current circuit. Create one if it does not exist."""
-    global _current_circuit
+    global _current_circuit     # pylint: disable=global-statement
 
     if _current_circuit is None:
         _current_circuit = Circuit()
@@ -47,7 +48,7 @@ def reset_circuit() -> None:
     """
     Clear the circuit and create a new one.
     """
-    global _current_circuit
+    global _current_circuit     # pylint: disable=global-statement
 
     if _current_circuit is None:
         return
@@ -77,14 +78,18 @@ class _BlockResolver:
         self._resolve_function = resolve_function
 
     @staticmethod
-    def _check_type(obj, attr: str, blk: block.Block, block_type: type[block.Block]) -> None:
+    def _check_type(
+            obj: Any, attr: str, blk: block.Block, block_type: type[block.Block]
+        ) -> None:
         if not isinstance(blk, block_type):
             raise TypeError(
                 f"type of {blk!r} stored in {obj!r} as attribute {attr!r} "
-                f"should be {block_type.__name__}")
+                + f"should be {block_type.__name__}")
 
 
-    def register(self, obj, attr: str, block_type: type[block.Block] = block.Block) -> None:
+    def register(
+                self, obj: Any, attr: str, block_type: type[block.Block] = block.Block
+            ) -> None:
         """Register an object with a block reference to be resolved."""
         blk = getattr(obj, attr)
         if isinstance(blk, str):
@@ -106,6 +111,8 @@ class _BlockResolver:
             setattr(obj, attr, blk)
         self._unresolved.clear()
 
+
+BlockType = TypeVar('BlockType', bound=block.Block)
 
 class Circuit:
     """
@@ -132,7 +139,7 @@ class Circuit:
             # persistent state data back-end
         self.persistent_ts: Optional[float] = None
             # timestamp of persistent data
-        self.sblock_queue: asyncio.Queue
+        self.sblock_queue: asyncio.Queue[block.SBlock]
             # a Queue for notifying about changed SBlocks,
             # the queue will be created when simulation starts, because
             # it has a side effect of creating an event_loop if one
@@ -224,11 +231,20 @@ class Circuit:
             raise ValueError(f"Duplicate block name {blk.name}")
         self._blocks[blk.name] = blk
 
-    def getblocks(self, btype: Optional[type[block.Block|block.Addon]] = None) -> Iterator:
-        """Return an iterator of all blocks or btype blocks only."""
+    # if the overloads are uncommented, pylint weirdly complains with
+    # a "not-an-iterable" warning.
+
+    # @overload
+    # def getblocks(self) -> Iterable[block.Block]:
+    #     ...
+    # @overload
+    # def getblocks(self, btype: type[BlockType]) -> Iterator[BlockType]:
+    #     ...
+    def getblocks(self, btype=block.Block) -> Iterable:
+        """Return all blocks or an iterator of btype blocks only."""
         allblocks = self._blocks.values()
-        if btype is None:
-            return iter(allblocks)  # iter() only for type consistency, not really needed
+        if btype is block.Block:
+            return allblocks
         return (blk for blk in allblocks if isinstance(blk, btype))
 
     def findblock(self, name: str) -> block.Block:
@@ -287,7 +303,7 @@ class Circuit:
             self.persistent_ts = None
             _logger.warning(
                 "The timestamp of persistent data is missing or invalid, "
-                "state expiration will not be checked")
+                + "state expiration will not be checked")
         else:
             if self.persistent_ts > time.time():
                 _logger.error(
@@ -300,13 +316,13 @@ class Circuit:
             _logger.info("Removing unused persistent state for '%s'", key)
             del self.persistent_dict[key]
 
-    @overload   # type: ignore[misc] # the signature overlap may be safely ignored
+    @overload   # type: ignore[overload-overlap] # the signature overlap may be safely ignored
     def _validate_blk(self, blk: str|block.Block) -> block.Block:
-        pass
+        ...
     @overload
     def _validate_blk(self, blk: Any) -> block.Const:
-        pass
-    def _validate_blk(self, blk):
+        ...
+    def _validate_blk(self, blk: Any) -> block.Block|block.Const:
         """
         Process a block specification. Return a valid block object.
 
@@ -325,7 +341,7 @@ class Circuit:
                 if blk.startswith('_not_') and blk[5:6] != '_':
                     return cblocks.Not(
                         blk, comment=f"Inverted output of {blk}", _reserved=True
-                        ).connect(blk[5:])
+                        ).connect(blk.removeprefix('_not_'))
             return self.findblock(blk)
         if not isinstance(blk, block.Block):
             return block.Const(blk)
@@ -405,8 +421,7 @@ class Circuit:
                     # will be logged below
                     pass
             if not task.cancelled():
-                err = task.exception()
-                if err is not None:
+                if (err := task.exception()) is not None:
                     errcnt += 1
                     blk.log_error("%s error: %s", jobname, err, exc_info=err)
                     err = None  # break a reference cycle
@@ -439,7 +454,7 @@ class Circuit:
         registered in blk.init_steps_completed.
 
         On the first call:
-            1.  call init_from_persistent_data - if applicable
+            1. call init_from_persistent_data - if applicable
 
         On the second call or if full=True
             2A. call init_regular
@@ -464,8 +479,9 @@ class Circuit:
             if steps == 1 or steps == 0 and full:
                 blk.init_steps_completed = -2
                 blk.init_regular()
-                if not blk.is_initialized() and blk.has_method('init_from_value') \
-                        and blk.initdef is not block.UNDEF:
+                if (not blk.is_initialized()
+                        and blk.has_method('init_from_value')
+                        and blk.initdef is not block.UNDEF):
                     blk.init_from_value(blk.initdef)
                 blk.init_steps_completed = 2
         except Exception as err:
@@ -497,7 +513,7 @@ class Circuit:
             queue.get_nowait()
 
     # AbstractSet does not define .difference and .intersection
-    async def _stop_sblocks(self, blocks: set[block.SBlock]|frozenset[block.SBlock]):
+    async def _stop_sblocks(self, blocks: set[block.SBlock]) -> None:
         """
         Stop sequential blocks. Wait until all blocks are stopped.
 
@@ -572,13 +588,13 @@ class Circuit:
         while True:
             if not eval_set and queue.empty():
                 self.log_debug("%d block(s) evaluated, pausing", eval_cnt)
-                blk = await queue.get()
-                self.log_debug("output change in %s, resuming", blk)
+                sblk = await queue.get()
+                self.log_debug("output change in %s, resuming", sblk)
                 eval_cnt = 0
-                eval_set |= blk.oconnections
+                eval_set |= sblk.oconnections
             while not queue.empty():
-                blk = queue.get_nowait()
-                eval_set |= blk.oconnections
+                sblk = queue.get_nowait()
+                eval_set |= sblk.oconnections
             if not eval_set:
                 continue
             eval_cnt += 1
@@ -586,18 +602,18 @@ class Circuit:
                 raise EdzedCircuitError(
                     "Circuit instability detected (too many block evaluations)")
             if len(eval_set) == 1:
-                blk = eval_set.pop()
+                cblk = eval_set.pop()
             else:
-                blk = select_blk(eval_set)
-                eval_set.discard(blk)
+                cblk = select_blk(eval_set)
+                eval_set.discard(cblk)
             try:
-                changed = blk.eval_block()
+                changed = cblk.eval_block()
             except Exception as err:
                 # add the block name
-                add_note(err, f"block: {blk}, output evaluation error")
+                add_note(err, f"block: {cblk}, output evaluation error")
                 raise
             if changed:
-                eval_set |= blk.oconnections
+                eval_set |= cblk.oconnections
 
     async def run_forever(self) -> NoReturn:
         """
@@ -701,8 +717,9 @@ class Circuit:
         The start will then fail.
         """
         if self._error is not None:
-            if exc != self._error and exc != self._error.__cause__ \
-                    and not isinstance(exc, asyncio.CancelledError):
+            if (exc != self._error
+                    and exc != self._error.__cause__
+                    and not isinstance(exc, asyncio.CancelledError)):
                 _logger.warning("ignoring subsequent abort(%r)", exc)
             return
         if not isinstance(exc, BaseException):
@@ -731,14 +748,16 @@ class Circuit:
 
 # deliberately using mutable default as a static storage
 # pylint: disable=dangerous-default-value
-def _sigterm_handler_ctrl(signo: int, activate: bool, _handlers={}) -> None:
+def _sigterm_handler_ctrl(
+        signo: int, activate: bool, _handlers: dict[int, None|int|Callable] = {}
+    ) -> None:
     """Install/remove a handler for 'signo'."""
     if bool(activate) == (signo in _handlers):
         return      # nothing to do
     if activate:
         _handlers[signo] = signal.getsignal(signal.SIGTERM)
 
-        def handler(signum, frame):
+        def handler(signum: int, frame) -> None:
             signame = signal.strsignal(signo) or str(signo)
             msg = f"Signal {signame!r} caught"
             # - we need the _threadsafe variant of call_soon
@@ -786,7 +805,7 @@ async def run(*coroutines: Coroutine, catch_sigterm: bool = True) -> None:
         # unexpected error, do not bother to start supporting tasks
         catch_sigterm = False
         coroutines = ()
-    tasks =  [
+    tasks = [
         asyncio.create_task(coro, name=f"edzed: supporting task #{i}")
         for i, coro in enumerate(coroutines, start=1)
         ] + [simtask]

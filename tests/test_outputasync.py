@@ -2,10 +2,6 @@
 Test the OutputAsync block.
 """
 
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-# pylint: disable=wildcard-import, unused-wildcard-import
-
 import asyncio
 import time
 
@@ -13,7 +9,10 @@ import pytest
 
 import edzed
 
-from .utils import *
+# pylint: disable=unused-argument
+# pylint: disable-next=unused-import
+from .utils import fixture_circuit
+from .utils import TimeLogger
 
 
 pytest_plugins = ('pytest_asyncio',)

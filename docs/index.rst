@@ -13,6 +13,11 @@ The package contains:
 - methods for building a circuit by connecting the blocks
 - a simple event-driven zero-delay digital circuit simulator
 
+.. note::
+  Please excuse language errors in this documentation.
+  The author is not a native English speaker.
+
+
 Creating edzed applications
 ===========================
 
@@ -29,7 +34,8 @@ Building a circuit
   blocks
   events
   cblocks
-  sblocks
+  sblocks1
+  sblocks2
   filters
   utils
   FSM

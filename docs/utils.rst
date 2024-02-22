@@ -4,31 +4,56 @@
 Miscellaneous utilities
 =======================
 
-Time intervals with units
+Time durations with units
 =========================
 
 Time is measured in seconds, but edzed classes accept also
-time periods written as strings with other usual time units, e.g.:
+durations and time periods represented as strings with larger
+time units day, hour and minute.
 
-  | ``'2m'`` = 2 minutes = 120.0 seconds
-  | ``'20h15m10'`` = 20 hours + 15 minutes + 10 seconds = 72910.0
-  | ``'2d 12h'`` = 2 days + 12 hours = 216000.0
+**The traditional format:**
 
-Format:
-  TIMESTRING = [DAYS] [HOURS] [MINUTES] [SECONDS]
+  DURATION = [n D] [n H] [n M] [n S]
 
-  where:
-    - DAYS = <int> "D"
-    - HOURS = <int> "H"
-    - MINUTES = <int> "M"
-    - SECONDS =  <int or float> ["S"]
+  Examples:
 
-Notes:
-  - whitespace around numbers and units is allowed
-  - numbers do not have to be normalized, e.g. ``'72h'`` is fine
-  - unit symbols ``D``, ``H``, ``M``, ``S`` may be entered in upper or lower case
-  - negative values are not allowed
-  - float values with exponents are not supported
+    | ``'2m'`` = 2 minutes = 120.0 seconds
+    | ``'20h15m10'`` = 20 hours + 15 minutes + 10 seconds = 72_910.0
+    | ``'2d 12h'`` = 2 days + 12 hours = 21_6000.0
+    | ``'1.25h'`` = 1 and a quarter of and houre = 4_500.0
+
+  .. versionchanged:: 24.3.4
+
+    - An empty string is now rejected.
+    - A decimal comma may be used.
+    - Previously, fractional numbers were allowed only for seconds.
+
+**The ISO 8601 format:**
+
+  DURATION = P [0Y] [0M] [nD] T [nH] [nM] [nS]
+
+  Description with examples: `Wikipedia <https://en.wikipedia.org/wiki/ISO_8601#Durations>`__
+
+  .. versionadded:: 24.3.4
+
+**Notes:**
+
+  Both formats:
+
+  - At least one part of the duration string must be present.
+  - Only the smallest unit may have a fractional part.
+    Both decimal point and decimal comma are supported.
+  - Numbers do not have to be normalized, e.g. ``'72H'`` is fine.
+
+  Traditional format only:
+
+  -   Unit symbols ``D``, ``H``, ``M``, ``S`` may be entered also in lower case.
+  -   Whitespace around numbers and units is allowed.
+
+  ISO format only:
+
+  - the largest usable unit is a day. Calendar years and months
+    are not supported and must be set to 0 if present.
 
 ----
 
@@ -78,7 +103,7 @@ Conversions routines:
 
 .. function:: convert(timestring: str) -> float
 
-  Convert a :ref:`timestring<Time intervals with units>` to number of seconds.
+  Convert a :ref:`timestring<Time durations with units>` to number of seconds.
   See also the next function.
 
 .. function:: time_period(period: int|float|str) -> float

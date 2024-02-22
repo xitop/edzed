@@ -2,15 +2,13 @@
 Test the Counter block.
 """
 
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-# pylint: disable=wildcard-import, unused-wildcard-import
-
 import collections
 
 import edzed
 
-from .utils import *
+# pylint: disable-next=unused-import
+from .utils import fixture_circuit
+from .utils import init
 
 
 def test_inc_dec(circuit):
@@ -44,10 +42,10 @@ def test_amount_2(circuit):
     """Test variable amounts."""
     cnt = edzed.Counter('cnt', initdef=1)
     init(circuit)
-    for i in range(16):
+    for _ in range(16):
         cnt.event('inc', amount=cnt.output)
     assert cnt.output == 2**16
-    for i in range(16):
+    for _ in range(16):
         cnt.event('dec', amount=cnt.output//2)
     assert cnt.output == 1
 
@@ -103,7 +101,7 @@ def test_modulo_1(circuit):
     init(circuit)
 
     values = collections.defaultdict(int)
-    for i in range(MOD * ROUNDS):
+    for _ in range(MOD * ROUNDS):
         cycle.event('inc')
         values[cycle.output] += 1
     assert cycle.output == START

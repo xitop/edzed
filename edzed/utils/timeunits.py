@@ -13,8 +13,9 @@ from .tconst import *   # pylint: disable=wildcard-import, unused-wildcard-impor
 
 __all__ = ['timestr', 'timestr_approx', 'convert', 'time_period']
 
-# pylint: disable=invalid-name
-def timestr(seconds: int|float, sep: str = '', prec: int = 3) -> str:
+# note: type hint float includes also integers
+
+def timestr(seconds: float, sep: str = '', prec: int = 3) -> str:
     """
     Return seconds as a string using d, h, m and s units.
 
@@ -39,7 +40,7 @@ def timestr(seconds: int|float, sep: str = '', prec: int = 3) -> str:
     parts.append(f"{s:.{prec}f}s" if is_float else f"{s}s")
     return sep.join(parts)
 
-def timestr_approx(seconds: int|float, sep: str = '') -> str:
+def timestr_approx(seconds: float, sep: str = '') -> str:
     """
     Return possibly rounded seconds as a string using d, h, m, s units.
 
@@ -55,10 +56,10 @@ def timestr_approx(seconds: int|float, sep: str = '') -> str:
     #     10h  10d   (D) H M
     #     10d        D H
     #
-    # (*) lt (less than) after rounding. We want to prevent e.g. 0.9998
-    # to be rounded to 1 with three decimal places 1.000, but 1.002 to
-    # 1 with two decimal places 1.00. We prefer consistency and always
-    # have 0.xxx and 1.yy.
+    # (*) lt (less than) after rounding. We want to prevent this:
+    #   0.9998 -> 1 with three decimal places = 1.000
+    #   1.0002 -> 1 with two decimal places   = 1.00
+    # We prefer consistency and always have 0.xxx and 1.yy.
 
     if seconds < 0:
         raise ValueError("Number of seconds cannot be negative")
@@ -100,47 +101,71 @@ def timestr_approx(seconds: int|float, sep: str = '') -> str:
         parts.append(f"{s:.{sprec}f}s" if isinstance(seconds, float) else f"{s}s")
     return sep.join(parts)
 
-_RE_TIME = r'(?:(\d+)\s*d)?\s*(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?\s*(?:([\d.]+)\s*s?)?'
-_REGEXP_TIME = re.compile(_RE_TIME, re.ASCII | re.IGNORECASE)
 
-def convert(tstr: str) -> float:
+_NUM = r'(\d+(?:[.,]\d+)?)'   # a match group for a number with optional fractional part
+_RE_DURATION = re.compile(rf"""
+        \s*
+        (?:{_NUM}\s*d)?  \s*  (?:{_NUM}\s*h)?  \s*
+        (?:{_NUM}\s*m)?  \s*  (?:{_NUM}\s*s?)?  \s*
+        """,
+    flags = re.ASCII | re.IGNORECASE | re.VERBOSE)
+_RE_ISO_DURATION = re.compile(rf"""
+        \s*
+        P (?:{_NUM}Y)?  (?:{_NUM}M)?  (?:{_NUM}D)?
+        (?:
+            T  (?:{_NUM}H)?  (?:{_NUM}M)?  (?:{_NUM}S)?
+         )?
+         \s*
+         """,
+    flags = re.ASCII | re.VERBOSE)
+
+def _convert(tstr: str) -> float:
     """
     Convert string to number of seconds. Return float.
 
-    Format:
-        TIMESTR = [DAYS] [HOURS] [MINUTES] [SECONDS]
-    where:
-        DAYS = <int> "D"
-        HOURS = <int> "H"
-        MINUTES = <int> "M"
-        SECONDS =  <int or float> ["S"]
-    Notes:
-        - whitespace around numbers and units is allowed
-        - numbers do not have to be normalized, e.g. "72h" is OK
-        - unit symbols D, H, M, S may be entered in upper or lower case
-        - negative values are not allowed
-        - float values with exponents are not supported
+    Supports the traditional format and the ISO 8601 format
+    but with years and months not accepted.
     """
-    match = _REGEXP_TIME.fullmatch(tstr.strip())
-    if match is None:
+    if not any((match := re.fullmatch(tstr)) for re in (_RE_DURATION, _RE_ISO_DURATION)):
         raise ValueError("Invalid time representation")
-    d, h, m, s = match.groups()
+    assert match is not None        # mypy
+
     result = 0.0
-    if d:
-        result += int(d) * SEC_PER_DAY
-    if h:
-        result += int(h) * SEC_PER_HOUR
-    if m:
-        result += int(m) * SEC_PER_MIN
-    if s:
-        result += float(s)  # may raise ValueError, the regexp is not strict enough
+    smallest_unit = True
+    for value, scale_factor in zip(
+            reversed(match.groups()),
+            (1, SEC_PER_MIN, SEC_PER_HOUR, SEC_PER_DAY, None, None)
+            ):
+        if value is None:
+            continue
+        if (decimal_comma := ',' in value) or ('.' in value):
+            if not smallest_unit:
+                raise ValueError("only the smallest unit may have a fractional part")
+            if decimal_comma:
+                value = value.replace(',', '.', 1)
+        num = float(value)
+        smallest_unit = False
+        if num == 0.0:
+            continue
+        if scale_factor is None:
+            raise ValueError("calendar years/months are not supported as duration units")
+        result += num * scale_factor
+    if smallest_unit:
+        raise ValueError("at least one element must be present")
     return result
+
+def convert(tstr: str) -> float:
+    try:
+        return _convert(tstr)
+    except ValueError as err:
+        raise ValueError(f"{tstr!r}: {err}") from None
+
 
 @overload
 def time_period(period: None) -> None:
     ...
 @overload
-def time_period(period: int|float|str) -> float:
+def time_period(period: float|str) -> float:
     ...
 def time_period(period):
     """Convenience wrapper for convert()."""

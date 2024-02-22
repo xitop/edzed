@@ -133,7 +133,7 @@ running as a supporting task.
               super().__init__(*args, **kwargs)
               if not getattr(self.dest, 'x_input', False):
                   raise ValueError(
-                      f"Block {self.dest.name} is not accepting external inputs")
+                      f"Block {self.dest.name} is not accepting external events")
 
   .. attribute:: etype
     :type: str

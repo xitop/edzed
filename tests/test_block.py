@@ -2,15 +2,16 @@
 Test basic circuit block functionality.
 """
 
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-# pylint: disable=wildcard-import, unused-wildcard-import
+# pylint: disable=missing-class-docstring, protected-access
 
 import pytest
 
 import edzed
 
-from .utils import *
+# pylint: disable=unused-argument
+# pylint: disable-next=unused-import
+from .utils import fixture_circuit
+from .utils import Noop
 
 
 def test_undef():
@@ -18,7 +19,8 @@ def test_undef():
     undef = edzed.UNDEF
     assert bool(undef) is False
     assert str(undef) == repr(undef) == '<UNDEF>'
-    assert type(undef) == edzed.block._UndefType
+    # pylint: disable=unidiomatic-typecheck
+    assert type(undef) is edzed.block._UndefType
 
 
 def test_const():
@@ -47,14 +49,14 @@ def test_no_undef_const():
 def test_reset_circuit(circuit):
     """Reset creates a new empty circuit."""
     assert circuit is edzed.get_circuit()
-    assert list(circuit.getblocks()) == []
+    assert not list(circuit.getblocks())
     blk = Noop('test')
     assert list(circuit.getblocks()) == [blk]
 
     edzed.reset_circuit()
     newcircuit = edzed.get_circuit()
     assert newcircuit is not circuit
-    assert list(newcircuit.getblocks()) == []
+    assert not list(newcircuit.getblocks())
 
 
 def test_no_dup(circuit):
@@ -161,7 +163,8 @@ def test_is_multiple_and_to_tuple():
     """Check _is_multiple() and _to_tuple() helpers."""
     is_multiple = edzed.block._is_multiple
     to_tuple = edzed.block._to_tuple
-    accept_all = lambda x: None     # permissive validator
+    def accept_all(anything):
+        pass    # permissive validator
 
     # None is special case
     assert not is_multiple(None)
@@ -198,6 +201,7 @@ def test_is_multiple_and_to_tuple():
 @pytest.mark.forked
 def test_incorrect_addon1():
     with pytest.raises(TypeError, match="add-on"):
+        # pylint: disable=unused-variable
         class CBlockWithAddon1(edzed.AddonAsync, edzed.CBlock):
             def calc_output(self):    # calc_output is abstract
                 return None
@@ -205,6 +209,7 @@ def test_incorrect_addon1():
 @pytest.mark.forked
 def test_incorrect_addon2():
     with pytest.raises(TypeError, match="add-on"):
+        # pylint: disable=unused-variable
         class CBlockWithAddon2(edzed.CBlock, edzed.AddonAsync):
             def calc_output(self):
                 return None
@@ -212,6 +217,7 @@ def test_incorrect_addon2():
 @pytest.mark.forked
 def test_incorrect_addon3():
     with pytest.raises(TypeError, match="add-on"):
+        # pylint: disable=inconsistent-mro, unused-variable
         class SBlockWithAddonWrongOrder(edzed.SBlock, edzed.AddonAsync):
             def calc_output(self):
                 return None

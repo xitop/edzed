@@ -6,6 +6,33 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+
+24.3.4
+======
+
+- Improve :ref:`time/date intervals<List of sequential blocks 2/2 - time and date intervals>`:
+
+  - Accept microseconds in time specifications.
+    However, a microsecond precision cannot be expected
+    from an asyncio based Python program.
+  - Accept ISO 8601 time/date strings.
+    (This feature is based based on Python's support of ISO formats which was
+    quite limited in versions prior to 3.11.)
+  - Introduce new endpoint separator and interval delimiter
+    in order to solve ambiguities. The old syntax remains
+    supported.
+  - Rewrite time/date related functions using the standard
+    `datetime <https://docs.python.org/3/library/datetime>`_
+    module wherever possible.
+  - Rewrite the :ref:`cron internal service <Monitoring aid>`.
+    An issue with the schedule reload was found and fixed during the rewrite.
+
+- Enhance the support for :ref:`durations with units<Time durations with units>`.
+- Remove support for Python 3.8.
+- Add latest Python 3.12 to the list of compatible versions.
+- Improve compliance with the ``mypy`` type checker.
+- Put ``pylint`` configuration into the ``pyproject.toml`` file.
+
 23.8.25
 =======
 - Make interfacing with external systems easier:
@@ -31,46 +58,6 @@ Version numbers are based on the release date (Y.M.D).
 - Deprecate the use of iterators to specify multiple events,
   multiple event filters or a group of inputs.
 - Small code improvements.
-
-22.12.4
-=======
-
-- Implement a *t_period* argument in the :class:`Timer` block.
-- Fix a bogus event handler being added to :class:`FSM` instances.
-
-22.11.28
-========
-
-- Add :class:`Xor` block.
-- Add :ref:`version information<Version information>`.
-- When :func:`run` is called with `catch_sigterm=True`,
-  uninstall the ``SIGTERM`` handler before returning.
-- Update the build system configuration. Use ``pyproject.toml``
-  for storing package metadata.
-
-22.11.20
-========
-- Make use of exception notes introduced in Python 3.11.
-  If an additional information about an error is available,
-  it is added as an exception note if notes are supported,
-  otherwise it is prepended to the error message.
-- Add tests requirements to ``setup.py``.
-
-
-22.11.2
-=======
-- Add Python version 3.11 classifier to ``setup.py``.
-- Add a parameter controlling the number of decimal places
-  in the output of :func:`utils.timestr`.
-- Allow :meth:`AddonAsync._create_monitored_task` to pass
-  arguments to the underlying :func:`asyncio.create_task`.
-- Remove deprecated features in the demo tool:
-
-  - the ``debug`` command was removed, use ``bdebug``
-  - the ``demo.run_demo()`` entry point was removed,
-    use ``edzed.run(edzed.demo.cli_repl())`` instead
-- Give descriptive names to some asyncio tasks.
-  This feature was added on a provisional basis.
 
 
 Releases older than one year

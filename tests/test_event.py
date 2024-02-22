@@ -2,15 +2,16 @@
 Test SBlock events and event filters.
 """
 
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-# pylint: disable=wildcard-import, unused-wildcard-import
+# pylint: disable=missing-class-docstring, protected-access
 
 import pytest
 
 import edzed
 
-from .utils import *
+# pylint: disable-=unused-argument
+# pylint: disable-next=unused-import
+from .utils import fixture_circuit
+from .utils import init, Noop, EventMemory
 
 
 def test_delivery(circuit):
@@ -67,7 +68,7 @@ def test_ext_args(circuit):
     with pytest.raises(LookupError):        # forward references not supported
         edzed.ExtEvent('input', 'ename')
     inp = edzed.Input('input', initdef=0)
-    ev_name = edzed.ExtEvent('input', 'ename')
+    edzed.ExtEvent('input', 'ename')
     cond = edzed.EventCond(None, None)
     edzed.Event(inp, cond)                  # Event + EventType = OK, but ...
     with pytest.raises(TypeError):
@@ -126,7 +127,7 @@ def test_send(circuit):
 
     event.send(src)      # 'source' is added automatically
     assert dest.output == ('msg', {'source': 'mysrc'})
-    # pylint: disable=redundant-keyword-arg
+    # pylint: disable=kwarg-superseded-by-positional-arg
     event.send(src, source='fake_source')   # will be replaced by real source
     assert dest.output == ('msg', {'source': 'mysrc'})
     event.send(src, msg='error', level=10)
@@ -140,7 +141,7 @@ def test_any_name(circuit):
     src = Noop('mysrc', comment="fake event source")
     init(circuit)
 
-    # pylint: disable=redundant-keyword-arg
+    # pylint: disable=kwarg-superseded-by-positional-arg
     event.send(src, self='SELF', etype='ETYPE', source='anything')
     assert dest.output == ('msg', {'source': 'mysrc', 'self': 'SELF', 'etype': 'ETYPE'})
 
@@ -298,6 +299,7 @@ def test_init_by_event(circuit):
 
 def test_no_circular_init_by_event(circuit):
     """Circular (recursive in general) events are forbidden."""
+    # pylint: disable=unused-variable
     inp_a = edzed.Input('inp_a', on_output=edzed.Event('inp_b'), initdef='ok')
     inp_b = edzed.Input('inp_b', on_output=edzed.Event('inp_a'))    # cannot send back to inp_a
 

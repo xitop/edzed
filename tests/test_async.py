@@ -2,9 +2,7 @@
 Test asyncio related helpers.
 """
 
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-# pylint: disable=wildcard-import, unused-wildcard-import
+# pylint: disable=missing-class-docstring, protected-access
 
 import asyncio
 
@@ -13,7 +11,10 @@ import pytest
 import edzed
 from edzed.utils import shield_cancel
 
-from .utils import *
+# pylint: disable=unused-argument
+# pylint: disable-next=unused-import
+from .utils import fixture_circuit
+from .utils import Noop, TimeLogger
 
 
 pytest_plugins = ('pytest_asyncio',)
@@ -26,7 +27,7 @@ async def test_shield():
 
     async def shielded():
         nonlocal result
-        for i in range(5):
+        for _ in range(5):
             await asyncio.sleep(0.015)
             result += 1
 
@@ -149,6 +150,7 @@ async def test_task_monitor_args(circuit):
 
     class TestBlock(edzed.AddonAsync, edzed.SBlock):
         def init_regular(self):
+            # pylint: disable=attribute-defined-outside-init
             self.x_task = self._create_monitored_task(dummy(), is_service=False, name=NAME)
             self.set_output(False)
 

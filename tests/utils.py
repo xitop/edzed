@@ -2,9 +2,6 @@
 Helpers for unit tests.
 """
 
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-
 import asyncio
 import itertools
 import time
@@ -12,11 +9,6 @@ import time
 import pytest
 
 import edzed
-
-
-__all__ = [
-    'Noop', 'EventMemory', 'TimeLogger',
-    'compare_logs', 'timelimit', 'init', 'circuit']
 
 
 class Noop(edzed.CBlock):
@@ -39,6 +31,8 @@ class EventMemory(edzed.SBlock):
 
 
 _FILL = object()
+_AFMT = ("timestamps: {} is way {} expected {}\n"
+         + "(please repeat; timing tests may produce a false negative under high load!)")
 
 def compare_logs(tlog, slog, delta_abs=10, delta_rel=0.15):
     """
@@ -62,15 +56,13 @@ def compare_logs(tlog, slog, delta_abs=10, delta_rel=0.15):
         assert tmsg == smsg, f"data: {(tts, tmsg)} does not match {(sts, smsg)}"
         if sts is None or sts == 0:
             continue
-        if (tts - delta_abs)/sts > 1.0 + delta_rel:
-            assert False, f"timestamps: {tts} is way above expected {sts}\n" \
-            "(please repeat; timing tests may produce a false negative under high load!)"
-        if (tts + delta_abs/10)/sts < 1.0 - delta_rel/10:
-            assert False, f"timestamps: {tts} is way below expected {sts}\n" \
-            "(please repeat; timing tests may produce a false negative under high load!)"
+        assert (tts - delta_abs)/sts <= 1.0 + delta_rel, _AFMT.format(tts, "above", sts)
+        assert (tts + delta_abs/10)/sts >= 1.0 - delta_rel/10, _AFMT.format(tts, "below", sts)
 
 
-DEFAULT_SELECT = lambda data: data.get('value')
+def _default_select(data):
+    return data.get('value')
+
 # inheriting from AddonAsync in order to get the stop mark
 # timestamp right (shutdown async before sync rule)
 class TimeLogger(edzed.AddonAsync, edzed.SBlock):
@@ -81,7 +73,7 @@ class TimeLogger(edzed.AddonAsync, edzed.SBlock):
            - send a 'log' event with value='log entry'
     """
 
-    def __init__(self, *args, mstart=False, mstop=False, select=DEFAULT_SELECT, **kwargs):
+    def __init__(self, *args, mstart=False, mstop=False, select=_default_select, **kwargs):
         self._ts = None
         self.tlog = []
         self._select = select
@@ -167,6 +159,7 @@ def init(circ):
     Circuits with asyncio based blocks should be tested
     with the regular simulator.
     """
+    # pylint: disable=protected-access
     # code from Circuit.run_forever()
     circ._simtask = _FakeSimTask()
     circ.sblock_queue = asyncio.Queue()
@@ -183,8 +176,8 @@ def init(circ):
                 raise edzed.EdzedCircuitError(f"{blk}: not initialized")
 
 
-@pytest.fixture
-def circuit():
+@pytest.fixture(name='circuit')
+def fixture_circuit():
     """Return a new empty circuit."""
     edzed.reset_circuit()
     return edzed.get_circuit()

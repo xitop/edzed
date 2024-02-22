@@ -99,7 +99,7 @@ class InputExp(_Validation, fsm.FSM):
 
     def __init__(
             self, *args,
-            duration: Optional[int|float|str],
+            duration: Optional[float|str],
             expired: Any = None,
             initdef: Any = block.UNDEF,
             **kwargs):
@@ -141,11 +141,12 @@ def _check_arg(name, arg: Any) -> None:
 
     An early check should prevent difficult to understand error messages.
     """
-    if isinstance(arg, str) or not isinstance(arg, Sequence) \
-            or any(not isinstance(k, str) for k in arg):
+    if (isinstance(arg, str)
+            or not isinstance(arg, Sequence)
+            or any(not isinstance(k, str) for k in arg)):
         raise TypeError(
             f"Argument {name!r} should be a sequence (e.g. a list or tuple) of strings, "
-            f"but got {arg!r}")
+            + f"but got {arg!r}")
 
 
 def _args_as_string(args: Sequence, kwargs: Mapping) -> str:
@@ -166,7 +167,7 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
             mode: str,
             f_args: Sequence[str] = ('value',),
             f_kwargs: Sequence[str] = (),
-            guard_time: Optional[int|float|str] = None,
+            guard_time: Optional[float|str] = None,
             on_success: None|block.Event|Sequence[block.Event] = None,
             on_cancel: None|block.Event|Sequence[block.Event] = None,
             on_error: None|block.Event|Sequence[block.Event],
@@ -190,7 +191,7 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
         else:
             raise ValueError(
                 "Argument 'mode' must be one of: 'cancel', 'start', 'wait' "
-                f"(may be abbreviated to 'c', 's', or 'w'), but got {mode!r}")
+                + f"(possibly abbreviated to 'c', 's', or 'w'), but got {mode!r}")
         self._f_args = f_args
         self._f_kwargs = f_kwargs
         self._stop_data = stop_data
@@ -200,7 +201,7 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
         if self._guard_time > self.stop_timeout:
             raise ValueError(
                 f"guard_time {self._guard_time:.3f} must not exceed "
-                f"stop_timeout {self.stop_timeout:.3f} seconds.")
+                + f"stop_timeout {self.stop_timeout:.3f} seconds.")
 
     def _event_put(self, **data) -> None:
         self._queue.put_nowait(data)
@@ -290,10 +291,8 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
         """
         while True:
             data = await self._queue.get()
-            if self.debug:
-                qsize = self._queue.qsize()
-                if qsize > 0:
-                    self.log_debug("%d value(s) waiting in output queue", qsize)
+            if self.debug and (qsize := self._queue.qsize()) > 0:
+                self.log_debug("%d value(s) waiting in output queue", qsize)
             if data is None:
                 break
             await self._output_coro_wrapper(data)
@@ -324,7 +323,7 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
 
     def stop(self) -> None:
         # do not compare self._ctrl_coro using "is" (descriptors are in play)
-        # pylint: disable=comparison-with-callable
+        # pylint: disable-next=comparison-with-callable
         if self._stop_data is not None and self._ctrl_coro != self._ctrl_start:
             # stop_data processing in start mode moved to stop_async, because
             # that mode does not guarantee that stop_data will be processed last
@@ -337,11 +336,11 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
             await self._ctrl_task
         except asyncio.CancelledError:
             pass
-        # pylint: disable=comparison-with-callable
+        # pylint: disable-next=comparison-with-callable
         if self._stop_data is not None and self._ctrl_coro == self._ctrl_start:
             await self._output_coro_wrapper(self._stop_data)
         # super().stop_async is an UNBOUND placeholder, pylint complains about missing 'self'
-        # pylint: disable=no-value-for-parameter
+        # pylint: disable-next=no-value-for-parameter
         await super().stop_async()
 
 
@@ -428,7 +427,7 @@ class InitAsync(addons.AddonAsync, block.SBlock):
         if not isinstance(init_coro, Sequence):
             raise TypeError(
                 "Parameter 'init_coro' must be a sequence (list, tuple, ...), "
-                f"but got {init_coro!r}")
+                + f"but got {init_coro!r}")
         if not init_coro:
             raise ValueError("Parameter 'init_coro' cannot be empty.")
         self._init_coro = init_coro

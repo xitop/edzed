@@ -14,10 +14,10 @@ classifiers = [
     'Intended Audience :: Developers',
     'Topic :: Software Development :: Libraries :: Python Modules',
     'License :: OSI Approved :: MIT License',
-    'Programming Language :: Python :: 3.8',
     'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
 	]
 
 [project.urls]
@@ -26,7 +26,7 @@ repository = 'https://github.com/xitop/edzed'
 documentation = 'https://edzed.readthedocs.io/en/latest/'
 
 [project.optional-dependencies]
-tests = ['pytest', 'pytest-asyncio', 'pytest-forked']
+tests = ['pytest', 'pytest-asyncio', 'pytest-forked', 'pytest-xdist']
 
 [build-system]
 requires = ['setuptools>=61.0.0', 'wheel']
@@ -39,6 +39,34 @@ packages = ['edzed', 'edzed.blocklib', 'edzed.utils']
 [tool.setuptools.dynamic]
 version = {attr = 'edzed.__version__'}
 
+[tool.pylint]
+format.max-line-length = 96
+reports.output-format = 'colorized'
+'messages control'.disable = [
+	"broad-exception-caught",
+	"cyclic-import",
+	"duplicate-code",
+	"invalid-name",
+	"missing-function-docstring",
+	"too-few-public-methods",
+	"too-many-arguments",
+	"too-many-branches",
+	"too-many-instance-attributes",
+	"too-many-locals",
+	"too-many-statements",
+	]
+'messages control'.enable = [
+	"useless-suppression",
+	]
+
 [tool.mypy]
-enable_error_code = ['ignore-without-code']
+enable_error_code = ["ignore-without-code"]
 warn_unused_ignores = true
+no_implicit_optional = true
+check_untyped_defs = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = ['edzed.simulator']
+disable_error_code = ['attr-defined']
+

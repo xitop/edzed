@@ -104,7 +104,7 @@ def _cmd_event(blk: block.SBlock, etype: str, data: Optional[str] = None) -> Non
     if not isinstance(datadict, dict):
         raise TypeError(
             f"Invalid event data: {datadict!r}. "
-            "Expected is a dict literal: {{'name':value, ...}}")
+            + "Expected is a dict literal: {{'name':value, ...}}")
     retval = block.ExtEvent(blk.name, etype).send('demo', **datadict)
     print(f"event() returned: {retval}")
     _cmd_show(blk)
@@ -131,7 +131,7 @@ def _cmd_put(blk: block.SBlock, value: Any) -> None:
     _cmd_show(blk)
 
 
-def _cmd_show(blk) -> None:
+def _cmd_show(blk: block.SBlock) -> None:
     output = blk.output
     state = blk.get_state()
     if state == output:
@@ -153,6 +153,7 @@ def _complete(cmd: str) -> str:
 
 @dataclass(frozen=True)
 class CmdInfo:
+    """A command description for the parser."""
     func: Callable
     blk: bool = True    # first arg is block name
     args: int = 0       # number of mandatory arguments (excl. the block name if blk is set)
@@ -246,7 +247,7 @@ async def _cli_repl() -> None:
                         raise TypeError(f"{cmd} command takes {minargs} argument(s)")
                     raise TypeError(f"{cmd} command takes {minargs} to {maxargs} arguments")
                 if cmdinfo.blk:
-                    args[0] = circuit.findblock(args[0])
+                    args[0] = circuit.findblock(args[0])    # type: ignore[call-overload]
                 func = cmdinfo.func
             # execute
             func(*args)

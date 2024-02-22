@@ -10,9 +10,12 @@ from typing import Optional
 
 def _get_timediff() -> float:
     """Return the difference between loop and Unix time bases."""
-    loopnow = asyncio.get_running_loop().time()
-    unixnow = time.time()
-    return unixnow - loopnow
+    unixtime_func = time.time
+    looptime_func = asyncio.get_running_loop().time
+    unixbefore = unixtime_func()
+    loopnow = looptime_func()
+    unixafter = unixtime_func()
+    return (unixbefore + unixafter) / 2 - loopnow
 
 def loop_to_unixtime(looptime: float, timediff: Optional[float] = None) -> float:
     """Convert event loop time to standard Unix time."""

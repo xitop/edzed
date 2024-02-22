@@ -70,12 +70,12 @@ class FSM(addons.AddonPersistence, block.SBlock):
         # the transition table: {(event, state): next_state}
 
     @classmethod
-    def _check_state(cls, state):
+    def _check_state(cls, state: str) -> None:
         if state not in cls._ct_states:
             raise ValueError(f"Unknown state {state!r}")
 
     @classmethod
-    def _build_tables(cls):
+    def _build_tables(cls) -> None:
         """
         Build control tables from STATES, TIMERS and EVENTS.
 
@@ -138,7 +138,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
             if event in cls._ct_handlers:
                 raise ValueError(
                     f"Ambiguous event '{event}': "
-                    "the name is used for both FSM and SBlock event")
+                    + "the name is used for both FSM and SBlock event")
             cls._ct_events.add(event)
             if next_state is not None:
                 cls._check_state(next_state)
@@ -223,7 +223,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
                             f"'{prefix}{suffix}'" for suffix in valid_names)
                         raise TypeError(
                             f"{arg!r} is an invalid keyword argument for "
-                            f"{type(self).__name__}(); accepted are: {valid_names_str}"
+                            + f"{type(self).__name__}(); accepted are: {valid_names_str}"
                             )
                     prefixed[prefix].append((name, arg))
         if prefixed['t_']:
@@ -314,8 +314,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
         self._state = state
         self.sdata = sdata
         self.log_debug("state: <UNDEF> -> %s", state)
-        output = self.calc_output()
-        if output is not block.UNDEF:
+        if (output := self.calc_output()) is not block.UNDEF:
             self.set_output(output)
 
     def init_from_value(self, value: str) -> None:
@@ -334,7 +333,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
             duration, self.event, timed_event)
 
     def _start_timer(
-            self, duration: Optional[int|float|str], timed_event: str|block.EventType) -> None:
+            self, duration: Optional[float|str], timed_event: str|block.EventType) -> None:
         """Start the timer."""
         assert self._state is not block.UNDEF   # starting a timer implies a timed state
         if duration is not None:
@@ -351,13 +350,12 @@ class FSM(addons.AddonPersistence, block.SBlock):
             return
         self._set_timer(duration, timed_event)
 
-    def _stop_timer(self):
+    def _stop_timer(self) -> None:
         """Stop the timer, if any."""
-        timer = self._active_timer
-        if timer is not None:
+        if (timer := self._active_timer) is not None:
             if not timer.cancelled():
                 timer.cancel()
-                # do not rely on the private attribute '_scheduled'
+                # do not rely on the existence of the private attribute '_scheduled'
                 if getattr(timer, '_scheduled', True):
                     self.log_debug("timer: cancelled")
             self._active_timer = None
@@ -375,7 +373,7 @@ class FSM(addons.AddonPersistence, block.SBlock):
             event.send(
                 self,
                 sdata={k: v for k, v in self.sdata.items() if not k.startswith('_')},
-                trigger=trigger_type[3:],   # strip 'on_' from trigger_type
+                trigger=trigger_type.removeprefix('on_'),
                 state=state,
                 value=self._output,
                 )
@@ -439,9 +437,9 @@ class FSM(addons.AddonPersistence, block.SBlock):
         else:
             if not isinstance(etype, str) or etype not in self._ct_events:
                 raise EdzedUnknownEvent(f"{self}: Unknown event type {etype!r}")
-            assert self._state is not block.UNDEF, \
-                f"A non-Goto event was sent to an uninitialized FSM {self} " \
-                 "(ext_event() bypassed?)"
+            assert self._state is not block.UNDEF, (
+                f"A non-Goto event was sent to an uninitialized FSM {self} "
+                + "(ext_event() bypassed?)")
             try:
                 newstate = self._ct_transition[(etype, self._state)]
             except KeyError:
@@ -460,13 +458,13 @@ class FSM(addons.AddonPersistence, block.SBlock):
 
         if self._fsm_event_active:
             # recursive call:
-            #   - event ->  enter_STATE -> new event, or
+            #   - event -> enter_STATE -> new event, or
             #   - timed event with zero duration -> next event
             if self._next_event is not None:
                 raise EdzedCircuitError(
                     "Forbidden event multiplication; "
-                    f"Two events ({self._next_event[0]} and {etype}) were generated "
-                    "while handling a single event")
+                    + f"Two events ({self._next_event[0]} and {etype}) were generated "
+                    + "while handling a single event")
             self._next_event = (etype, data, newstate)
             return True
 

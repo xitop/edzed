@@ -2,15 +2,13 @@
 Test SBlock events and event filters.
 """
 
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-# pylint: disable=wildcard-import, unused-wildcard-import
-
 import pytest
 
 import edzed
 
-from .utils import *
+# pylint: disable-next=unused-import
+from .utils import fixture_circuit
+from .utils import init, EventMemory, Noop
 
 
 def test_filter(circuit):
@@ -96,6 +94,8 @@ def test_dataedit_filter(circuit):
         'src',
         on_output=edzed.Event(
             'dest',
+            # pylint is confused about DataEdit usage
+            # pylint: disable=no-value-for-parameter
             efilter=(
                 edzed.not_from_undef,
                 check({**CDATA, 'previous': None, 'value': 'V'}),
@@ -147,15 +147,17 @@ def test_chained_dataedit(circuit):
             efilter=(
                 edzed.not_from_undef,
                 check({'source': 'src', 'trigger': 'output', 'previous': None, 'value': 'V'}),
-                edzed.DataEdit \
-                    .permit('source', 'trigger', 'value') \
-                    .setdefault(source='fake') \
-                    .copy('value', 'saved') \
+                # pylint is confused about DataEdit usage
+                # pylint: disable=no-member
+                edzed.DataEdit
+                    .permit('source', 'trigger', 'value')
+                    .setdefault(source='fake')
+                    .copy('value', 'saved')
                     .rename('source', 'src'),
                 check(
                     {'src': 'src', 'trigger': 'output', 'saved': 'V', 'value': 'V'}),
-                edzed.DataEdit.permit('trigger', 'src') \
-                    .modify('src', lambda x: x[::-1]) \
+                edzed.DataEdit.permit('trigger', 'src')
+                    .modify('src', lambda x: x[::-1])
                     .add(a=1)
             )),
         initdef=None)
@@ -173,6 +175,8 @@ def test_dataedit_add_output(circuit):
         'src',
         on_output=edzed.Event(
             dest, etype='ev',
+            # pylint is confused about DataEdit usage
+            # pylint: disable-next=no-member, no-value-for-parameter
             efilter=edzed.DataEdit.add_output('A', add).add_output('self', 'src'),
             ),
         initdef=3)
@@ -198,6 +202,8 @@ def test_dataedit_modify_reject(circuit):
         'src',
         on_output=edzed.Event(
             dest, etype='ev',
+            # pylint is confused about DataEdit usage
+            # pylint: disable-next=no-value-for-parameter
             efilter=edzed.DataEdit.modify(
                 'value',
                 lambda x: edzed.DataEdit.REJECT if x < 0 else x),

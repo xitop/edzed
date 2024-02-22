@@ -2,9 +2,7 @@
 Tests requiring asyncio and event loop.
 """
 
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-# pylint: disable=wildcard-import, unused-wildcard-import
+# pylint: disable=missing-class-docstring, protected-access
 
 import asyncio
 import os
@@ -16,7 +14,10 @@ import pytest
 
 import edzed
 
-from .utils import *
+# pylint: disable=unused-argument
+# pylint: disable-next=unused-import
+from .utils import fixture_circuit
+from .utils import Noop, timelimit, TimeLogger
 
 
 pytest_plugins = ('pytest_asyncio',)
@@ -191,11 +192,11 @@ async def no_shutdown_before_start(circuit):
         await circuit.shutdown()
 
 
-async def test_check_not_finalized(event_loop, circuit):
+async def test_check_not_finalized(circuit):
     """Test check_not_finalized() internal function."""
     Noop('block')
     circuit.check_not_finalized()
-    simtask = asyncio.create_task(edzed.run())
+    asyncio.create_task(edzed.run())
     await asyncio.sleep(0)
     with pytest.raises(edzed.EdzedInvalidState):
         circuit.check_not_finalized()
@@ -314,7 +315,7 @@ async def test_nostart_nostop(circuit):
     CNT = 50
     started = set()
     stopped = set()
-    for i in range(CNT):
+    for _ in range(CNT):
         StartStop(None)
 
     with pytest.raises(RuntimeError):

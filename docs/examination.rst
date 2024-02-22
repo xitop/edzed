@@ -8,16 +8,23 @@ Circuit examination
 Finding blocks
 ==============
 
-.. method:: Circuit.getblocks(btype: Optional[type[Block|Addon]] = None) -> Iterator
+.. method:: Circuit.getblocks(btype: type[Block|Addon]] = Block) -> Iterable
 
-  Return an iterator of all blocks or *btype* blocks only.
+  Return an iterable of all blocks or an iterator of *btype* blocks only.
 
   Block type checking is implemented with ``isinstance``, so the result
   includes also derived types. For example ``circuit.getblocks(edzed.SBlock)``
   returns all sequential circuit blocks.
 
-  If the result has to be stored, you may want to convert the returned
-  iterator to a list or a set.
+  Without going into details about iterators and iterables, the result
+  can be directly used in a ``for blk in getblocks(btype):`` loop or in
+  a ``if blk in getblocks(btype):`` test, but if the result is going to be
+  stored for later use, it should be converted to a list or a set.
+
+  .. versionchanged:: 24.3.4
+
+    The default ``btype`` value changed from ``None`` (meaning ``Block``)
+    directly to ``Block``.
 
 .. method:: Circuit.findblock(name: str) -> Block
 

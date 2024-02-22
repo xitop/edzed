@@ -3,9 +3,7 @@ Test the Repeat block.
 Part 1/2: async
 """
 
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-# pylint: disable=wildcard-import, unused-wildcard-import
+# pylint: disable=missing-class-docstring
 
 import asyncio
 
@@ -13,8 +11,9 @@ import pytest
 
 import edzed
 
-from .utils import *
-
+# pylint: disable-next=unused-import
+from .utils import fixture_circuit
+from .utils import EventMemory, TimeLogger
 
 pytest_plugins = ('pytest_asyncio',)
 pytestmark = pytest.mark.asyncio

@@ -16,7 +16,7 @@ import difflib
 import enum
 import logging
 import sys
-from typing import Any, Optional, ClassVar, Final
+from typing import Any, ClassVar, Final, Optional, overload, TypeVar, Union
 import weakref
 
 from .exceptions import EdzedCircuitError, EdzedInvalidState, EdzedUnknownEvent
@@ -27,7 +27,6 @@ __all__ = [
     'Event', 'ExtEvent', 'EventType', 'EventCond', 'event_tuple', 'check_name',
     ]
 
-P3_9 = sys.version_info >= (3, 9)
 P3_10 = sys.version_info >= (3, 10)
 
 _logger = logging.getLogger(__package__)
@@ -37,13 +36,13 @@ _logger = logging.getLogger(__package__)
 class _UndefType(enum.Enum):
     UNDEF = None
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return False
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return '<UNDEF>'
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<UNDEF>'
 
 
@@ -67,7 +66,7 @@ class Const:
     __slots__ = ('_output', '__weakref__')
     _instances: MutableMapping[Any, Const] = weakref.WeakValueDictionary()
 
-    def __new__(cls, const: Any):
+    def __new__(cls, const: Any) -> Const:
         try:
             return cls._instances[const]
             # __init__ will be invoked anyway
@@ -93,7 +92,7 @@ class Const:
     def name(self) -> str:
         return str(self)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"<{type(self).__name__} {self.output!r}>"
 
 
@@ -113,7 +112,7 @@ def _is_multiple(arg: Any) -> bool:
     matter and can be any value including zero or one.
 
     Iterators are also considered to be multiple items with defined
-    order, but their use is dicouraged, because they can be iterated
+    order, but their use is discouraged, because they can be iterated
     over only once.
 
     The str type arg is considered as a single name and not as a string
@@ -126,9 +125,14 @@ def _is_multiple(arg: Any) -> bool:
     if isinstance(arg, Iterator):
         _logger.warning(
             "Specifying multiple items (events, event filters, or inputs) with an iterator "
-            "is deprecated. Use a tuple or a list instead.")
+            + "is deprecated. Use a tuple or a list instead.")
         return True
     return not isinstance(arg, str) and isinstance(arg, Sequence)
+
+
+_T_zero_or_more = TypeVar("_T_zero_or_more")
+# using Union, because T1|T2 is not supported in Python 3.9
+zero_or_more = Optional[Union[_T_zero_or_more, Sequence[_T_zero_or_more]]]
 
 
 class Block:
@@ -141,14 +145,14 @@ class Block:
             name: Optional[str],
             *,
             comment: str = "",
-            on_output: None|Event|Sequence[Event] = None,
+            on_output: zero_or_more[Event] = None,
             _reserved: bool = False,
             debug: bool = False,
             **x_kwargs) -> None:
         """Create new block. Add it to the circuit."""
         self.circuit = simulator.get_circuit()
         if name is None:
-            # autonamically assign name _TYPE_0, _TYPE_1, _TYPE_2, ...
+            # automatically assign name _TYPE_0, _TYPE_1, _TYPE_2, ...
             prefix = f"_{type(self).__name__}_"
             cnt = sum(
                 1 for blk in self.circuit.getblocks(type(self))
@@ -158,7 +162,7 @@ class Block:
             check_name(name, "block name")
             if name.startswith('_') and not _reserved:
                 raise ValueError(f"{name!r} is a reserved name (starting with an underscore")
-        self.name = name
+        self.name: str = name
         is_cblock = isinstance(self, CBlock)
         is_sblock = isinstance(self, SBlock)
         if not is_sblock and not is_cblock:
@@ -234,7 +238,7 @@ class Block:
 
         Key properties:
             1. it can be safely called as super().method(...)
-               from any overriden method.
+               from any overridden method.
             2. has_method() returns False for this method
         """
 
@@ -250,7 +254,7 @@ class Block:
             'name': self.name,
             }
 
-    def __str__(self):
+    def __str__(self) -> str:
         try:
             return f"<{type(self).__name__} '{self.name}'>"
         except AttributeError:
@@ -285,7 +289,7 @@ class CBlock(Block, metaclass=abc.ABCMeta):
                 return tuple(b.output for b in iblk)
             return iblk.output
 
-        def __getattr__(self, name: str):
+        def __getattr__(self, name: str) -> Any:
             try:
                 return self[name]
             except KeyError:
@@ -333,7 +337,7 @@ class CBlock(Block, metaclass=abc.ABCMeta):
                 if _is_multiple(inp):
                     raise ValueError(
                         f"{inp!r} is not a single input specification; "
-                        "(wrap it in Const() if it is a constant)")
+                        + "(wrap it in Const() if it is a constant)")
             self.inputs['_'] = args
         for iname, inp in kwargs.items():
             self.inputs[iname] = tuple(inp) if _is_multiple(inp) else inp
@@ -366,8 +370,7 @@ class CBlock(Block, metaclass=abc.ABCMeta):
             if unexpected:
                 subparts = []
                 for name in unexpected:
-                    suggestions = difflib.get_close_matches(name, missing, n=3)
-                    if suggestions:
+                    if (suggestions := difflib.get_close_matches(name, missing, n=3)):
                         top3 = ' or '.join(repr(s) for s in suggestions)
                         subparts.append(f"{name!r} (did you mean {top3} ?)")
                     else:
@@ -472,21 +475,21 @@ class SBlock(Block):
                     # DO NOT catch this error until https://bugs.python.org/issue38085 is fixed
                     raise TypeError(
                         f"The order of {cls.__name__} base classes is incorrect: "
-                        f"add-ons like {mro.__name__} must appear before SBlock")
+                        + f"add-ons like {mro.__name__} must appear before SBlock")
             elif mro is SBlock:
                 sblock_seen = True
 
             if issubclass(mro, (SBlock, Addon)):
                 for method_name, method in vars(mro).items():
-                    if method_name.startswith('_event_'):
-                        etype = method_name[7:]     # strip '_event_'
-                        if etype not in cls._ct_handlers:
-                            cls._ct_handlers[etype] = method
+                    etype = method_name.removeprefix('_event_')
+                    # .removeprefix() returns the string unchanged if prefix was not found
+                    if etype is not method_name and etype not in cls._ct_handlers:
+                        cls._ct_handlers[etype] = method
         assert sblock_seen
 
     def __init__(
             self, *args,
-            on_every_output: None|Event|Sequence[Event] = None,
+            on_every_output: zero_or_more[Event] = None,
             **kwargs) -> None:
         if self.has_method('init_from_value'):
             self.initdef = kwargs.pop('initdef', UNDEF)
@@ -515,7 +518,6 @@ class SBlock(Block):
         for event in self._every_output_events:
             event.send(self, trigger='output', previous=previous, value=value)
 
-    # pylint: disable=unused-argument
     def _event(self, etype: str|EventType, data: Mapping[str, Any]) -> Any:
         """
         The default event handler. Not to be called directly.
@@ -533,7 +535,7 @@ class SBlock(Block):
         Respond with ValueError to unknown event types.
 
         Handle the received event ETYPE:
-            - invoke the specialzed _event_ETYPE() method if such
+            - invoke the specialized _event_ETYPE() method if such
               method exists; otherwise
             - invoke the general _event() method
 
@@ -568,7 +570,7 @@ class SBlock(Block):
                 with self._enable_event:    # type: ignore[attr-defined]
                     self.circuit.init_sblock(self, full=True)
             if isinstance(etype, str):
-                handler = type(self)._ct_handlers.get(etype) # pylint: disable=protected-access
+                handler = type(self)._ct_handlers.get(etype)
             else:
                 handler = None
             try:
@@ -583,13 +585,13 @@ class SBlock(Block):
                 assert err.__traceback__ is not None
                 if err.__traceback__.tb_next is not None:
                     # The traceback has more than just one level, i.e. the handler function
-                    # call itself succeded. Errors like missing arguments are thus ruled out
+                    # call itself succeeded. Errors like missing arguments are thus ruled out
                     # and the error must have occurred inside the handler. The internal state
                     # of the block could have been corrupted. That's a sufficient reason for
                     # aborting the simulation.
                     sim_err = EdzedCircuitError(
                         f"{self}: {type(err).__name__} during handling of event "
-                        f"'{etype}', data: {data}: {err}")
+                        + f"'{etype}', data: {data}: {err}")
                     sim_err.__cause__ = err
                     self.circuit.abort(sim_err)
                     # break a reference cycle
@@ -601,7 +603,7 @@ class SBlock(Block):
 
     # property + class is an awesome combination, isn't it?
     @property
-    class _enable_event:    # pylint: disable=invalid-name
+    class _enable_event:
         """
         A context manager temporarily enabling recursive events.
 
@@ -618,7 +620,6 @@ class SBlock(Block):
             self._block = block
             self._event_saved: bool
 
-        # pylint: disable=protected-access
         def __enter__(self):
             block = self._block
             self._event_saved = block._event_active
@@ -695,10 +696,8 @@ class EventCond(EventType):
     etrue: Optional[str|EventType]
     efalse: Optional[str|EventType]
 
-
-if not P3_9:
-    from typing import Callable     # pylint: disable=reimported, ungrouped-imports
-EFilter = Callable[[MutableMapping], Any]
+EvDataType = MutableMapping[str, Any]
+EvFilterType = Callable[[EvDataType], Any]
 
 
 class Event:
@@ -706,13 +705,14 @@ class Event:
     An internal (block to block) event.
     """
 
+    #pylint: disable=too-many-arguments
     def __init__(
             self,
             dest: str|SBlock,
             etype: str|EventType = 'put',
             *,
-            efilter: None|EFilter|Sequence[EFilter] = None,
-            repeat: Optional[int|float|str] = None,
+            efilter: zero_or_more[EvFilterType] = None,
+            repeat: Optional[float|str] = None,
             count: Optional[int] = None) -> None:
         if repeat is not None:
             destname = dest if isinstance(dest, str) else dest.name
@@ -761,8 +761,8 @@ class Event:
         """
         dest = self._dest
         # in a finalized circuit there are no references by name
-        assert isinstance(dest, SBlock), \
-            f"Incorrect destination type in {self}, circuit not finalized?"
+        assert isinstance(dest, SBlock), (
+            f"Incorrect destination type in {self}, circuit not finalized?")
         if not source.circuit is dest.circuit is simulator.get_circuit():
             raise EdzedCircuitError(
                 f"{self}: source {source} and/or destination not in the current circuit")
@@ -774,8 +774,8 @@ class Event:
                     if not isinstance(key, str):
                         raise TypeError(
                             f"Event filter {efilter.__name__} returned non-string key {key!r} "
-                            f"(value {retval[key]})")
-                data = retval
+                            + f"(value {retval[key]})")
+                data = retval   # type: ignore[assignment]
             elif not retval:
                 source.log_debug(f"Not sending event {self} (rejected by a filter)")
                 return False
@@ -853,7 +853,19 @@ class ExtEvent:
         return f"<{type(self).__name__} dest='{self._dest.name}', event='{self._etype}'>"
 
 
-def _to_tuple(args: Any, validator: Callable[[Any], Any]) -> tuple:
+_T_item = TypeVar("_T_item")
+@overload
+def _to_tuple(args: None, validator: Callable[[_T_item], Any]) -> tuple[()]:
+    ...
+@overload
+def _to_tuple(args: _T_item, validator: Callable[[_T_item], Any]) -> tuple[_T_item]:
+    ...
+@overload
+def _to_tuple(
+        args: Sequence[_T_item], validator: Callable[[_T_item], Any]
+        ) -> tuple[_T_item, ...]:
+    ...
+def _to_tuple(args, validator):
     """
     Transform 'args' to a tuple of items. Validate each item.
 
@@ -872,7 +884,7 @@ def _to_tuple(args: Any, validator: Callable[[Any], Any]) -> tuple:
     return args
 
 
-def event_tuple(events: None|Event|Sequence[Event])-> tuple[Event, ...]:
+def event_tuple(events: zero_or_more[Event])-> tuple[Event, ...]:
     """
     Transform the argument to a tuple of events.
 
@@ -886,7 +898,7 @@ def event_tuple(events: None|Event|Sequence[Event])-> tuple[Event, ...]:
 
 
 def efilter_tuple(
-        efilters: None|EFilter|Sequence[EFilter]) -> tuple[EFilter, ...]:
+        efilters: zero_or_more[EvFilterType]) -> tuple[EvFilterType, ...]:
     """
     Transform the argument to a tuple of event filters.
 

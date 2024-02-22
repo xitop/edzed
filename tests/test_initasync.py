@@ -2,17 +2,15 @@
 Test the InitAsync block.
 """
 
-# pylint: disable=missing-docstring, protected-access
-# pylint: disable=invalid-name, redefined-outer-name, unused-argument, unused-variable
-# pylint: disable=wildcard-import, unused-wildcard-import
-
 import asyncio
 
 import pytest
 
 import edzed
 
-from .utils import *
+# pylint: disable-next=unused-import
+from .utils import fixture_circuit
+from .utils import timelimit
 
 
 pytest_plugins = ('pytest_asyncio',)
