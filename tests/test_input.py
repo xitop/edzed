@@ -33,6 +33,7 @@ def test_init(circuit):
     assert inp.output == INITIAL
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_events(circuit):
     """Inputs support only the put event."""
     inp = edzed.Input('input', initdef=None)

@@ -21,7 +21,7 @@ An FSM block implements several additional features:
 - timed events
 - event conditions
 - entry and exit actions
-- generated events
+- generated events (sent to other blocks)
 
 .. note::
 

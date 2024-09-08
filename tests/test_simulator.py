@@ -384,15 +384,27 @@ async def test_supporting_task_error(circuit):
             logger.log(f'cancel-{n}')
             return
         logger.log(f'crash-{n}')
-        raise RuntimeError("crash")
+        raise RuntimeError("crash msg")
 
     logger = TimeLogger('logger', mstop=True)
-    with pytest.raises(RuntimeError, match="Supporting coroutine"):
+    with pytest.raises(RuntimeError, match="crash msg") as exc_info:
         await asyncio.wait_for(
             asyncio.create_task(edzed.run(faulty(80), faulty(200))),
             timeout=1.0)
+    exc = exc_info.value
+    MSG = "Failure in the supporting coroutine #0 'faulty'"
+    # in 3.11+ a note added, otherwise error message altered
+    assert MSG in (exc.__notes__ if sys.version_info >= (3, 11) else exc.args[0])
     logger.compare([
         (80, 'crash-80'),
         (80, 'cancel-200'),
         (80, '--stop--'),
         ])
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="requires python3.12 or higher")
+async def test_no_eager_tasks(circuit):
+    Noop(None)
+    asyncio.get_event_loop().set_task_factory(asyncio.eager_task_factory)
+    with pytest.raises(RuntimeError, match="not compatible"):
+        await asyncio.wait_for(edzed.run(), timeout=1.0)

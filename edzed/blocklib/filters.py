@@ -108,7 +108,7 @@ class IfNotIitialized:
 
 class _dualmethod:
     """
-    Dual (class/instance) method decorator.
+    Dual (class/regular) method decorator.
 
     When the decorated method is called as a class method, create
     an instance on the fly (see note below). Otherwise don't do

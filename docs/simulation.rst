@@ -126,12 +126,38 @@ but some applications might prefer the lower-level :meth:`Circuit.run_forever`.
   Normally return ``None`` (in contrast to :meth:`Circuit.run_forever`), but raise
   an exception if any of the tasks exits due to an exception other than
   the :exc:`asyncio.CancelledError`. In detail, if the simulation task raises,
-  re-raise the exception. If any of the supporting tasks raises, raise :exc:`RuntimeError`.
+  re-raise its exception. Otherwise if any of the supporting tasks raises,
+  re-raise its excpeption.
 
   .. versionchanged:: 23.8.25
 
-    The supporting tasks are started after the simulator. An interface may
-    assume the simulator has reached the point since which it can accept events.
+    The supporting tasks are started after the simulator.
+    They may assume the simulator is ready to accept events.
+
+  .. versionchanged:: 24.9.10
+
+    Exceptions in supporting tasks are no longer wrapped into a :exc:`RuntimeError`
+    with the original exception chained, but are re-raised directly with an added
+    note identifying the failed task.
+
+  .. note::
+
+    Exception notes were introduced in Python 3.11. When supported,
+    ``edzed`` add notes with additional debug information to some exceptions.
+    We would like to remind you that these notes get printed in a backtrace,
+    but not when the exception itself is logged or printed. Compare::
+
+      try:
+          await edzed.run(coro1, coro2)
+      except Exception as err:
+          print(err)                # prints the error message only
+          print(str(err))           # exactly the same as above
+          print(repr(err))          # prints the error message and the error type
+          print(err.__reduce__())   # prints all details including the notes
+
+          # code to explicitly print exception notes, if any:
+          if notes := getattr(err, '__notes__', ()):
+              print(f"note(s): {', '.join(notes)}")
 
 
 .. method:: Circuit.run_forever() -> NoReturn

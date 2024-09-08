@@ -7,6 +7,19 @@ Changelog
 Version numbers are based on the release date (Y.M.D).
 
 
+24.9.10
+=======
+
+- When exiting :func:`run`, do not wrap exceptions into a ``RuntimeError``.
+- Edzed is not compatible with the asyncio eager tasks feature.
+  Add a run-time check.
+- Use the standard 'warning' module for deprecation warnings.
+- Add a test for circular references caused by exceptions.
+  This test is experimental. The reference cycles are harmless,
+  but they increase overhead.
+- Documentation: Correct the minimal Python version in requirements.
+  It's Python >= 3.9.
+
 24.3.4
 ======
 
@@ -58,7 +71,6 @@ Version numbers are based on the release date (Y.M.D).
 - Deprecate the use of iterators to specify multiple events,
   multiple event filters or a group of inputs.
 - Small code improvements.
-
 
 Releases older than one year
 ============================

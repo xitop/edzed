@@ -159,6 +159,7 @@ def test_debug(circuit):
     assert blocks_set() == [0, 2]
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_is_multiple_and_to_tuple():
     """Check _is_multiple() and _to_tuple() helpers."""
     is_multiple = edzed.block._is_multiple
@@ -181,11 +182,11 @@ def test_is_multiple_and_to_tuple():
         assert to_tuple(arg, accept_all) == tuple(arg)
 
     # iterators are multiple values and are not consumed by is_multiple
-    # iterators are discouraged
+    # iterators are deprecated since 23.2.14
     iterator = (x for x in range(4))   # a generator is always an iterator
     assert is_multiple(iterator)
     # test that the iterator is not exausted by _is_multiple()
-    # iterators are discouraged
+    # iterators are deprecated since 23.2.14
     assert to_tuple(iterator, accept_all) == (0, 1, 2, 3)
     assert to_tuple(iterator, accept_all) == ()
 
@@ -198,6 +199,7 @@ def test_is_multiple_and_to_tuple():
 # RUNNING THIS TEST MAY AFFECT OTHER TESTS!
 # https://bugs.python.org/issue38085
 # until a bugfix, the following three tests must be run in a separate process
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 @pytest.mark.forked
 def test_incorrect_addon1():
     with pytest.raises(TypeError, match="add-on"):
@@ -206,6 +208,7 @@ def test_incorrect_addon1():
             def calc_output(self):    # calc_output is abstract
                 return None
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 @pytest.mark.forked
 def test_incorrect_addon2():
     with pytest.raises(TypeError, match="add-on"):
@@ -214,6 +217,7 @@ def test_incorrect_addon2():
             def calc_output(self):
                 return None
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 @pytest.mark.forked
 def test_incorrect_addon3():
     with pytest.raises(TypeError, match="add-on"):

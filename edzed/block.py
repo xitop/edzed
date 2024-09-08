@@ -17,6 +17,7 @@ import enum
 import logging
 import sys
 from typing import Any, ClassVar, Final, Optional, overload, TypeVar, Union
+import warnings
 import weakref
 
 from .exceptions import EdzedCircuitError, EdzedInvalidState, EdzedUnknownEvent
@@ -123,9 +124,11 @@ def _is_multiple(arg: Any) -> bool:
 
     """
     if isinstance(arg, Iterator):
-        _logger.warning(
-            "Specifying multiple items (events, event filters, or inputs) with an iterator "
-            + "is deprecated. Use a tuple or a list instead.")
+        warnings.warn(
+            "Specifying multiple events, event filters or inputs with an iterator "
+            + "is deprecated. Use a tuple or a list instead.",
+            DeprecationWarning,
+            stacklevel=2)
         return True
     return not isinstance(arg, str) and isinstance(arg, Sequence)
 
@@ -632,6 +635,11 @@ class SBlock(Block):
     # 23.8.25: deprecated
     def put(self, value: Any, **data) -> Any:
         """put(x) is a shortcut for event('put', value=x)."""
+        warnings.warn(
+            "sblock.put(value, **data) is deprecated and will be removed in future. "
+            + "Use sblock.event('put', value=value, **data) instead.",
+            DeprecationWarning,
+            stacklevel=2)
         return self.event('put', **data, value=value)
 
     def get_state(self) -> Any:

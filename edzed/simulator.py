@@ -114,6 +114,24 @@ class _BlockResolver:
 
 BlockType = TypeVar('BlockType', bound=block.Block)
 
+
+async def _test_eager_tasks():
+    """
+    Do not allow to continue with an eager task factory enabled.
+
+    Eager tasks (Python 3.12+) change the order of execution
+    and the changed order violates assumptions made in the
+    circuit initialization code often resulting in failures.
+    """
+    flag = False
+    async def test_task():
+        nonlocal flag
+        flag = True
+    asyncio.create_task(test_task())
+    if flag:
+        raise RuntimeError("edzed is not compatible with eager asyncio tasks")
+
+
 class Circuit:
     """
     A container of all blocks and their interconnections.
@@ -635,6 +653,7 @@ class Circuit:
             else:
                 msg = "The simulator is already running."
             raise EdzedInvalidState(msg)
+        await _test_eager_tasks()
         self._simtask = asyncio.current_task()
         started_blocks = set()
         start_ok = False
@@ -667,8 +686,7 @@ class Circuit:
                 self.log_debug("Starting simulation")
                 self._init_done.set()
                 await self._simulate()
-                # not reached
-                assert False
+                assert False, "not reached"     # pylint: disable=unreachable
         # CancelledError is derived from BaseException, not Exception
         except (Exception, asyncio.CancelledError) as err:
             if self._error is None:
@@ -746,33 +764,41 @@ class Circuit:
             pass
 
 
-# deliberately using mutable default as a static storage
-# pylint: disable=dangerous-default-value
-def _sigterm_handler_ctrl(
-        signo: int, activate: bool, _handlers: dict[int, None|int|Callable] = {}
-    ) -> None:
-    """Install/remove a handler for 'signo'."""
-    if bool(activate) == (signo in _handlers):
-        return      # nothing to do
-    if activate:
-        _handlers[signo] = signal.getsignal(signal.SIGTERM)
+class _TerminatingSignal:
+    """
+    A context manager gracefully aborting a simulation after signal.
+    """
 
-        def handler(signum: int, frame) -> None:
-            signame = signal.strsignal(signo) or str(signo)
-            msg = f"Signal {signame!r} caught"
-            # - we need the _threadsafe variant of call_soon
-            # - get_running loop() and get_circuit() will succeed,
-            #   because this handler is active only during edzed.run()
-            call_soon = asyncio.get_running_loop().call_soon_threadsafe
-            call_soon(_logger.warning, msg)
-            call_soon(get_circuit().abort, asyncio.CancelledError(msg))
-            old_handler = _handlers[signo]
-            if callable(old_handler):
-                old_handler(signum, frame)
+    def __init__(self, signo: int|None):
+        self._signo = signo
+        if signo is None:
+            return
+        self._saved_handler: int|Callable
+        signame = signal.strsignal(signo) or f"#{signo}"
+        self._msg = f"Signal {signame!r} caught"
 
-        signal.signal(signal.SIGTERM, handler)
-    else:
-        signal.signal(signal.SIGTERM, _handlers.pop(signo))
+    def __enter__(self):
+        if self._signo is None:
+            return
+        self._saved_handler = signal.getsignal(self._signo)
+        signal.signal(self._signo, self._handler)
+
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
+        if self._signo is None:
+            return False
+        signal.signal(self._signo, self._saved_handler)
+        return False
+
+    def _handler(self, signo: int, frame) -> None:
+        """A signal handler."""
+        # - we need the _threadsafe variant of call_soon
+        # - get_running loop() and get_circuit() will succeed,
+        #   because this handler is active only during edzed.run()
+        call_soon = asyncio.get_running_loop().call_soon_threadsafe
+        call_soon(_logger.warning, "%s", self._msg)
+        call_soon(get_circuit().abort, asyncio.CancelledError(self._msg))
+        if callable(self._saved_handler):
+            self._saved_handler(signo, frame)
 
 
 async def run(*coroutines: Coroutine, catch_sigterm: bool = True) -> None:
@@ -787,57 +813,63 @@ async def run(*coroutines: Coroutine, catch_sigterm: bool = True) -> None:
     """
 
     circuit = get_circuit()
-    if not coroutines:
-        # do not create a needless task for this trivial case
+    with _TerminatingSignal(signal.SIGTERM if catch_sigterm else None):
+        if not coroutines:
+            # do not create a needless task for this trivial case
+            try:
+                await circuit.run_forever()
+            except asyncio.CancelledError:
+                pass
+            return
+
+        simtask = asyncio.create_task(circuit.run_forever(), name="edzed: simulation task")
+        # start the simtask before supporting tasks to ensure that the circuit is ready
+        await asyncio.sleep(0)
+        if simtask.done():
+            # unexpected error, abort early
+            try:
+                simtask.result()    # this is expected to raise
+            except asyncio.CancelledError:
+                pass
+            raise RuntimeError("Simulator task did not start.")    # just for the case
+
+        all_tasks = [simtask]
+        all_tasks.extend(
+            asyncio.create_task(coro, name=f"edzed: supporting task #{i}")
+            for i, coro in enumerate(coroutines, start=1))
         try:
-            _sigterm_handler_ctrl(signal.SIGTERM, catch_sigterm)
-            await circuit.run_forever()
+            await asyncio.wait(all_tasks, return_when=asyncio.FIRST_COMPLETED)
         except asyncio.CancelledError:
             pass
-        finally:
-            _sigterm_handler_ctrl(signal.SIGTERM, False)
-        return
 
-    simtask = asyncio.create_task(circuit.run_forever(), name="edzed: simulation task")
-    # start the simtask before supporting tasks to ensure that the circuit is ready
-    await asyncio.sleep(0)
-    if simtask.done():
-        # unexpected error, do not bother to start supporting tasks
-        catch_sigterm = False
-        coroutines = ()
-    tasks = [
-        asyncio.create_task(coro, name=f"edzed: supporting task #{i}")
-        for i, coro in enumerate(coroutines, start=1)
-        ] + [simtask]
-    try:
-        _sigterm_handler_ctrl(signal.SIGTERM, catch_sigterm)
-        await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-    except asyncio.CancelledError:
-        pass
-    finally:
-        _sigterm_handler_ctrl(signal.SIGTERM, False)
-    for task in tasks:
-        if not task.done():
-            if task is simtask:
-                # a direct simtask cancel could abort the cleanup
-                circuit.abort(asyncio.CancelledError("shutdown"))
-            else:
+        # stop everything
+        for task in all_tasks[1:]:  # skip the simtask at position 0
+            if not task.done():
                 task.cancel()
-    sim_error = error_data = None
-    for tnum, task in enumerate(tasks):
+        await asyncio.sleep(0)
+        if not simtask.done():
+            # a cancel could abort the cleanup
+            circuit.abort(asyncio.CancelledError("shutdown"))
+
+    # -- end with _TerminatingSignal --
+
+    # collect exceptions, raise if any
+    run_error = None
+    for tnum, task in enumerate(all_tasks, start=-1):   # simtask, coro#0, coro#1, ...
         try:
             await task
         except asyncio.CancelledError:
             pass
         except Exception as err:
-            _logger.error("Error in task %s: %r", task, err)
-            if task is simtask:
-                sim_error = err
+            if tnum < 0:
+                msg = "Simulation task failed"
             else:
-                error_data = (err, coroutines[tnum].__name__)
-
-    if sim_error is not None:
-        raise sim_error
-    if error_data is not None:
-        error, name = error_data
-        raise RuntimeError(f"Supporting coroutine '{name}' in edzed.run() failed") from error
+                msg = (
+                    "Failure in the supporting coroutine "
+                    + f"#{tnum} '{coroutines[tnum].__name__}'")
+                add_note(err, msg)
+            _logger.error("%s: %r", msg, err)
+            if run_error is None:
+                run_error = err
+    if run_error is not None:
+        raise run_error

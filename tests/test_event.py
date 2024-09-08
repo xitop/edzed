@@ -14,6 +14,7 @@ from .utils import fixture_circuit
 from .utils import init, Noop, EventMemory
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_delivery(circuit):
     """Test event delivery."""
     dest = EventMemory('dest')

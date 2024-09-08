@@ -9,7 +9,7 @@ Edzed was developed, tested and deployed on Linux systems only.
 We hope it runs also on Windows, but we don't know. If you can install
 it on Windows and run the unit tests, please report the result.
 
-Edzed needs Python 3.8 or newer. No third party libraries are required.
+Edzed needs Python 3.9 or newer. No third party libraries are required.
 
 Unit tests require ``pytest`` with the ``pytest-asyncio``
 and ``pytest-forked`` plugins.
