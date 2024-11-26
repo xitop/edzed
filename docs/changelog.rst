@@ -7,6 +7,11 @@ Changelog
 Version numbers are based on the release date (Y.M.D).
 
 
+24.11.25
+========
+- Fix an incorrect test. The module itself was not changed.
+  The bug was in test_timedate.py.
+
 24.9.10
 =======
 

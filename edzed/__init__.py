@@ -15,7 +15,7 @@ Docs: https://edzed.readthedocs.io/en/latest/
 Home: https://github.com/xitop/edzed/
 """
 
-__version_info__ = (24, 9, 10)
+__version_info__ = (24, 11, 25)
 __version__ = '.'.join(str(n) for n in __version_info__)
 
 from . import exceptions, block, addons, fsm, simulator, blocklib  # mypy

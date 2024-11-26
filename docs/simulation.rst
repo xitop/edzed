@@ -143,7 +143,7 @@ but some applications might prefer the lower-level :meth:`Circuit.run_forever`.
   .. note::
 
     Exception notes were introduced in Python 3.11. When supported,
-    ``edzed`` add notes with additional debug information to some exceptions.
+    ``edzed`` adds notes with additional debug information to some exceptions.
     We would like to remind you that these notes get printed in a backtrace,
     but not when the exception itself is logged or printed. Compare::
 

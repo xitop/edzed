@@ -104,12 +104,13 @@ async def test_times(circuit):
 @pytest.mark.asyncio
 async def test_dates(circuit):
     now = dt.date.today()
+    nowm = now.month
     await _test6(
         circuit,
         {'dates': ' jan 1 - dec 31 '},
-        {'dates': f"{now.day}.{MONTH_NAMES[now.month]}-{MONTH_NAMES[(now.month+1) % 12]}.15"},
+        {'dates': f"{now.day}.{MONTH_NAMES[nowm]}-{MONTH_NAMES[nowm % 12 + 1]}.15"},
         {'dates': 'jan 1-dec 31', 'weekdays': ''},
-        {'dates': f"{MONTH_NAMES[(now.month+1) % 12]} 1-{MONTH_NAMES[(now.month+2) % 12]} 20"},
+        {'dates': f"{MONTH_NAMES[nowm % 12 + 1]} 1-{MONTH_NAMES[(nowm+1) % 12 + 1]} 20"},
         {'dates': '21.dec.-20.jun.'},
         {'dates': '21.jun / 20.dec'},
         )
