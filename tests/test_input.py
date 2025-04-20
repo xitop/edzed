@@ -33,7 +33,6 @@ def test_init(circuit):
     assert inp.output == INITIAL
 
 
-@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_events(circuit):
     """Inputs support only the put event."""
     inp = edzed.Input('input', initdef=None)
@@ -43,8 +42,6 @@ def test_events(circuit):
     assert inp.output == 1
     inp.event('put', value=2, junk=-1)  # extra keys ignored
     assert inp.output == 2
-    inp.put(3)              # shortcut for .event('put', value=X), deprecated since 23.8.25
-    assert inp.output == 3
     with pytest.raises(TypeError):
         inp.event('put')    # missing value
     with pytest.raises(edzed.EdzedUnknownEvent):

@@ -194,26 +194,26 @@ class Block:
         """Read-only access to the output value."""
         return self._output
 
-    def log_msg(self, msg: str, *args, level: int, **kwargs) -> None:
+    def log_msg(self, msg: str, *args: Any, level: int, **kwargs) -> None:
         """Add own name and log the message with given priority level."""
         _logger.log(level, f"{self}: {msg}", *args, **kwargs)
 
-    def log_debug(self, *args, **kwargs) -> None:
+    def log_debug(self, msg: str, *args: Any, **kwargs) -> None:
         """Log a message only if debugging is enabled."""
         if self.debug:
-            self.log_msg(*args, level=logging.DEBUG, **kwargs)
+            self.log_msg(msg, *args, level=logging.DEBUG, **kwargs)
 
-    def log_info(self, *args, **kwargs) -> None:
+    def log_info(self, msg: str, *args: Any, **kwargs) -> None:
         """Log a message with INFO priority."""
-        self.log_msg(*args, level=logging.INFO, **kwargs)
+        self.log_msg(msg, *args, level=logging.INFO, **kwargs)
 
-    def log_warning(self, *args, **kwargs) -> None:
+    def log_warning(self, msg: str, *args: Any, **kwargs) -> None:
         """Log a message with WARNING priority."""
-        self.log_msg(*args, level=logging.WARNING, **kwargs)
+        self.log_msg(msg, *args, level=logging.WARNING, **kwargs)
 
-    def log_error(self, *args, **kwargs) -> None:
+    def log_error(self, msg: str, *args: Any, **kwargs) -> None:
         """Log a message with ERROR priority."""
-        self.log_msg(*args, level=logging.ERROR, **kwargs)
+        self.log_msg(msg, *args, level=logging.ERROR, **kwargs)
 
     def start(self) -> None:
         """Pre-simulation hook."""
@@ -592,13 +592,14 @@ class SBlock(Block):
                     # and the error must have occurred inside the handler. The internal state
                     # of the block could have been corrupted. That's a sufficient reason for
                     # aborting the simulation.
+                    sim_err: Exception|None
                     sim_err = EdzedCircuitError(
                         f"{self}: {type(err).__name__} during handling of event "
                         + f"'{etype}', data: {data}: {err}")
                     sim_err.__cause__ = err
                     self.circuit.abort(sim_err)
                     # break a reference cycle
-                    sim_err = None      # type: ignore[assignment]
+                    sim_err = None
                 raise
             return retval
         finally:
@@ -614,7 +615,7 @@ class SBlock(Block):
             ... while handling an event ...
             with self._enable_event:
                 self.event(...) # without _enable_event this would
-                                # raise "Forbidden recursive event()"
+                                # raise "Forbidden recursive event"
         """
 
         __slots__ = ['_block', '_event_saved']
@@ -631,16 +632,6 @@ class SBlock(Block):
 
         def __exit__(self, *exc_info):
             self._block._event_active = self._event_saved
-
-    # 23.8.25: deprecated
-    def put(self, value: Any, **data) -> Any:
-        """put(x) is a shortcut for event('put', value=x)."""
-        warnings.warn(
-            "sblock.put(value, **data) is deprecated and will be removed in future. "
-            + "Use sblock.event('put', value=value, **data) instead.",
-            DeprecationWarning,
-            stacklevel=2)
-        return self.event('put', **data, value=value)
 
     def get_state(self) -> Any:
         """
@@ -713,7 +704,7 @@ class Event:
     An internal (block to block) event.
     """
 
-    #pylint: disable=too-many-arguments
+    # pylint: disable-next=too-many-arguments
     def __init__(
             self,
             dest: str|SBlock,

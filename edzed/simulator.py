@@ -5,17 +5,19 @@ Simple event-driven zero-delay logic/digital circuit simulation.
 Docs: https://edzed.readthedocs.io/en/latest/
 Home: https://github.com/xitop/edzed/
 """
+# mypy: disable-error-code=type-abstract
 
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Coroutine, Iterable, MutableMapping, Set
+from collections.abc import Callable, Coroutine, Iterable, Iterator, MutableMapping, Set
 # from collections.abc Iterator
 import fnmatch
 import logging
 import operator
 import signal
 import time
+from types import FrameType
 from typing import Any, NoReturn, Optional, overload, TypeVar
 
 from . import addons
@@ -45,9 +47,7 @@ def get_circuit() -> Circuit:
 
 
 def reset_circuit() -> None:
-    """
-    Clear the circuit and create a new one.
-    """
+    """Clear the circuit and create a new one."""
     global _current_circuit     # pylint: disable=global-statement
 
     if _current_circuit is None:
@@ -88,8 +88,8 @@ class _BlockResolver:
 
 
     def register(
-                self, obj: Any, attr: str, block_type: type[block.Block] = block.Block
-            ) -> None:
+            self, obj: Any, attr: str, block_type: type[block.Block] = block.Block
+        ) -> None:
         """Register an object with a block reference to be resolved."""
         blk = getattr(obj, attr)
         if isinstance(blk, str):
@@ -115,7 +115,7 @@ class _BlockResolver:
 BlockType = TypeVar('BlockType', bound=block.Block)
 
 
-async def _test_eager_tasks():
+async def _test_eager_tasks() -> None:
     """
     Do not allow to continue with an eager task factory enabled.
 
@@ -124,7 +124,7 @@ async def _test_eager_tasks():
     circuit initialization code often resulting in failures.
     """
     flag = False
-    async def test_task():
+    async def test_task() -> None:
         nonlocal flag
         flag = True
     asyncio.create_task(test_task())
@@ -147,7 +147,7 @@ class Circuit:
     def __init__(self) -> None:
         self._blocks: dict[str, block.Block] = {}
             # all blocks belonging to this circuit by name
-        self._simtask: Optional[asyncio.Task] = None
+        self._simtask: Optional[asyncio.Task[NoReturn]] = None
             # the task running run_forever
         self._finalized: bool = False
             # no circuit modification after the initialization
@@ -172,10 +172,10 @@ class Circuit:
         self.debug: bool = False
             # enable debug messages
 
-    def log_debug(self, *args, **kwargs) -> None:
+    def log_debug(self, msg: str, *args: Any, **kwargs) -> None:
         """Log a debug message if enabled."""
         if self.debug:
-            _logger.debug(*args, **kwargs)
+            _logger.debug(msg, *args, **kwargs)
 
     def is_current_task(self) -> bool:
         """Return True if the simulator task is the current asyncio task."""
@@ -249,16 +249,14 @@ class Circuit:
             raise ValueError(f"Duplicate block name {blk.name}")
         self._blocks[blk.name] = blk
 
-    # if the overloads are uncommented, pylint weirdly complains with
-    # a "not-an-iterable" warning.
-
-    # @overload
-    # def getblocks(self) -> Iterable[block.Block]:
-    #     ...
-    # @overload
-    # def getblocks(self, btype: type[BlockType]) -> Iterator[BlockType]:
-    #     ...
-    def getblocks(self, btype=block.Block) -> Iterable:
+    # see: https://github.com/python/mypy/issues/3737
+    @overload
+    def getblocks(self) -> Iterable[block.Block]:
+        ...
+    @overload
+    def getblocks(self, btype: type[BlockType]) -> Iterator[BlockType]:
+        ...
+    def getblocks(self, btype=block.Block):
         """Return all blocks or an iterator of btype blocks only."""
         allblocks = self._blocks.values()
         if btype is block.Block:
@@ -334,7 +332,7 @@ class Circuit:
             _logger.info("Removing unused persistent state for '%s'", key)
             del self.persistent_dict[key]
 
-    @overload   # type: ignore[overload-overlap] # the signature overlap may be safely ignored
+    @overload
     def _validate_blk(self, blk: str|block.Block) -> block.Block:
         ...
     @overload
@@ -531,13 +529,12 @@ class Circuit:
             queue.get_nowait()
 
     # AbstractSet does not define .difference and .intersection
-    async def _stop_sblocks(self, blocks: set[block.SBlock]) -> None:
+    async def _stop_sblocks(self, blocks: set[block.Block]) -> None:
         """
-        Stop sequential blocks. Wait until all blocks are stopped.
+        Stop blocks. Wait until all blocks are stopped.
 
         Stop blocks with async cleanup first, then all remaining blocks.
-
-        Suppress errors.
+        Log errors, but suppress exceptions.
         """
         async_blocks = {
             blk for blk in blocks.intersection(self.getblocks(addons.AddonAsync))
@@ -546,7 +543,7 @@ class Circuit:
                                             # .stop_async() implies .stop_timeout
         sync_blocks = blocks.difference(async_blocks)
 
-        # 1. async blocks
+        # 1. async sequential blocks
         if async_blocks:
             for blk in async_blocks:
                 try:
@@ -565,7 +562,7 @@ class Circuit:
             self.log_debug("Waiting for async cleanup")
             await self._run_tasks("stop", wait_tasks)
 
-        # 2. sync blocks
+        # 2. remaining blocks (sync sequential and combinational)
         for blk in sync_blocks:
             try:
                 blk.stop()
@@ -773,30 +770,36 @@ class _TerminatingSignal:
         self._signo = signo
         if signo is None:
             return
-        self._saved_handler: int|Callable
-        signame = signal.strsignal(signo) or f"#{signo}"
-        self._msg = f"Signal {signame!r} caught"
+        self._saved_handler: Callable[[int, FrameType|None], None]|int|None
+        self._signame = signal.strsignal(signo) or f"#{signo}"
 
     def __enter__(self):
         if self._signo is None:
             return
         self._saved_handler = signal.getsignal(self._signo)
-        signal.signal(self._signo, self._handler)
+        if self._saved_handler is None:
+            _logger.warning(
+                "An incompatible handler for signal %s was found; "
+                + "EDZED will not catch this signal.",
+                self._signame
+                )
+        else:
+            signal.signal(self._signo, self._handler)
 
     def __exit__(self, _exc_type, _exc_val, _exc_tb):
-        if self._signo is None:
-            return False
-        signal.signal(self._signo, self._saved_handler)
+        if self._signo is not None and self._saved_handler is not None:
+            signal.signal(self._signo, self._saved_handler)
         return False
 
-    def _handler(self, signo: int, frame) -> None:
+    def _handler(self, signo: int, frame: FrameType|None) -> None:
         """A signal handler."""
         # - we need the _threadsafe variant of call_soon
         # - get_running loop() and get_circuit() will succeed,
         #   because this handler is active only during edzed.run()
+        msg = f"Signal {self._signame!r} caught"
         call_soon = asyncio.get_running_loop().call_soon_threadsafe
-        call_soon(_logger.warning, "%s", self._msg)
-        call_soon(get_circuit().abort, asyncio.CancelledError(self._msg))
+        call_soon(_logger.warning, "%s", msg)
+        call_soon(get_circuit().abort, asyncio.CancelledError(msg))
         if callable(self._saved_handler):
             self._saved_handler(signo, frame)
 

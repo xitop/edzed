@@ -40,20 +40,23 @@ def timestr(seconds: float, sep: str = '', prec: int = 3) -> str:
     parts.append(f"{s:.{prec}f}s" if is_float else f"{s}s")
     return sep.join(parts)
 
+
 def timestr_approx(seconds: float, sep: str = '') -> str:
     """
     Return possibly rounded seconds as a string using d, h, m, s units.
 
     The individual parts are separated with the 'sep' string.
     """
-    #      ge  lt*   format
-    #     ---  ---   ------
-    #           1s   0.sss (float)
-    #      1s  10s   S.ss  (float)
-    #     10s   1m   S.s   (float)
-    #           1m   S     (int)
-    #      1m  10h   (H) M S
-    #     10h  10d   (D) H M
+    #      ge  lt*   format  arg-type
+    #     ---  ---   ------  --------
+    #       0   1s   0.sss   float
+    #      1s  10s   S.ss    float
+    #     10s   1m   S.s     float
+    #       0   1m   S       int
+    #      1m   1h   M S
+    #      1h  10h   H M S
+    #     10h   1d   D M
+    #     10h  10d   D H M
     #     10d        D H
     #
     # (*) lt (less than) after rounding. We want to prevent this:
@@ -94,7 +97,9 @@ def timestr_approx(seconds: float, sep: str = '') -> str:
         parts.append(f"{int(d)}d")
     if d or h:
         parts.append(f"{int(h)}h")
-    if not omit_minutes and (d or h or m):
+    # pylint - "m" is defined when (not omit_minutes) is true
+    # pylint: disable-next=possibly-used-before-assignment)
+    if not omit_minutes and (m or h or d):
         parts.append(f"{int(m)}m")
     if not omit_seconds:
         # seconds = original value; s = 0 to 60 seconds
@@ -104,20 +109,18 @@ def timestr_approx(seconds: float, sep: str = '') -> str:
 
 _NUM = r'(\d+(?:[.,]\d+)?)'   # a match group for a number with optional fractional part
 _RE_DURATION = re.compile(rf"""
-        \s*
-        (?:{_NUM}\s*d)?  \s*  (?:{_NUM}\s*h)?  \s*
-        (?:{_NUM}\s*m)?  \s*  (?:{_NUM}\s*s?)?  \s*
-        """,
-    flags = re.ASCII | re.IGNORECASE | re.VERBOSE)
+    \s*
+    (?:{_NUM}\s*d)?  \s*  (?:{_NUM}\s*h)?  \s*
+    (?:{_NUM}\s*m)?  \s*  (?:{_NUM}\s*s?)?  \s*
+    """, flags = re.ASCII | re.IGNORECASE | re.VERBOSE)
 _RE_ISO_DURATION = re.compile(rf"""
-        \s*
-        P (?:{_NUM}Y)?  (?:{_NUM}M)?  (?:{_NUM}D)?
-        (?:
-            T  (?:{_NUM}H)?  (?:{_NUM}M)?  (?:{_NUM}S)?
-         )?
-         \s*
-         """,
-    flags = re.ASCII | re.VERBOSE)
+    \s*
+    P (?:{_NUM}Y)?  (?:{_NUM}M)?  (?:{_NUM}D)?
+    (?:
+        T  (?:{_NUM}H)?  (?:{_NUM}M)?  (?:{_NUM}S)?
+     )?
+     \s*
+     """, flags = re.ASCII | re.VERBOSE)
 
 def _convert(tstr: str) -> float:
     """
@@ -154,6 +157,7 @@ def _convert(tstr: str) -> float:
         raise ValueError("at least one element must be present")
     return result
 
+
 def convert(tstr: str) -> float:
     try:
         return _convert(tstr)
@@ -167,7 +171,7 @@ def time_period(period: None) -> None:
 @overload
 def time_period(period: float|str) -> float:
     ...
-def time_period(period):
+def time_period(period: None|float|str) -> None|float:
     """Convenience wrapper for convert()."""
     if period is None:
         return None

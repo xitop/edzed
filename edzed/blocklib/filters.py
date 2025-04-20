@@ -117,8 +117,8 @@ class _dualmethod:
     Note: no arguments can be passed to the constructor.
     """
 
-    def __init__(self, method):
-        functools.update_wrapper(self, method)
+    def __init__(self, method: Callable):
+        functools.update_wrapper(self, method)  # type: ignore[arg-type]
 
     def __get__(self, instance, cls):
         if instance is None:

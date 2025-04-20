@@ -7,8 +7,15 @@ Changelog
 Version numbers are based on the release date (Y.M.D).
 
 
+25.4.25
+=======
+
+- Remove the deprecated ``SBlock.put()``.
+- Update pytest configuration.
+
 24.11.25
 ========
+
 - Fix an incorrect test. The module itself was not changed.
   The bug was in test_timedate.py.
 
@@ -53,6 +60,7 @@ Version numbers are based on the release date (Y.M.D).
 
 23.8.25
 =======
+
 - Make interfacing with external systems easier:
 
   - In :func:`run` start supporting tasks after the simulation task.
@@ -69,16 +77,9 @@ Version numbers are based on the release date (Y.M.D).
   (also present in :class:`ExtEvent`).
 - Improve the code compliance with the ``mypy`` static type checker.
 
-23.2.14
-=======
 
-- Add new syntax in :attr:`FSM.EVENTS`.
-- Deprecate the use of iterators to specify multiple events,
-  multiple event filters or a group of inputs.
-- Small code improvements.
-
-Releases older than one year
-============================
+Older releases
+==============
 
 Only recent changes are listed here.
 See the git repository for the full history.

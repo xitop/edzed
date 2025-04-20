@@ -14,7 +14,6 @@ from .utils import fixture_circuit
 from .utils import init, Noop, EventMemory
 
 
-@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_delivery(circuit):
     """Test event delivery."""
     dest = EventMemory('dest')
@@ -27,8 +26,6 @@ def test_delivery(circuit):
     assert dest.output == ('E2', {'mark': 2, 'extra': True})
     dest.event('put', value=10)
     assert dest.output == ('put', {'value': 10})
-    dest.put(42)   # shortcut for dest.event('put', value=42), deprecated since 23.8.25
-    assert dest.output == ('put', {'value': 42})
 
 
 def test_error_checking(circuit):

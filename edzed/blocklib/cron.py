@@ -134,6 +134,8 @@ class Cron(addons.AddonMainTask, block.SBlock):
             nowdt = self.dtnow()
             nowt = nowdt.time()
             if index is None:
+                # reload is set before entering the loop -> "tlen" gets initialized
+                # pylint: disable-next=possibly-used-before-assignment
                 index = bisect.bisect_left(timetable, nowt) % tlen
             wakeup = timetable[index]
             self.log_debug("wakeup time: %s", wakeup)

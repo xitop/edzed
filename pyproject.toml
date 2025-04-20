@@ -23,7 +23,7 @@ repository = 'https://github.com/xitop/edzed'
 documentation = 'https://edzed.readthedocs.io/en/latest/'
 
 [project.optional-dependencies]
-tests = ['pytest', 'pytest-asyncio>=0.24.0', 'pytest-forked', 'pytest-xdist']
+tests = ['pytest>=8.2.0', 'pytest-asyncio>=0.26.0', 'pytest-forked', 'pytest-xdist']
 
 [build-system]
 requires = ['setuptools>=61.0.0', 'wheel']
@@ -65,6 +65,11 @@ check_untyped_defs = true
 show_error_codes = true
 
 [[tool.mypy.overrides]]
-module = ['edzed.simulator']
-disable_error_code = ['attr-defined']
+module = ["edzed.simulator"]
+disable_error_code = ["attr-defined"]
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_test_loop_scope = "module"
+asyncio_default_fixture_loop_scope = "module"
+testpaths = ["tests"]
