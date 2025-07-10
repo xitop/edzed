@@ -44,7 +44,7 @@ class Cron(addons.AddonMainTask, block.SBlock):
         self._utc = bool(utc)
         self._alarms: dict[dt.time, set[block.SBlock]] = {}
         self._queue: asyncio.Queue
-        self._needs_reload = Flag(False)
+        self._needs_reload_flag = Flag(False)
 
     def dtnow(self) -> dt.datetime:
         """Return the current date/time."""
@@ -60,7 +60,7 @@ class Cron(addons.AddonMainTask, block.SBlock):
 
     def reload(self) -> None:
         """Reload the configuration after add_block/remove_block calls."""
-        if self._needs_reload.test_clear() and self._mtask is not None:
+        if self._needs_reload_flag.test_clear() and self._mtask is not None:
             self._queue.put_nowait(None)    # wake up the task, value does not matter
 
     def _check_tz(self, time_of_day: dt.time) -> dt.time:
@@ -98,7 +98,7 @@ class Cron(addons.AddonMainTask, block.SBlock):
             self._alarms[time_of_day].add(blk)
         else:
             self._alarms[time_of_day] = {blk}
-            self._needs_reload.OR(time_of_day not in _SET24)
+            self._needs_reload_flag |= time_of_day not in _SET24
 
     def remove_block(self, time_of_day: dt.time, blk: block.SBlock) -> None:
         """
@@ -115,17 +115,17 @@ class Cron(addons.AddonMainTask, block.SBlock):
         self._alarms[time_of_day].discard(blk)
         if not self._alarms[time_of_day]:
             del self._alarms[time_of_day]
-            self._needs_reload.OR(time_of_day not in _SET24)
+            self._needs_reload_flag |= time_of_day not in _SET24
 
     async def _maintask(self) -> NoReturn:
         """Recalculate registered blocks according to the schedule."""
         overhead = _TT_OK   # initial value, will be adjusted
                             # the sleeptime is reduced by this value
-        reset = Flag(False)
-        reload = Flag(True)     # reload will also initialize the index
-        short_sleep = False     # alternative sleep function used => do not compute overhead
+        reset_flag = Flag(False)
+        reload_flag = Flag(True)  # reload will also initialize the index
+        short_sleep = False       # alternative sleep function used => do not compute overhead
         while True:
-            if reload.test_clear():
+            if reload_flag.test_clear():
                 timetable = sorted(_SET24.union(self._alarms))
                 tlen = len(timetable)
                 self.log_debug("time schedule reloaded")
@@ -174,7 +174,7 @@ class Cron(addons.AddonMainTask, block.SBlock):
                         self.log_warning(
                             "expected time: %s, current time: %s, diff: %.2f ms.",
                             wakeup, nowt, 1000*diff)
-                    if reset.OR((step == 2 and sleeptime > 0) or diff > _TT_ERROR):
+                    if reset_flag.ior((step == 2 and sleeptime > 0) or diff > _TT_ERROR):
                         break
                     if step == 1 and not short_sleep and not -_TT_OK <= sleeptime <= 0:
                         overhead -= (sleeptime + _TT_OK/2) * 0.5    # average of new and old
@@ -200,25 +200,25 @@ class Cron(addons.AddonMainTask, block.SBlock):
                     except asyncio.TimeoutError:
                         pass
                     else:
-                        reload.set()
+                        reload_flag.set()
                         break
                 nowdt = self.dtnow()
                 nowt = nowdt.time()
 
-            if reset.test_clear():
+            if reset_flag.test_clear():
                 # DST begin/end or other computer clock related reason
                 if (not self._utc
                         and nowdt.isoweekday() >= 6
                         and abs(diff - SEC_PER_HOUR) <= _TT_ERROR
                         ):
                     self.log_warning("Apparently a DST (summer time) clock change has occured.")
-                self.log_warning("Resetting due to a time tracking problem.")
+                self.log_warning("Reset_flagting due to a time tracking problem.")
                 for blk in set.union(*self._alarms.values()):    # all blocks
                     assert hasattr(blk, 'recalc')
                     blk.recalc(nowdt)
                 index = None
                 continue
-            if reload:
+            if reload_flag:
                 continue
 
             if wakeup in self._alarms:
@@ -232,8 +232,8 @@ class Cron(addons.AddonMainTask, block.SBlock):
         self.set_output(None)
 
     def start(self) -> None:
-        super().start()
         self._queue = asyncio.Queue()
+        super().start()
 
     def _event_get_schedule(self, **_data) -> dict[str, list[str]]:
         """Return the internal scheduling data for debugging or monitoring."""

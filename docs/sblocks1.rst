@@ -250,7 +250,7 @@ any network communication is a typical example of blocking I/O.
 
 .. class:: OutputAsync(name, *, coro, mode: str, f_args=['value'], f_kwargs=(), guard_time=None, on_success=None, on_cancel=None, on_error, stop_data=None, stop_timeout=None, **block_kwargs)
 
-  Run an async function *coro* in an asycio task when a ``'put'`` event arrives.
+  Run an async function *coro* in an asyncio task when a ``'put'`` event arrives.
   The async function is invoked with arguments extracted from the event data.
   The event returns immediately and does not return any result.
 

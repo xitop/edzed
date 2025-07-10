@@ -16,7 +16,7 @@ import edzed
 
 # pylint: disable=unused-argument
 # pylint: disable-next=unused-import
-from .utils import fixture_circuit
+from .utils import fixture_circuit, fixture_task_factories
 from .utils import Noop, timelimit, TimeLogger
 
 
@@ -400,11 +400,3 @@ async def test_supporting_task_error(circuit):
         (80, 'cancel-200'),
         (80, '--stop--'),
         ])
-
-
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="requires python3.12 or higher")
-async def test_no_eager_tasks(circuit):
-    Noop(None)
-    asyncio.get_event_loop().set_task_factory(asyncio.eager_task_factory)
-    with pytest.raises(RuntimeError, match="not compatible"):
-        await asyncio.wait_for(edzed.run(), timeout=1.0)

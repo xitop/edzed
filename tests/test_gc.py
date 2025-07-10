@@ -12,7 +12,7 @@ def _create_reference_cycle():
     try:
         1/0
     except Exception as err:
-        localerr = err
+        localerr = err  # pylint: disable=unused-variable
 
 def test_cycle_detection():
     _create_reference_cycle()

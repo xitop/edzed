@@ -112,7 +112,7 @@ List of :ref:`event filters<Event filters>` bundled with ``edzed``.
     The *key* must be present in the event data. The corresponding
     value is passed to the function *func*: ``func(data[key])``
     and the event is modified according to the value returned
-    fron the function call:
+    from the function call:
 
     - normally the item's value is replaced by the return value
     - if the function returns the special :const:`DataEdit.DELETE`

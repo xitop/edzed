@@ -18,7 +18,7 @@ import time
 from typing import Any, Optional, TYPE_CHECKING
 
 from . import block
-from .exceptions import add_note, EdzedCircuitError
+from .exceptions import add_note, EdzedCircuitError, EdzedInvalidState
 from . import utils
 
 
@@ -203,17 +203,33 @@ class AddonMainTask(AddonAsync, metaclass=abc.ABCMeta):
 
     def __init__(self, *args, **kwargs) -> None:
         self._mtask: Optional[asyncio.Task] = None
+        task_keys = [key for key in kwargs if key.startswith("task_")]
+        self._task_kwargs = {key[5:]: kwargs.pop(key) for key in task_keys}
         super().__init__(*args, **kwargs)
+        if "task_name" not in task_keys:
+            # self.name is defined by super().__init__
+            self._task_kwargs["name"] = f"edzed: main task for block {self.name!r}"
 
     @abc.abstractmethod
     async def _maintask(self):
         pass
 
+    async def _maintask_with_wait_init(self):
+        try:
+            await self.circuit.wait_init()
+        except EdzedInvalidState:
+            # this error is handled elsewhere, do not add more error messages
+            return
+        await self._maintask()
+
     def start(self) -> None:
         super().start()
         assert self._mtask is None, f"{self}: start() called twice?"
+        wait_init = AddonAsyncInit not in type(self).__mro__
         self._mtask = self._create_monitored_task(
-            self._maintask(), is_service=True, name=f"edzed: main task for block {self.name!r}")
+            self._maintask_with_wait_init() if wait_init else self._maintask(),
+            is_service=True,
+            **self._task_kwargs)
 
     async def stop_async(self) -> None:
         assert self._mtask is not None, f"{self}: start() not called"
@@ -239,8 +255,8 @@ class AddonAsyncInit(AddonAsync, metaclass=abc.ABCMeta):
         super().__init__(*args, **kwargs)
 
     def start(self) -> None:
-        super().start()
         self._init_event = asyncio.Event()
+        super().start()
 
     def set_output(self, value: Any) -> None:
         assert self._init_event is not None, f"{self}: start() not called"

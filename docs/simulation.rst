@@ -127,7 +127,7 @@ but some applications might prefer the lower-level :meth:`Circuit.run_forever`.
   an exception if any of the tasks exits due to an exception other than
   the :exc:`asyncio.CancelledError`. In detail, if the simulation task raises,
   re-raise its exception. Otherwise if any of the supporting tasks raises,
-  re-raise its excpeption.
+  re-raise its exception.
 
   .. versionchanged:: 23.8.25
 
@@ -242,12 +242,23 @@ Stopping the simulation
 A running simulation can be stopped only by cancellation of the simulation task, i.e.
 the task that runs :meth:`Circuit.run_forever`.
 
-1. Based on the circuit activity:
+1. In a circuit block:
 
   Program the circuit to send a ``'shutdown'`` event to the
   :ref:`simulator control block<Simulator control block>` when a condition is met.
 
-2. From the application code:
+2. In a task belonging to the circuit:
+
+  Call :meth:`Circuit.abort` with the argument ``asyncio.CancelledError("shutdown message")``.
+
+  .. warning::
+
+    Do not await :meth:`Circuit.shutdown` directly or indirectly within a circuit's
+    block task. It may create a loop in the graph of tasks cancelling other tasks
+    that will cause a deadlock or a recursion error. You may create a new task awaiting
+    :meth:`Circuit.shutdown`, but **do not** await that task.
+
+3. In a supporting coroutine:
 
   It is assumed that the function wanting to stop the simulation is running inside
   a supporting coroutine started with :func:`run` as this is the intended way
@@ -258,7 +269,11 @@ the task that runs :meth:`Circuit.run_forever`.
   - or simply terminate the own supporting task, :func:`run` will detect it.
     The simulation is cancelled when any of the supporting tasks terminates.
 
-3. From another process:
+  In a typical setup for remote monitoring and control, supporting coroutines 
+  act on behalf of some control program communicating with them.
+
+
+4. From another process:
 
   By default, sending a ``SIGTERM`` signal will stop the simulation
   with a proper cleanup, of course only if it is running.
@@ -277,10 +292,14 @@ the task that runs :meth:`Circuit.run_forever`.
   Return normally when the task was cancelled.
   Otherwise the exception that stopped the simulation is raised.
 
-  It is an error to await :meth:`shutdown`:
+  It is an error resulting in :exc:`edzed.EdzedInvalidState` to await :meth:`shutdown`:
 
   - if the simulation task was not started
   - from within the simulation task itself
+
+  It is also an error to await :meth:`shutdown` from within any task belonging
+  to the simulation, especially those started with :meth:`AddonAsync._create_monitored_task`
+  or in :class:`AddonMainTask`, see the warning in the previous section.
 
 .. attribute:: Circuit.error
   :type: Optional[BaseException]
@@ -289,8 +308,8 @@ the task that runs :meth:`Circuit.run_forever`.
   wasn't stopped yet. This is a read-only attribute.
 
 
-Logging
-=======
+Debug messages and logging
+==========================
 
 .. Note::
 
@@ -306,8 +325,8 @@ level (severity) :const:`logging.WARNING` or higher to the standard output.
 Messages with :const:`logging.DEBUG` and :const:`logging.INFO` levels won't
 be printed be default. To enable them::
 
-  import logging
-  logging.basicConfig(level=logging.DEBUG)   # enable level DEBUG and higher (INFO, WARNING, ERROR, ...)
+  # enable level DEBUG and higher (INFO, WARNING, ERROR, ...)
+  logging.basicConfig(level=logging.DEBUG)
 
 
 Simulator debug messages
@@ -361,6 +380,38 @@ Example: debug all blocks except Inputs::
    circuit = edzed.get_circuit()
    circuit.set_debug(True, '*')    # or: set_debug(True, edzed.Block)
    circuit.set_debug(False, edzed.Input)
+
+
+Enabling debug messages with environment variables
+--------------------------------------------------
+
+Following environment variables can be set to enable debug messages.
+They are processed at the program start. Subsequent environment
+changes have no effect.
+
+.. envvar:: EDZED_DEBUG_CIRCUIT
+
+  Circuit debugging control. Specify a boolean value with one of
+  the following words: ``1, yes, y, true, t, on`` for enabling
+  or: ``0, no, n, false, f, off``,  or an empty string for disabling.
+
+.. envvar:: EDZED_DEBUG_BLOCKS
+
+  Block debugging control. The expected value is a comma separated list of names optionally
+  prefixed with a plus (``+``) or minus (``-``) sign: ``[+|-]name1,[+|-]name2,...``.
+  Whitespace may be inserted for readability.
+  The value is converted to a series of :meth:`Circuit.set_debug` calls.
+
+  No prefix or a plus sign means to turn debugging on for the following
+  block name. The minus sign means to turn debugging off. The block name
+  can be also a wildcard. Unknown names are silently ignored.
+
+  Example: Linux shell command ``export EDZED_DEBUG_BLOCKS='*, -temp'``
+  enables debug messages for all blocks except those named ``"temp"``.
+  Note the single quotes around the value denoting a string literal in shell.
+
+If any debug messages are enabled this way, ``logging.basicConfig(logging.DEBUG)``
+will be called.
 
 
 Multiple circuits

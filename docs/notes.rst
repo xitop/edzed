@@ -25,7 +25,7 @@ The development:
 The code:
 
 - PEP-8 standard with line length limit 96 chars.
-- Type hints (annotations) are added for documentation purposes only.
+- Type hints (annotations) are added mainly for documentation purposes.
 - Information presented in the docs is not duplicated in docstrings.
 - Unit tests *are not* good examples of proper usage!
 

@@ -25,8 +25,8 @@ class Not(block.CBlock):
         return not self._in['_'][0]
 
     def start(self) -> None:
-        super().start()
         self.check_signature({'_': 1})
+        super().start()
 
 
 class FuncBlock(block.CBlock):
@@ -103,8 +103,8 @@ class Compare(block.CBlock):
         return self._in['_'][0] >= thr
 
     def start(self) -> None:
-        super().start()
         self.check_signature({'_': 1})
+        super().start()
 
 
 class Override(block.CBlock):
@@ -120,5 +120,5 @@ class Override(block.CBlock):
         return self._in.input if override == self._null else override
 
     def start(self) -> None:
-        super().start()
         self.check_signature({'input': None, 'override': None})
+        super().start()

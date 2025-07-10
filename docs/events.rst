@@ -153,7 +153,7 @@ Every block (even a combinational one) can generate events on its output change.
 These are the most common events and are defined with an *on_output* argument.
 :ref:`Output events` are covered in the next section.
 
-Several sequential blocks included in the ``edzed`` libraty can generate events
+Several sequential blocks included in the ``edzed`` library can generate events
 also on certain internal state changes.
 
 By convention all parameters instructing a block to send events in certain

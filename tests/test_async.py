@@ -13,7 +13,7 @@ from edzed.utils import shield_cancel
 
 # pylint: disable=unused-argument
 # pylint: disable-next=unused-import
-from .utils import fixture_circuit
+from .utils import fixture_circuit, fixture_task_factories
 from .utils import Noop, TimeLogger
 
 
@@ -102,6 +102,21 @@ async def test_maintask(circuit):
     logger.compare([(170, '--stop--')])
 
 
+async def test_maintask_name(circuit):
+    """Test setting the task name."""
+    TASKNAME = "jerry's task"
+    class Jerry(edzed.AddonMainTask, edzed.SBlock):
+        async def _maintask(self):
+            assert asyncio.current_task().get_name() == TASKNAME
+            self.circuit.abort(asyncio.CancelledError())
+            await asyncio.sleep(1)  # wait for cancel
+        def init_regular(self):
+            self.set_output(False)
+
+    Jerry('jerry', task_name=TASKNAME)
+    await edzed.run(asyncio.sleep(1))
+
+
 async def test_task_monitoring(circuit):
     """Test the task monitoring with is_service=False (default)."""
     async def coro(waitstates, fail=False):
@@ -113,6 +128,7 @@ async def test_task_monitoring(circuit):
 
     class Worker(edzed.AddonMainTask, edzed.SBlock):
         async def _maintask(self):
+            await self.circuit.wait_init()
             for i in range(1, 7):
                 self._create_monitored_task(coro(i, i == 4))
             await asyncio.sleep(0.25) # will be cancelled at T=200 ms
@@ -171,6 +187,9 @@ async def test_task_names(circuit):
             await asyncio.sleep(1)
 
     async def tester():
+        # https://github.com/python/cpython/issues/128308
+        # python 3.12 issue: eager task names are set too late
+        await asyncio.sleep(0)
         assert asyncio.current_task().get_name() == "edzed: supporting task #2"
         assert circuit._simtask.get_name() == "edzed: simulation task"
 

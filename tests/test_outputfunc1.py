@@ -11,7 +11,7 @@ import edzed
 
 # pylint: disable=unused-argument
 # pylint: disable-next=unused-import
-from .utils import fixture_circuit
+from .utils import fixture_circuit, fixture_task_factories
 from .utils import TimeLogger
 
 
@@ -103,16 +103,19 @@ async def test_on_error_custom(circuit):
 
     LOG = [
         (0, 2),
-        (50, 'integer division or modulo by zero'),
+        (50, 'ZeroDivisionError'),
         (100, 4),   # error was handled, simulation continues
         (100, '--stop--'),
         (100, 'END')
         ]
+    # now using type(exc).__name__ instead of str(exc)
+    # n//0: Python <= 3.13: ZeroDivisionError: integer division or modulo by zero
+    # n//0: Python >= 3.14: ZeroDivisionError: division by zero
     await output_func(
         circuit, v2=0, log=LOG,
         on_error=edzed.Event(
             'logger', 'log',
-            efilter=(check_trigger, lambda data: {'value': str(data['error'])})
+            efilter=(check_trigger, lambda data: {'value': type(data['error']).__name__})
             )
         )
 

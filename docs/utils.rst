@@ -20,7 +20,7 @@ time units day, hour and minute.
     | ``'2m'`` = 2 minutes = 120.0 seconds
     | ``'20h15m10'`` = 20 hours + 15 minutes + 10 seconds = 72_910.0
     | ``'2d 12h'`` = 2 days + 12 hours = 21_6000.0
-    | ``'1.25h'`` = 1 and a quarter of and houre = 4_500.0
+    | ``'1.25h'`` = 1 and a quarter of and hour = 4_500.0
 
   .. versionchanged:: 24.3.4
 
@@ -73,9 +73,6 @@ Conversions routines:
 
   This is an inverse function to :func:`convert` below provided
   the separator is empty or whitespace only.
-
-  .. versionchanged:: 22.11.2
-    Added the *prec* parameter.
 
 .. function:: timestr_approx(seconds: int|float, sep: str = '') -> str
 

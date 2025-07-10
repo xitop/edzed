@@ -111,14 +111,10 @@ Version information
 .. attribute:: __version__
   :type: str
 
-  ``edzed`` version as a string, e.g. "22.11.28"
-
-  .. versionadded:: 22.11.28
+  ``edzed`` version as a string, e.g. "25.7.10"
 
 .. attribute:: __version_info__
   :type: tuple[int]
 
-  ``edzed`` version as a tuple of three numbers, e.g. ``(22, 11, 28)``.
+  ``edzed`` version as a tuple of three numbers, e.g. ``(25, 7, 10)``.
   The version numbers are derived from the release date: year-2000, month, day.
-
-  .. versionadded:: 22.11.28

@@ -11,7 +11,7 @@ import pytest
 import edzed
 
 # pylint: disable-next=unused-import
-from .utils import fixture_circuit
+from .utils import fixture_circuit, fixture_task_factories
 
 
 def test_resolver_basic(circuit):

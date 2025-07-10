@@ -6,6 +6,16 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+25.7.10
+=======
+
+- Edzed is now compatible with eager asyncio tasks.
+- :class:`AddonMainTask` can pass keyword arguments to :func:`asyncio.create_task()`.
+- :class:`AddonMainTask` changed the moment it starts the main task.
+  In some cases it might break existing code. See the docs for a fix.
+- Debug messages can be now enabled with
+  :ref:`environment variables<Enabling debug messages with environment variables>`.
+- Delete the documentation for the recently removed ``SBlock.put()``.
 
 25.4.25
 =======
@@ -57,25 +67,6 @@ Version numbers are based on the release date (Y.M.D).
 - Add latest Python 3.12 to the list of compatible versions.
 - Improve compliance with the ``mypy`` type checker.
 - Put ``pylint`` configuration into the ``pyproject.toml`` file.
-
-23.8.25
-=======
-
-- Make interfacing with external systems easier:
-
-  - In :func:`run` start supporting tasks after the simulation task.
-  - Add :class:`ExtEvent` for events received from external systems.
-    This implies further changes:
-
-    - The existing :class:`Event` should be used for internally generated
-      events only.
-    - :meth:`SBlock.event` should not be used as an event entry point
-      for external events.
-    - The shortcut :meth:`SBlock.put` is deprecated because ``SBlock.event()``
-      lost its importance.
-- Document the attributes :attr:`Event.dest` and :attr:`Event.etype`
-  (also present in :class:`ExtEvent`).
-- Improve the code compliance with the ``mypy`` static type checker.
 
 
 Older releases

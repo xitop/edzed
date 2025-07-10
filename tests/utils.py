@@ -4,12 +4,14 @@ Helpers for unit tests.
 
 import asyncio
 import itertools
+import sys
 import time
 
 import pytest
 
 import edzed
 
+P3_12 = sys.version_info >= (3, 12)
 
 class Noop(edzed.CBlock):
     """
@@ -181,3 +183,10 @@ def fixture_circuit():
     """Return a new empty circuit."""
     edzed.reset_circuit()
     return edzed.get_circuit()
+
+
+@pytest.fixture(scope="module", params=[False, True], autouse=P3_12)
+async def fixture_task_factories(request):
+    """Run tests twice: with eager tasks off and on."""
+    factory = asyncio.eager_task_factory if request.param else None
+    asyncio.get_running_loop().set_task_factory(factory)

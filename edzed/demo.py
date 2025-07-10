@@ -126,7 +126,7 @@ def _cmd_list() -> None:
 
 
 def _cmd_put(blk: block.SBlock, value: Any) -> None:
-    retval = blk.put(ast.literal_eval(value))
+    retval = blk.event('put', value=ast.literal_eval(value))
     print(f"put() returned: {retval}")
     _cmd_show(blk)
 

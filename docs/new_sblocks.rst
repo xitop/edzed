@@ -94,15 +94,6 @@ in the :meth:`SBlock.event` method.
 
 .. method:: SBlock.event(etype: str|EventType, /, **data) -> Any
 
-  .. note::
-
-    Changed in version 23.8.25:
-
-    This method used to be an event entry point for external events,
-    but now is ``SBlock.event()`` deemed internal. Application code
-    should not call it directly. To forward an external event,
-    :meth:`ExtEvent.send` should be used instead.
-
   Handle the incoming event of :ref:`type<Event types>` *etype* with attached *data*
   by dispatching it to the respective handler. Return the handler's exit value.
   Evaluate conditional events (see the :class:`EventCond`) before further processing.
@@ -118,14 +109,13 @@ in the :meth:`SBlock.event` method.
     is raised during the event handling, the simulation will be aborted even if
     the caller catches the exception with a ``try-except`` construct.
 
-
-.. method:: SBlock.put(value: Any, **data) -> Any
-
-  This was a shortcut for ``event('put', value=value, ...)``.
-
   .. versionchanged:: 23.8.25
 
-    This function is now deprecated and will be removed in the future.
+    This method used to be an event entry point also for external events,
+    but now is ``SBlock.event()`` considered for internal use only.
+    Application code should not call it directly. To forward
+    an external event, :meth:`ExtEvent.send` should be used instead.
+
 
 Event handlers
 --------------
@@ -184,7 +174,7 @@ There are two ways to define handlers for incoming :ref:`events <Events>`:
           # the base class simply raises the EdzedUnknownEvent
           return super()._event(event, data)
 
-    Note: Do not confuse the event handler ``_event()`` with the event dispatcher
+    Note: Do not confuse this event handler ``_event()`` with the event dispatcher
     :meth:`event`. The latter should be left untouched.
 
 ----
@@ -399,7 +389,7 @@ Async add-on
 
     This function acts like :func:`asyncio.create_task`, but if the task exits
     due to an exception, the simulation will abort. ``_create_monitored_task()``
-    also adds the block name to the exception notes (if supported)
+    also adds the block name to the exception notes (Python >= 3.11)
     or to the exception message (``Exception.args[0]`` if it is a string)
     for better problem identification.
 
@@ -408,12 +398,6 @@ Async add-on
 
     Extra keyword arguments *\*\*task_kwargs* are passed to the :func:`asyncio.create_task`;
     as of Python 3.11 it accepts *name* and *context*.
-
-    .. versionchanged:: 22.11.2
-      Added the *\*\*task_kwargs* parameters.
-
-    .. versionchanged:: 22.11.20
-      Using exception notes on Python >= 3.11
 
 
 .. method:: SBlock.init_async() -> None
@@ -467,7 +451,7 @@ Async add-on
 Main task add-on
 ----------------
 
-.. class:: AddonMainTask
+.. class:: AddonMainTask(*args, **block_kwargs, **task_kwargs)
 
   A subclass of :class:`AddonAsync`. In addition to :class:`AddonAsync`\'s
   features, inheriting from this add-on adds support for a task automatically
@@ -480,7 +464,22 @@ Main task add-on
   Note that the *init_timeout* argument does not apply, because task creation
   is a regular function.
 
-.. method:: SBlock._maintask()
+  All keyword arguments starting with ``"task_"`` are passed to :func:`asyncio.create_task`
+  with the ``"task_"`` prefix removed. Example ``"task_name="data acquisition task"``.
+
+  .. versionadded:: 25.7.10
+    *\*\*task_kwargs*
+    (the illustrative signature in the heading is not syntactically correct)
+
+  .. versionchanged:: 25.7.10
+  
+    The main task is now started after the circuit initialization finishes.
+    See :meth:`Circuit.wait_init` for details. **Exception**: when combined
+    with :class:`AddonAsyncInit`, the main task is started immediately.
+    Inherit from :class:`AddonAsyncInit` if your block begins to fail with
+    "not initialized" error after upgrade.
+
+.. method:: AddonMainTask._maintask()
   :abstractmethod:
   :async:
 
@@ -499,6 +498,40 @@ Async initialization add-on
   This tiny add-on adds a :meth:`SBlock.init_async` implementation that ensures
   proper interfacing with the simulator in such cases. Its only function is
   to inform the simulator that the initialization took place.
+
+  Presence of this add-on modifies the behavior of :class:`AddonMainTask`.
+
+
+Note about eager tasks in asynchronous add-ons
+----------------------------------------------
+  
+Python 3.12 introduced eagerly started asyncio tasks. This feature changes
+the task execution order and that sometimes matters during the circuit start.
+
+Normally, the developer decides whether eager tasks will be used
+and will write the code accordingly, but sometimes an ``edzed``
+application needs to support both cases. Following functions may be affected:
+
+- :meth:`AddonAsync._create_monitored_task`
+- :meth:`AddonMainTask._maintask`, but only if :class:`AddonMainTask`
+  is used in conjunction with :class:`AddonAsyncInit`.
+
+These measures can be taken if necessary:
+
+- Python 3.14 (to be released in October 2025) will add a new option
+  *eager_start* that you can add to *task_kwargs* in and :class:`AddonMainTask`
+  (as *task_eager_start* in the latter case) and thus override the default
+  task factory setting.
+
+- Consider using a statement that re-orders the task execution. Put it at the top
+  of the coroutine. This is what :class:`AddonMainTask` does when used *without*
+  :class:`AddonAsyncInit`::
+
+    circuit = edzed.get_circuit()
+    await circuit.wait_init()       # wait until initialization is completed
+
+  The moment when ``await`` returns from ``wait_init()`` does not depend
+  on the method the task was started.
 
 
 Helper methods

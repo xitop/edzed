@@ -313,8 +313,8 @@ class OutputAsync(addons.AddonAsync, block.SBlock):
             await asyncio.gather(*tasks, return_exceptions=True)
 
     def start(self) -> None:
-        super().start()
         self._queue = asyncio.Queue()
+        super().start()
         self._ctrl_task = self._create_monitored_task(
             self._ctrl_coro(), name=f"edzed: control task for block {self.name!r}")
 

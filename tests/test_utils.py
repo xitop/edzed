@@ -8,11 +8,12 @@ import pytest
 
 from edzed import utils
 from edzed.blocklib.sblocks2 import _args_as_string
+from edzed.simulator import _str_to_bool
 
-# note the difference: we are using '.utils' and we are testing 'edzet.utils'
+# note the difference: we are using 'edzed.test.utils' and we are testing 'edzet.utils'
 # pylint: disable=unused-argument
 # pylint: disable-next=unused-import
-from .utils import fixture_circuit
+from .utils import fixture_circuit, fixture_task_factories
 from .utils import compare_logs, init, TimeLogger
 
 
@@ -236,3 +237,16 @@ def test_args_as_string():
     assert test(-1, 'arg') == "(-1, 'arg')"
     assert test(f=False, t=True, n=[1, 2]) == "(f=False, t=True, n=[1, 2])"
     assert test(1, 2, None, a=1, b='xy') == "(1, 2, None, a=1, b='xy')"
+
+
+def test_str_to_bool():
+    """Test the _str_to_bool helper."""
+    for yes in "YES Yes 1 ON on y True".split():
+        assert _str_to_bool(yes, True) is True
+        assert _str_to_bool(yes, False) is True
+    for no in "NO , 0,OFF,N, fALSE ,".split(','):   # contains whitespace + an empty string
+        assert _str_to_bool(no, True) is False
+        assert _str_to_bool(no, False) is False
+    for wtf in "quick fox 2 . - n/a X".split():
+        assert _str_to_bool(wtf, True) is True
+        assert _str_to_bool(wtf, False) is False

@@ -10,14 +10,16 @@ Home: https://github.com/xitop/edzed/
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Coroutine, Iterable, Iterator, MutableMapping, Set
-# from collections.abc Iterator
+from collections.abc import (
+    Callable, Coroutine, Iterable, Iterator, Mapping, MutableMapping, Set)
 import fnmatch
 import logging
 import operator
+import os
 import signal
+import sys
 import time
-from types import FrameType
+from types import FrameType, SimpleNamespace
 from typing import Any, NoReturn, Optional, overload, TypeVar
 
 from . import addons
@@ -25,16 +27,55 @@ from . import block
 from .blocklib import cblocks
 from .blocklib import sblocks1
 from .exceptions import add_note, EdzedCircuitError, EdzedInvalidState
+from .utils.flag import Flag
 
 
 __all__ = ['get_circuit', 'reset_circuit', 'run']
 
-# limit for oscillation/instability detection:
-_MAX_EVALS_PER_BLOCK = 3
 
+_MAX_EVALS_PER_BLOCK = 3    # limit for oscillation/instability detection:
+P3_12 = sys.version_info >= (3, 12)
 
+envvars = SimpleNamespace(
+    debug_circuit=False,
+    debug_blocks=[],        # list[tuple[bool, str]] = list of Circuit.set_debug() args
+    )
 _logger = logging.getLogger(__package__)
 _current_circuit: Optional[Circuit] = None
+
+_TRUE_STRINGS =  ['yes', 'true', 'y', 't', 'on',  '1']
+_FALSE_STRINGS = ['no', 'false', 'n', 'f', 'off', '0', '']
+
+def _str_to_bool(word: str, default: bool) -> bool:
+    word = word.strip().lower()
+    if word in _TRUE_STRINGS:
+        return True
+    if word in _FALSE_STRINGS:
+        return False
+    _logger.warning("Cannot convert string %r to boolean. Use e.g. 'yes' or 'no'", word)
+    return default
+
+
+def _process_env(env: Mapping[str, str]) -> None:
+    """Process environment variables."""
+    edzed_env = {name: value for name, value in env.items() if name.startswith("EDZED_")}
+    envvars.debug_circuit = _str_to_bool(
+        edzed_env.pop('EDZED_DEBUG_CIRCUIT', "0"), default=False)
+    do_config = Flag(envvars.debug_circuit)
+    for name in edzed_env.pop('EDZED_DEBUG_BLOCKS', "").split(','):
+        name = name.strip()
+        if (no_debug := name.startswith('-')) or name.startswith('+'):
+            name = name[1:].strip()
+        if name:
+            envvars.debug_blocks.append((not no_debug, name))
+            do_config |= not no_debug
+    if do_config:
+        logging.basicConfig(level=logging.DEBUG)
+    for name in edzed_env:
+        _logger.warning("Unknown environment variable %r", name)
+
+
+_process_env(os.environ)        # yes, during import
 
 
 def get_circuit() -> Circuit:
@@ -117,11 +158,11 @@ BlockType = TypeVar('BlockType', bound=block.Block)
 
 async def _test_eager_tasks() -> None:
     """
-    Do not allow to continue with an eager task factory enabled.
+    Log a note when eager tasks are enabled.
 
-    Eager tasks (Python 3.12+) change the order of execution
-    and the changed order violates assumptions made in the
-    circuit initialization code often resulting in failures.
+    Eager tasks (Python 3.12+) change the order of execution.
+    The changed order may violate assumptions made in the
+    code written before eager tasks were introduced.
     """
     flag = False
     async def test_task() -> None:
@@ -129,7 +170,7 @@ async def _test_eager_tasks() -> None:
         flag = True
     asyncio.create_task(test_task())
     if flag:
-        raise RuntimeError("edzed is not compatible with eager asyncio tasks")
+        _logger.debug("eager asyncio tasks detected")
 
 
 class Circuit:
@@ -160,16 +201,16 @@ class Circuit:
         self.sblock_queue: asyncio.Queue[block.SBlock]
             # a Queue for notifying about changed SBlocks,
             # the queue will be created when simulation starts, because
-            # it has a side effect of creating an event_loop if one
-            # was not created yet. That may lead to errors in rare
-            # scenarios with asyncio.new_event_loop().
+            # in Python < 3.10 it has a side effect of creating
+            # an event_loop if one was not created yet. That may lead
+            # to errors in some scenarios.
         self._init_done: asyncio.Event
             # an Event for wait_init() synchronization
         self._resolver = _BlockResolver(self._validate_blk)
             # the name to block resolver
         self.resolve_name = self._resolver.register
             # provide access to the resolver
-        self.debug: bool = False
+        self.debug: bool = envvars.debug_circuit
             # enable debug messages
 
     def log_debug(self, msg: str, *args: Any, **kwargs) -> None:
@@ -650,8 +691,14 @@ class Circuit:
             else:
                 msg = "The simulator is already running."
             raise EdzedInvalidState(msg)
-        await _test_eager_tasks()
+        if self.debug and P3_12:
+            await _test_eager_tasks()
         self._simtask = asyncio.current_task()
+        for args in envvars.debug_blocks:
+            try:
+                self.set_debug(*args)
+            except KeyError:
+                pass    # suppress block not found errors
         started_blocks = set()
         start_ok = False
         try:
@@ -814,7 +861,6 @@ async def run(*coroutines: Coroutine, catch_sigterm: bool = True) -> None:
     If the simulator raises, re-raise. If any of the supporting
     tasks raises, raise RuntimeError.
     """
-
     circuit = get_circuit()
     with _TerminatingSignal(signal.SIGTERM if catch_sigterm else None):
         if not coroutines:

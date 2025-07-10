@@ -13,7 +13,7 @@ import edzed
 
 # pylint: disable=unused-argument
 # pylint: disable-next=unused-import
-from .utils import fixture_circuit
+from .utils import fixture_circuit, fixture_task_factories
 from .utils import timelimit, TimeLogger
 
 pytest_plugins = ('pytest_asyncio',)

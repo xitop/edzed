@@ -148,8 +148,8 @@ class Repeat(addons.AddonMainTask, block.SBlock):
         self._queue.put_nowait(data)
 
     def start(self) -> None:
-        super().start()
         self._queue = asyncio.Queue()
+        super().start()
 
 
 class ValuePoll(addons.AddonMainTask, addons.AddonAsyncInit, block.SBlock):
