@@ -6,6 +6,20 @@ Changelog
 
 Version numbers are based on the release date (Y.M.D).
 
+25.7.24
+=======
+
+- Bugfix: Contrary to the :ref:`initialization rules<Initialization rules>`, block's async
+  initialization was skipped if the block was initialized already.
+  The async initialization routine is now called as documented.
+- Only one :ref:`output event<Output events>` with the final value is sent
+  at the end of block's initialization process, even if the output
+  was set several times during multiple initialization steps.
+- If persistent state is enabled in an :class:`SBlock`, but 'sync_state' is turned off,
+  block's state is not automatically saved at the simulation start.
+- Deprecate `xxx_timeout=None` in :class:`SBlock`.
+
+
 25.7.10
 =======
 
@@ -15,7 +29,7 @@ Version numbers are based on the release date (Y.M.D).
   In some cases it might break existing code. See the docs for a fix.
 - Debug messages can be now enabled with
   :ref:`environment variables<Enabling debug messages with environment variables>`.
-- Delete the documentation for the recently removed ``SBlock.put()``.
+
 
 25.4.25
 =======

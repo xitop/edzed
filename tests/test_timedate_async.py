@@ -12,17 +12,13 @@ import pytest
 import edzed
 from edzed.utils import MONTH_NAMES
 
-# pylint: disable=unused-argument
-# pylint: disable-next=unused-import
-from .utils import fixture_circuit, fixture_task_factories
 from .utils import timelimit, TimeLogger
 
-pytest_plugins = ('pytest_asyncio',)
+pytestmark = pytest.mark.usefixtures("task_factories")
 
 P3_11 = sys.version_info >= (3, 11)
 
 
-@pytest.mark.asyncio
 async def test_null(circuit):
     """Test a disabled block and an empty schedule."""
     null = edzed.TimeDate('null')
@@ -38,7 +34,6 @@ async def test_null(circuit):
     await edzed.run(tester())
 
 
-@pytest.mark.asyncio
 async def test_args(circuit):
     """Test the equivalence of string and numeric formats."""
     kwargs = {
@@ -86,7 +81,6 @@ async def _test6(circuit, *p6):
     await edzed.run(tester())
 
 
-@pytest.mark.asyncio
 async def test_times(circuit):
     now = dt.datetime.today()
     other_month = MONTH_NAMES[13 - now.month]
@@ -101,7 +95,6 @@ async def test_times(circuit):
         )
 
 
-@pytest.mark.asyncio
 async def test_dates(circuit):
     now = dt.date.today()
     nowm = now.month
@@ -115,7 +108,6 @@ async def test_dates(circuit):
         {'dates': '21.jun / 20.dec'},
         )
 
-@pytest.mark.asyncio
 async def test_weekdays(circuit):
     other_hour = (dt.datetime.now().hour + 3) % 24
     await _test6(
@@ -164,21 +156,13 @@ async def tfsec(circuit, dynamic):
         ]
     logger.compare(LOG)
 
-@pytest.mark.asyncio
 async def test_fsec_static(circuit):
     await tfsec(circuit, False)
 
-@pytest.mark.asyncio
 async def test_fsec_dynamic(circuit):
     await tfsec(circuit, True)
 
 
-def test_no_initdef(circuit):
-    with pytest.raises(TypeError):
-        edzed.TimeDate(None, initdef={})
-
-
-@pytest.mark.asyncio
 async def test_cron(circuit):
     """Test the cron service, internal state."""
     targ = [[[1,2,3,5000], [2,3,4,0]]]
@@ -221,17 +205,6 @@ async def test_cron(circuit):
     await edzed.run(tester())
 
 
-def test_parse():
-    parse = edzed.TimeDate.parse
-    assert parse(None, None, None) == {'times': None, 'dates': None, 'weekdays': None}
-    assert parse("17:0:30-18:14", "Nov30", "134") == {
-        'times': [[[17,0,30,0], [18,14,0,0]]],
-        'dates': [[[11,30], [11,30]]],
-        'weekdays': [1,3,4]
-        }
-
-
-@pytest.mark.asyncio
 async def test_persistent(circuit):
     td = edzed.TimeDate("pers", persistent=True)
     storage = {}

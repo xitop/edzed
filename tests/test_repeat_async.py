@@ -1,6 +1,5 @@
 """
 Test the Repeat block.
-Part 1/2: async
 """
 
 # pylint: disable=missing-class-docstring
@@ -11,12 +10,9 @@ import pytest
 
 import edzed
 
-# pylint: disable-next=unused-import
-from .utils import fixture_circuit, fixture_task_factories
 from .utils import EventMemory, TimeLogger
 
-pytest_plugins = ('pytest_asyncio',)
-pytestmark = pytest.mark.asyncio
+pytestmark = pytest.mark.usefixtures("task_factories")
 
 
 async def test_etype(circuit):

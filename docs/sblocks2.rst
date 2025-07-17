@@ -270,13 +270,13 @@ Periodic events
   Block for periodic events occurring daily, weekly or yearly. A combination
   of conditions is possible (e.g. Every Monday morning 6 to 9 a.m., but only in April)
 
-  If *utc* is ``False`` (which is the default), times are in the local timezone.
-  If *utc* is ``True``, times are in UTC.
+  If *utc* is :const:`False` (which is the default), times are in the local timezone.
+  If *utc* is :const:`True`, times are in UTC.
 
   The output is a boolean.
-  When *times*, *dates* and *weekdays* are all ``None``, the output is ``False``.
+  When *times*, *dates* and *weekdays* are all :const:`None`, the output is :const:`False`.
   To configure the block define at least one of them.
-  The output is then ``True`` only when the current time, date and the weekday
+  The output is then :const:`True` only when the current time, date and the weekday
   match the specified arguments. Unused arguments are not taken into account.
 
   - *times*
@@ -341,16 +341,16 @@ Periodic events
 
   .. note::
 
-      Unused arguments *times*, *dates*, or *weekdays* are given as ``None``.
+      Unused arguments *times*, *dates*, or *weekdays* are given as :const:`None`.
       This is different than an empty string or an empty sequence.
 
-      - ``None`` means we don't care which time, date or weekday respectively.
-        **Exception**: if all three parameters are ``None``, the block is disabled
+      - :const:`None` means we don't care which time, date or weekday respectively.
+        **Exception**: if all three parameters are :const:`None`, the block is disabled
         (unconfigured).
 
       - An empty value is a valid argument meaning no matching time or
         date or weekday. A ``TimeDate`` block with an empty parameter
-        always outputs ``False``.
+        always outputs :const:`False`.
 
   The numeric form of parameters is used internally. Strings are converted
   to numbers before use. The internal parser is available should the need arise:
@@ -360,7 +360,7 @@ Periodic events
       Parse the arguments in any format accepted by the ``TimeDate``,
       return a dict with keys ``'times'``, ``'dates'``, ``'weekdays'``
       and values in the numeric form, i.e. as lists or nested lists of integers
-      or ``None``.
+      or :const:`None`.
 
 
 **Dynamic updates**
@@ -379,7 +379,7 @@ and replaces them with the new values. To modify the settings, retrieve the
 current values, edit them and send an event.
 
 The block supports state persistence. The *persistent* parameter is described
-:ref:`here <Sequential blocks>`. Set to ``True`` to make the internal
+:ref:`here <Sequential blocks>`. Set to :const:`True` to make the internal
 state persistent. It is only useful with dynamic updates, that's why it is
 documented here.
 
@@ -397,10 +397,10 @@ Non-periodic events
   defined with full date and time, i.e. year, month, day, hour, minute and second
   (may be fractional). Any number of ranges may be specified, including zero.
 
-  If *utc* is ``False`` (which is the default), times are in the local timezone.
-  If *utc* is ``True`` times are in UTC.
+  If *utc* is :const:`False` (which is the default), times are in the local timezone.
+  If *utc* is :const:`True` times are in UTC.
 
-  The output is a boolean and it is ``True`` when the current time and date are inside
+  The output is a boolean and it is :const:`True` when the current time and date are inside
   of any of the ranges.
 
   The *span* argument is a :ref:`date+time interval<Interval object types>`. It is
@@ -443,7 +443,7 @@ and replaces them with the new values. To modify the settings, retrieve the
 current values, edit them and send an event.
 
 The block supports state persistence. The *persistent* parameter is described
-:ref:`here <Sequential blocks>`. Set to ``True`` to make the internal
+:ref:`here <Sequential blocks>`. Set to :const:`True` to make the internal
 state persistent.
 
 If a saved state exists, it has higher precedence than the arguments.

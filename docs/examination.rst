@@ -23,7 +23,7 @@ Finding blocks
 
   .. versionchanged:: 24.3.4
 
-    The default ``btype`` value changed from ``None`` (meaning ``Block``)
+    The default ``btype`` value changed from :const:`None` (meaning ``Block``)
     directly to ``Block``.
 
 .. method:: Circuit.findblock(name: str) -> Block
@@ -55,19 +55,23 @@ Inspecting SBlocks
 
   .. warning::
   
-    The internal state is usually not defined before a successful initialization. Do not
-    call ``get_state()`` on uninitialized blocks. It may raise or trigger assertion errors.
-    See related :meth:`Block.is_initialized` below and :meth:`Circuit.wait_init`.
+    Do not call ``get_state()`` before the block is fully initialized.
+    The outcome is undefined and the call may raise an exception.
 
   The format and semantics of returned data depends on the block type.
 
 .. method:: Block.is_initialized() -> bool
 
-  Return ``True`` only if the block has been initialized.
+  Return :const:`True` only if the block has been initialized.
 
   This method simply checks if the output is not :const:`UNDEF`
   relying on the fact that sequential block's output is determined
   by its internal state.
+
+  .. warning::
+  
+    During initialization ``is_initialized()`` may return :const:`True`
+    after the output was computed, but before it is actually set.
 
   .. note::
 

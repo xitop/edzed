@@ -60,9 +60,13 @@ def _match_pattern(
     """
     Try to match the string with the pattern.
 
-    Return value has two items:
-        - match found - string with the matched part removed, all match groups in a tuple
-        - no match - unmodified string, None
+    Return a 2-tuple or raise:
+        - match found:
+            return (string with the matched part removed, all match groups in a tuple)
+        - no match, no errmsg:
+            return (unmodified string, None)
+        - no match, errmsg:
+            raise ValueError()
     """
     if not (match := pattern.search(string)):
         if errmsg:

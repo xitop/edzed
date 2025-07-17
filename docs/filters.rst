@@ -19,15 +19,15 @@ List of :ref:`event filters<Event filters>` bundled with ``edzed``.
   allowed combinations. These changes are often called the rising
   or falling edge in logical circuits, hence the name.
 
-  :param bool rise: allow ``False`` -> ``True``
-  :param bool fall: allow ``True`` -> ``False``
-  :param u_rise: allow :const:`UNDEF` -> ``True``,
-    the default argument ``None`` means that *u_rise* is same as *rise*
+  :param bool rise: allow :const:`False` -> :const:`True`
+  :param bool fall: allow :const:`True` -> :const:`False`
+  :param u_rise: allow :const:`UNDEF` -> :const:`True`,
+    the default argument :const:`None` means that *u_rise* is same as *rise*
   :type u_rise: bool or None
-  :param bool u_fall: allow :const:`UNDEF` -> ``False``
+  :param bool u_fall: allow :const:`UNDEF` -> :const:`False`
 
-  Note: :const:`UNDEF` has ``False`` boolean value. That's why *rise* includes
-  :const:`UNDEF` -> ``True``. If this is not desired, use ``rise=True, u_rise=False``
+  Note: :const:`UNDEF` has :const:`False` boolean value. That's why *rise* includes
+  :const:`UNDEF` -> :const:`True`. If this is not desired, use ``rise=True, u_rise=False``
   to filter it out.
 
 .. function:: not_from_undef

@@ -109,7 +109,7 @@ Conversions routines:
 
   This is a convenience function accepting all time period formats used in ``edzed``:
 
-  - ``time_period(None)`` returns ``None``.
+  - ``time_period(None)`` returns :const:`None`.
 
   - ``time_period(number)`` returns the number as :class:`float`. Negative values are converted to ``0.0``.
 

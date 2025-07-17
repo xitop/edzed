@@ -2,7 +2,7 @@
 Tests requiring asyncio and event loop.
 """
 
-# pylint: disable=missing-class-docstring, protected-access
+# pylint: disable=missing-class-docstring, protected-access, unused-argument
 
 import asyncio
 import os
@@ -14,20 +14,15 @@ import pytest
 
 import edzed
 
-# pylint: disable=unused-argument
-# pylint: disable-next=unused-import
-from .utils import fixture_circuit, fixture_task_factories
 from .utils import Noop, timelimit, TimeLogger
 
-
-pytest_plugins = ('pytest_asyncio',)
-pytestmark = pytest.mark.asyncio
+pytestmark = pytest.mark.usefixtures("task_factories")
 
 
 async def test_empty_circuit(circuit):
     """An empty circuit is useless."""
     with pytest.raises(edzed.EdzedCircuitError, match="is empty"):
-        await edzed.run()
+        await asyncio.wait_for(asyncio.create_task(edzed.run()), timeout=1.0)
 
 
 async def test_shutdown(circuit):
@@ -251,14 +246,14 @@ async def test_initialization_order(circuit):
             super().__init__(*args, **kwargs)
             self.inits = []
 
+        def _restore_state(self, state, /):
+            self.inits.append(state)  # state == 'P' as Persistent
+            if hasattr(self, 'x_pers'):
+                self.set_output('out')
+
         async def init_async(self):
             await asyncio.sleep(0)
             self.inits.append('A')  # Async
-
-        def _restore_state(self, state, /):
-            self.inits.append('P')  # Persistent
-            if state == 'ok':
-                self.set_output('out')
 
         def init_regular(self):
             self.inits.append('R')  # Regular
@@ -266,20 +261,22 @@ async def test_initialization_order(circuit):
                 self.set_output('out')
 
         def init_from_value(self, value):
-            self.inits.append('D')  # Default
+            self.inits.append(value)  # initdef == 'D' as Default
             self.set_output('out')
 
-    t1 = Test('block1', persistent=True, initdef='default')
-    t2 = Test('block2', initdef='default')
-    t3 = Test('block3', initdef='default', init_timeout=0.0)
-    t4 = Test('block4', persistent=True, initdef='default', x_regular='xr')
-    circuit.set_persistent_data({t1.key: 1, t2.key: 2})
+    t1 = Test('block1', persistent=True, initdef='D')
+    t2 = Test('block2', initdef='D')
+    t3 = Test('block3', initdef='D', init_timeout=0.0)
+    t4 = Test('block4', persistent=True, initdef='D', x_regular='xr')
+    t5 = Test('block5', persistent=True, initdef='D', x_pers='xp')
+    circuit.set_persistent_data({t1.key: 'P', t2.key: 'P', t5.key: 'P'})
     await edzed.run(circuit.wait_init())
 
     assert t1.inits == ['P', 'A', 'R', 'D'] # all init functions
     assert t2.inits == ['A', 'R', 'D']      # P not enabled
     assert t3.inits == ['R', 'D']           # P not enabled, A disabled by zero timeout
     assert t4.inits == ['A', 'R']           # no P data saved, R succeeds -> no D
+    assert t5.inits == ['P', 'A', 'R']      # P succeeds -> no D
 
 
 async def test_init_event(circuit):

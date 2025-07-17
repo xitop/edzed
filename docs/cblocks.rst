@@ -32,12 +32,12 @@ Only block specific parameters are listed in the signatures. In detail:
   positional and keyword arguments. The return value of *func*
   becomes the block's output.
 
-  When *unpack* is ``False``, all positional argument will be passed
+  When *unpack* is :const:`False`, all positional argument will be passed
   as a single tuple. This allows to directly call many useful
   functions expecting an iterable like :func:`all` and :func:`any`
   (see :func:`And` and :func:`Or` helpers below), :func:`sum`, etc.
   In Python, it represents the difference between ``func(*args)`` when
-  unpack is ``True`` (default) and ``func(args)`` when *unpack* is ``False``.
+  unpack is :const:`True` (default) and ``func(args)`` when *unpack* is :const:`False`.
 
 .. class:: Not(name, **block_kwargs)
 
@@ -46,21 +46,21 @@ Only block specific parameters are listed in the signatures. In detail:
 .. class:: And(name, **block_kwargs)
 
   Logical AND with arbitrary number of unnamed inputs.
-  The output is ``True`` only if all inputs are true.
+  The output is :const:`True` only if all inputs are true.
 
   ``And`` is a subclass of the :class:`FuncBlock` with fixed ``func=all``.
 
 .. class:: Or(name, **block_kwargs)
 
   Logical OR with arbitrary number of unnamed inputs.
-  The output is ``True`` only if at least one input is true.
+  The output is :const:`True` only if at least one input is true.
 
   ``Or`` is a subclass of the :class:`FuncBlock` with fixed ``func=any``.
 
 .. class:: Xor(name, **block_kwargs)
 
   Logical XOR with arbitrary number of unnamed inputs.
-  The output is ``True`` only if an odd number of inputs is true.
+  The output is :const:`True` only if an odd number of inputs is true.
 
   ``Xor`` is a subclass of the :class:`FuncBlock` with fixed custom ``func``.
 
@@ -73,12 +73,12 @@ Only block specific parameters are listed in the signatures. In detail:
   Arguably, such feedback introduces some sort of state, but for practical purposes
   this is a combinational block.
 
-  The output is ``True`` when the input reaches the *high* threshold (``value >= high``)
-  and is ``False`` when the input value drops below the *low* threshold (``value < low``).
+  The output is :const:`True` when the input reaches the *high* threshold (``value >= high``)
+  and is :const:`False` when the input value drops below the *low* threshold (``value < low``).
 
   When started with an input value in the zone between *low* and *high*, the output is set
-  to ``True`` if the input value is closer to *high* than to *low*
-  and ``False`` in the opposite case.
+  to :const:`True` if the input value is closer to *high* than to *low*
+  and :const:`False` in the opposite case.
 
 
 .. class:: Override(name, *, null_value: Any = None, **block_kwargs)

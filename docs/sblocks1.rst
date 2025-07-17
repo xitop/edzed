@@ -25,7 +25,7 @@ List of sequential blocks offered by the ``edzed`` library - first part.
 
 2. all time duration values (timeouts, intervals, etc.) can be given as a number
    of seconds or as a :ref:`string with time units<Time durations with units>`
-   The corresponding type is ``int|float|str`` and if optional, it could be also ``None``.
+   The corresponding type is ``int|float|str`` and if optional, it could be also :const:`None`.
 
 3. all *on_something* parameters expect zero, one or more :ref:`events<Events>`.
    The corresponding type is
@@ -54,18 +54,18 @@ The most common data entry block is the ``Input``.
   An input block with optional value validation.
 
   :param check:
-    A value test function or ``None`` if unused.
+    A value test function or :const:`None` if unused.
     If the function's return value evaluates to true,
     new value is accepted, otherwise it is rejected.
   :type check: Callable[[Any], Any] or None
 
   :param collection allowed:
-    A collection of allowed values or ``None`` if unused. Equivalent to:
+    A collection of allowed values or :const:`None` if unused. Equivalent to:
     ``check=lambda value: value in ALLOWED``
   :type allowed: Collection or None
 
   :param schema:
-    A function possibly modifying (preprocessing) the value or ``None`` if unused.
+    A function possibly modifying (preprocessing) the value or :const:`None` if unused.
     If the function raises, value is rejected,
     otherwise the input is set to the returned value.
     *Schema* is the only validator capable of changing the value.
@@ -79,8 +79,8 @@ The most common data entry block is the ``Input``.
 
   The ``Input`` accepts only ``'put'`` events.
   It stores and outputs the ``'value'`` data item sent with the event
-  provided that it validates successfully. The event returns ``True``
-  if the new value is accepted, ``False`` otherwise.
+  provided that it validates successfully. The event returns :const:`True`
+  if the new value is accepted, :const:`False` otherwise.
 
   You should always validate inputs. It is recommended to use only one validator,
   but any combination of *schema*, *check* and *allowed* is allowed.
@@ -97,7 +97,7 @@ The most common data entry block is the ``Input``.
   :param duration:
     The default duration in seconds before a value expires.
     May be overridden on a per-event basis. The argument
-    may be ``None`` for no default duration. Without a default,
+    may be :const:`None` for no default duration. Without a default,
     every event must explicitly specify the duration.
 
   :type duration: int or float or str or None
@@ -207,7 +207,7 @@ any network communication is a typical example of blocking I/O.
   :param on_success: event(s) to be sent after a successful function call
 
   :param stop_data:
-    event data (a ``{'name': value}`` dictionary) or ``None`` if not used.
+    event data (a ``{'name': value}`` dictionary) or :const:`None` if not used.
     See the "Final state" paragraph below..
   :type stop_data: Mapping[str, Any] or None
 
@@ -241,12 +241,12 @@ any network communication is a typical example of blocking I/O.
     - the ``'put'`` event returns ``('error', <exception>)``
 
   **Final state:**
-  If the *stop_data* is not ``None``, it is used as the event data of a synthetic
+  If the *stop_data* is not :const:`None`, it is used as the event data of a synthetic
   event delivered to the block during the cleanup and processed as the
   last item before stopping. This allows to leave the controlled process
   in a well-defined state.
 
-  **Output:** The output of an OutputFunc block is always ``False``.
+  **Output:** The output of an OutputFunc block is always :const:`False`.
 
 .. class:: OutputAsync(name, *, coro, mode: str, f_args=['value'], f_kwargs=(), guard_time=None, on_success=None, on_cancel=None, on_error, stop_data=None, stop_timeout=None, **block_kwargs)
 
@@ -329,7 +329,7 @@ any network communication is a typical example of blocking I/O.
   sleep after each run of the output task. No output activity can
   happen during the sleep. The purpose is to limit the frequency
   of actions, for instance when controlling a hardware switch.
-  Default value is ``None`` for no guard_time, equivalent to 0.0 seconds.
+  Default value is :const:`None` for no guard_time, equivalent to 0.0 seconds.
   The *guard_time* must not be longer than the *stop_timeout*.
 
   .. note::
@@ -388,7 +388,7 @@ Initialization helper
   That generates an output event too.
 
   If the coroutine fails and the ``initdef`` value is not set, then
-  *no output events* are generated. The output is set to ``None`` only to
+  *no output events* are generated. The output is set to :const:`None` only to
   prevent a circuit failure. The block listed as the event recipient
   must initialize by itself.
 
@@ -471,7 +471,7 @@ Repeat
   The event is sent to the destination block specified by *dest*.
   The received event is re-sent immediately
   and then duplicates are sent in time intervals specified by *interval*.
-  The number of repetitions may be limited with *count*. If not ``None``,
+  The number of repetitions may be limited with *count*. If not :const:`None`,
   the repeating stops after *count* duplicates sent. The original event
   is always re-sent and not counted.
 
@@ -508,8 +508,8 @@ Timer
 
   A timer (:ref:`source <Example (Timer)>`).
 
-  This is an FSM block. The output is ``False`` in state ``'off'`` for time
-  duration *t_off*, then ``True`` in state ``'on'`` for duration *t_on*,
+  This is an FSM block. The output is :const:`False` in state ``'off'`` for time
+  duration *t_off*, then :const:`True` in state ``'on'`` for duration *t_on*,
   and then the cycle repeats.
 
   By default both durations are infinite (timer disabled), i.e. the
@@ -517,7 +517,7 @@ Timer
   If both durations are set, the block is astable.
 
   :param bool restartable:
-    If ``True`` (default), a ``'start'`` event
+    If :const:`True` (default), a ``'start'`` event
     occurring while in the ``'on'`` state restarts the timer
     to measure the ``'t_on'`` time from the beginning. If not
     restartable, the timer will continue to measure the
@@ -578,4 +578,4 @@ Simulator control block
   class provides constructors :meth:`Event.abort` and :meth:`Event.shutdown`
   creating the corresponding events in a convenient way.
 
-  The output value is fixed to ``None``.
+  The output value is fixed to :const:`None`.

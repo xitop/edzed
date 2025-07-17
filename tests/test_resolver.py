@@ -10,10 +10,6 @@ import pytest
 
 import edzed
 
-# pylint: disable-next=unused-import
-from .utils import fixture_circuit, fixture_task_factories
-
-
 def test_resolver_basic(circuit):
     """Test the basic function."""
     tmr = edzed.Timer('tmr_name')

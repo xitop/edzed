@@ -72,7 +72,7 @@ The completed circuit may be explicitly finalized.
 
 .. method:: Circuit.is_finalized() -> bool
 
-   Return ``True`` only if :meth:`finalize` has been called
+   Return :const:`True` only if :meth:`finalize` has been called
    successfully.
 
 
@@ -87,7 +87,7 @@ Skip this step if this feature is not required.
 
   The argument should be a dictionary-like object backed by
   a disk file or similar persistent storage. It may be also
-  ``None`` to leave the feature disabled.
+  :const:`None` to leave the feature disabled.
 
   The Python standard library offers the `shelve module <https://docs.python.org/3/library/shelve.html>`_
   and the corresponding documentation mentions another helpful
@@ -123,7 +123,7 @@ but some applications might prefer the lower-level :meth:`Circuit.run_forever`.
   This allows for a graceful exit. Note that the :func:`run` will return normally
   in this case.
 
-  Normally return ``None`` (in contrast to :meth:`Circuit.run_forever`), but raise
+  Normally return :const:`None` (in contrast to :meth:`Circuit.run_forever`), but raise
   an exception if any of the tasks exits due to an exception other than
   the :exc:`asyncio.CancelledError`. In detail, if the simulation task raises,
   re-raise its exception. Otherwise if any of the supporting tasks raises,
@@ -132,7 +132,10 @@ but some applications might prefer the lower-level :meth:`Circuit.run_forever`.
   .. versionchanged:: 23.8.25
 
     The supporting tasks are started after the simulator.
-    They may assume the simulator is ready to accept events.
+    They may assume the simulator is ready to accept events,
+    but the initialization might be still in progress.
+    If a fully initialized circuit is required, begin the coroutine
+    with :meth:`Circuit.wait_init`.
 
   .. versionchanged:: 24.9.10
 
@@ -198,21 +201,22 @@ Synchronizing with the circuit start stages
 
 .. method:: Circuit.is_ready() -> bool
 
-  Return ``True`` only if the circuit is ready to accept external events.
+  Return :const:`True` only if the circuit is ready to accept external events.
 
   .. note::
 
     Application code rarely needs to call ``is_ready()`` because
     :meth:`ExtEvent.send` does the checking.
 
-  The ``is_ready()`` value changes from ``False`` to ``True`` immediately
+  The ``is_ready()`` value changes from :const:`False` to :const:`True` immediately
   after the simulation start. At this moment the circuit is finalized,
   but the simulation can be still in the initializing phase.
-  The ``is_ready()`` value reverts to ``False`` when the simulation stops.
+  The ``is_ready()`` value reverts to :const:`False` when the simulation stops.
 
 
   Because a started circuit is immediately ready,
   no special synchronization is required, but remember that
+  - unless eager asyncio tasks (Python 3.12+) are used -
   ``asyncio.create_task()`` does not start the new task::
 
     circuit = edzed.get_circuit()
@@ -228,8 +232,7 @@ Synchronizing with the circuit start stages
 
   Wait until a running circuit is fully initialized.
 
-  The simulation task must be started or at least created.
-
+  The simulation task must exist.
   :meth:`wait_init` returns when all blocks are initialized and
   the simulation is running. If this state is not reachable
   (e.g. the simulation task has finished already), :meth:`wait_init` raises
@@ -266,7 +269,7 @@ the task that runs :meth:`Circuit.run_forever`.
 
   - either await :meth:`Circuit.shutdown`
 
-  - or simply terminate the own supporting task, :func:`run` will detect it.
+  - or simply terminate the own supporting task and :func:`run` will detect it.
     The simulation is cancelled when any of the supporting tasks terminates.
 
   In a typical setup for remote monitoring and control, supporting coroutines 
@@ -304,7 +307,7 @@ the task that runs :meth:`Circuit.run_forever`.
 .. attribute:: Circuit.error
   :type: Optional[BaseException]
 
-  The exception that stopped the simulation or ``None`` if the simulation
+  The exception that stopped the simulation or :const:`None` if the simulation
   wasn't stopped yet. This is a read-only attribute.
 
 
@@ -361,7 +364,7 @@ For multiple blocks there is a tool:
 
 .. method:: Circuit.set_debug(value: bool, *args: str|Block|type[Block|Addon]) -> int
 
-  Set the debug flag to given *value* (``True`` or ``False``) for selected blocks.
+  Set the debug flag to given *value* (:const:`True` or :const:`False`) for selected blocks.
 
   Pass one or more arguments to make a selection:
 

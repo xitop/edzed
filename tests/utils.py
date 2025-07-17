@@ -4,14 +4,10 @@ Helpers for unit tests.
 
 import asyncio
 import itertools
-import sys
 import time
-
-import pytest
 
 import edzed
 
-P3_12 = sys.version_info >= (3, 12)
 
 class Noop(edzed.CBlock):
     """
@@ -163,6 +159,11 @@ def init(circ):
     """
     # pylint: disable=protected-access
     # code from Circuit.run_forever()
+    for args in edzed.simulator.envvars.debug_blocks:
+        try:
+            circ.set_debug(*args)
+        except KeyError:
+            pass
     circ._simtask = _FakeSimTask()
     circ.sblock_queue = asyncio.Queue()
     circ._check_persistent_data()
@@ -176,17 +177,7 @@ def init(circ):
             circ.init_sblock(blk, full=True)
             if not blk.is_initialized():
                 raise edzed.EdzedCircuitError(f"{blk}: not initialized")
-
-
-@pytest.fixture(name='circuit')
-def fixture_circuit():
-    """Return a new empty circuit."""
-    edzed.reset_circuit()
-    return edzed.get_circuit()
-
-
-@pytest.fixture(scope="module", params=[False, True], autouse=P3_12)
-async def fixture_task_factories(request):
-    """Run tests twice: with eager tasks off and on."""
-    factory = asyncio.eager_task_factory if request.param else None
-    asyncio.get_running_loop().set_task_factory(factory)
+    if circ.persistent_dict is not None:
+        for blk in circ.getblocks(edzed.AddonPersistence):
+            if blk.sync_state:
+                blk.save_persistent_state()

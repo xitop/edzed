@@ -2,7 +2,7 @@
 Test the 'duration' event data item on FSMs.
 """
 
-# pylint: disable=missing-class-docstring
+# pylint: disable=missing-class-docstring, unused-argument
 
 import asyncio
 
@@ -10,16 +10,11 @@ import pytest
 
 import edzed
 
-# pylint: disable=unused-argument
-# pylint: disable-next=unused-import
-from .utils import fixture_circuit, fixture_task_factories
 from .utils import TimeLogger
 
+pytestmark = pytest.mark.usefixtures("task_factories")
 
-pytest_plugins = ('pytest_asyncio',)
 
-
-@pytest.mark.asyncio
 async def test_duration(circuit):
     """Test variable timer duration."""
     PERIOD = 0.040 # 40 ms = 25 Hz

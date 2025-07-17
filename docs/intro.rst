@@ -255,10 +255,10 @@ It does not allow to pass twice nor to pay twice::
 
 Below is a sample output. We will send some events, observe the responses:
 
-- :meth:`event` responds with ``True`` to accepted events and ``False`` to rejected events
+- :meth:`event` responds with :const:`True` to accepted events and :const:`False` to rejected events
 - if an event is accepted, the state changes between ``'locked'`` and ``'unlocked'``;
-  ignore the ``None`` and ``{}`` in the state for now.
-- the block's output is always ``False``, you may ignore it too
+  ignore the :const:`None` and ``{}`` in the state for now.
+- the block's output is always :const:`False`, you may ignore it too
 
 ::
 

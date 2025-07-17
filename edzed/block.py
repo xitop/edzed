@@ -501,12 +501,30 @@ class SBlock(Block):
         # completed Circuit.init_sblock initialization steps (2 in total)
         # value -1 or -2 means initialization step 1 or 2 respectively is in progress
         self.init_steps_completed = 0
+        self._initial_output: Any = UNDEF
         super().__init__(*args, **kwargs)
 
-    def set_output(self, value: Any) -> None:
-        """Set new output value."""
-        if value is UNDEF:
-            raise ValueError("Output value must not be <UNDEF>")
+    def is_initialized(self) -> bool:
+        """
+        Return True if the output value is not UNDEF.
+
+        During initialization is the block considered as initialized
+        also when the output value is already known even if it
+        hasn't been actually set.
+        """
+        return self._output is not UNDEF or self._initial_output is not UNDEF
+
+    def _set_output(self, value: Any) -> None:
+        """
+        The core of set_output().
+
+        A derived class may override set_output() and may for example
+        alter the output value there.
+
+        The set_first_output() method must call this base function
+        and NOT the overridden one, because the first output value
+        has already passed through the overridden set_output().
+        """
         previous = self._output
         if previous == value:
             if not self._every_output_events:
@@ -520,6 +538,28 @@ class SBlock(Block):
                 event.send(self, trigger='output', previous=previous, value=value)
         for event in self._every_output_events:
             event.send(self, trigger='output', previous=previous, value=value)
+
+    def set_output(self, value: Any) -> None:
+        """
+        Set new output value.
+
+        During initialization only save the value. Initialization code
+        may call set_output() several times, but we want only one
+        output change event.
+        """
+        if value is UNDEF:
+            raise ValueError("Output value must not be <UNDEF>")
+        if self.init_steps_completed != 2:
+            self._initial_output = value
+        else:
+            self._set_output(value)
+
+    def set_first_output(self) -> None:
+        """Called once at initialization end. See set_above()."""
+        assert self.init_steps_completed == 2
+        if self._initial_output is not UNDEF:
+            self._set_output(self._initial_output)
+            self._initial_output = UNDEF
 
     def _event(self, etype: str|EventType, data: Mapping[str, Any]) -> Any:
         """

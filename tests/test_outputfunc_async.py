@@ -1,7 +1,8 @@
 """
 Test the OutputFunc block.
-Part 1/2 - async
 """
+
+# pylint: disable=unused-argument
 
 import asyncio
 
@@ -9,14 +10,9 @@ import pytest
 
 import edzed
 
-# pylint: disable=unused-argument
-# pylint: disable-next=unused-import
-from .utils import fixture_circuit, fixture_task_factories
 from .utils import TimeLogger
 
-
-pytest_plugins = ('pytest_asyncio',)
-pytestmark = pytest.mark.asyncio
+pytestmark = pytest.mark.usefixtures("task_factories")
 
 
 async def output_func(circuit, *, log, v2=2, on_error=None, mstop=True, **kwargs):

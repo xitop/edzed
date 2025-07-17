@@ -2,15 +2,12 @@
 Test basic circuit block functionality.
 """
 
-# pylint: disable=missing-class-docstring, protected-access
+# pylint: disable=missing-class-docstring, protected-access,unused-argument
 
 import pytest
 
 import edzed
 
-# pylint: disable=unused-argument
-# pylint: disable-next=unused-import
-from .utils import fixture_circuit, fixture_task_factories
 from .utils import Noop
 
 
@@ -196,9 +193,10 @@ def test_is_multiple_and_to_tuple():
         to_tuple(0, lambda x: 1/x)
 
 
-# RUNNING THIS TEST MAY AFFECT OTHER TESTS!
+# Until a bugfix, the following three tests must be run in a separate process.
+# Otherwise running these tests MAY AFFECT OTHER TESTS!
 # https://bugs.python.org/issue38085
-# until a bugfix, the following three tests must be run in a separate process
+
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 @pytest.mark.forked
 def test_incorrect_addon1():
@@ -207,6 +205,7 @@ def test_incorrect_addon1():
         class CBlockWithAddon1(edzed.AddonAsync, edzed.CBlock):
             def calc_output(self):    # calc_output is abstract
                 return None
+
 
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 @pytest.mark.forked
@@ -217,6 +216,7 @@ def test_incorrect_addon2():
             def calc_output(self):
                 return None
 
+
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 @pytest.mark.forked
 def test_incorrect_addon3():
@@ -226,7 +226,8 @@ def test_incorrect_addon3():
             def calc_output(self):
                 return None
 
-def test_has_method():
+
+def test_has_method(circuit):
     class Without(edzed.SBlock):
         pass
 

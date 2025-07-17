@@ -69,8 +69,6 @@ module = ["edzed.simulator"]
 disable_error_code = ["attr-defined"]
 
 [tool.pytest.ini_options]
-#uncomment for debugging an issue
-#log_cli = true
 #log_cli_level = "DEBUG"
 asyncio_mode = "auto"
 asyncio_default_test_loop_scope = "module"

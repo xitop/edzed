@@ -17,7 +17,6 @@ import logging
 import operator
 import os
 import signal
-import sys
 import time
 from types import FrameType, SimpleNamespace
 from typing import Any, NoReturn, Optional, overload, TypeVar
@@ -34,7 +33,6 @@ __all__ = ['get_circuit', 'reset_circuit', 'run']
 
 
 _MAX_EVALS_PER_BLOCK = 3    # limit for oscillation/instability detection:
-P3_12 = sys.version_info >= (3, 12)
 
 envvars = SimpleNamespace(
     debug_circuit=False,
@@ -156,21 +154,22 @@ class _BlockResolver:
 BlockType = TypeVar('BlockType', bound=block.Block)
 
 
-async def _test_eager_tasks() -> None:
+def tasks_are_eager() -> bool:
     """
-    Log a note when eager tasks are enabled.
+    Detect if eager tasks are enabled.
 
     Eager tasks (Python 3.12+) change the order of execution.
     The changed order may violate assumptions made in the
     code written before eager tasks were introduced.
     """
+    if not hasattr(asyncio, "eager_task_factory"):
+        return False
     flag = False
     async def test_task() -> None:
         nonlocal flag
         flag = True
     asyncio.create_task(test_task())
-    if flag:
-        _logger.debug("eager asyncio tasks detected")
+    return flag
 
 
 class Circuit:
@@ -494,9 +493,8 @@ class Circuit:
                     blk.init_async(), name=f"edzed: init_async for block {blk.name!r}"),
                 blk.init_timeout
             ) for blk in self.getblocks(addons.AddonAsync)
-            if not blk.is_initialized()
-                and blk.has_method('init_async')
-                and blk.init_timeout > 0.0]
+            if blk.has_method('init_async') and blk.init_timeout > 0.0
+            ]
         if start_tasks:
             self.log_debug("Initializing async sequential blocks")
             await self._run_tasks("async init", start_tasks)
@@ -541,6 +539,7 @@ class Circuit:
                         and blk.initdef is not block.UNDEF):
                     blk.init_from_value(blk.initdef)
                 blk.init_steps_completed = 2
+                blk.set_first_output()
         except Exception as err:
             # add the block name
             add_note(err, f"block: {blk}, initialization error")
@@ -563,7 +562,8 @@ class Circuit:
         # save the internal states after initialization
         if self.persistent_dict is not None:
             for blk in self.getblocks(addons.AddonPersistence):
-                blk.save_persistent_state()
+                if blk.sync_state:
+                    blk.save_persistent_state()
         # clear the queue, the simulator knows that it needs to evaluate everything
         queue = self.sblock_queue
         while not queue.empty():
@@ -580,8 +580,7 @@ class Circuit:
         async_blocks = {
             blk for blk in blocks.intersection(self.getblocks(addons.AddonAsync))
             if blk.has_method('stop_async')
-                and blk.stop_timeout > 0.0} # type: ignore[attr-defined]
-                                            # .stop_async() implies .stop_timeout
+                and blk.stop_timeout > 0.0}
         sync_blocks = blocks.difference(async_blocks)
 
         # 1. async sequential blocks
@@ -598,7 +597,7 @@ class Circuit:
                     blk,
                     asyncio.create_task(
                         blk.stop_async(), name=f"edzed: stop_async for block {blk.name!r}"),
-                    blk.stop_timeout        # type: ignore[attr-defined]
+                    blk.stop_timeout
                 ) for blk in async_blocks]
             self.log_debug("Waiting for async cleanup")
             await self._run_tasks("stop", wait_tasks)
@@ -691,8 +690,8 @@ class Circuit:
             else:
                 msg = "The simulator is already running."
             raise EdzedInvalidState(msg)
-        if self.debug and P3_12:
-            await _test_eager_tasks()
+        if self.debug and tasks_are_eager():
+            _logger.debug("eager asyncio tasks detected")
         self._simtask = asyncio.current_task()
         for args in envvars.debug_blocks:
             try:

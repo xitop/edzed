@@ -35,7 +35,7 @@ Common features
 
   The mandatory argument *name* is block's unique identifier, a non-empty string.
   Names prefixed by an underscore are reserved for automatically created
-  blocks. Enter ``None`` to request a generated name;
+  blocks. Enter :const:`None` to request a generated name;
   use this feature only for auxiliary blocks that you will not need
   to reference by name.
 
@@ -122,7 +122,7 @@ Common features
 .. data:: UNDEF
 
   A constant representing an undefined output. All other output values
-  are valid, including ``None``. It is an error when ``edzed.UNDEF``
+  are valid, including :const:`None`. It is an error when ``edzed.UNDEF``
   value appears on block's output after the circuit initialization.
 
 
@@ -199,7 +199,7 @@ The output of a combinational block depends only on its present input values.
         The value will be automatically wrapped into a :class:`Const`.
 
       It is recommended to use ``Const(value)`` explicitly for all
-      values except the ``None``, ``True``, ``False`` and numbers.
+      values except the :const:`None`, :const:`True`, :const:`False` and numbers.
 
     :meth:`connect` must be called before the circuit initialization
     takes place and may be called only once.
@@ -211,7 +211,7 @@ The output of a combinational block depends only on its present input values.
 Sequential blocks
 =================
 
-.. class:: SBlock(name, *, initdef=edzed.UNDEF, persistent=False, sync_state=True, expiration=None, init_timeout=None, stop_timeout=None, on_every_output=None, **block_kwargs)
+.. class:: SBlock(name, *, initdef=edzed.UNDEF, persistent=False, sync_state=True, expiration=None, init_timeout=10.0, stop_timeout=10.0, on_every_output=None, **block_kwargs)
 
   The base class for all sequential blocks. A subclass of :class:`Block`.
 
@@ -259,40 +259,44 @@ Sequential blocks
       parameters:
 
       - *persistent* (bool):
-          Enable the persistent state. Default is ``False``.
+          Enable the persistent state. Default is :const:`False`.
 
       - *sync_state* (bool):
-          Save the state also after each event. Default is ``True``.
+          Save the state after the block's initialization and after each event.
+          Default is :const:`True` (recommended).
 
       - *expiration* (int or float or str or None):
           Expiration time measured since the program stop. An expired
-          state is disregarded. Expiration value may be ``None``,
+          state is disregarded. Expiration value may be :const:`None`,
           number of seconds, or
           a :ref:`string with time units<Time durations with units>`.
 
-          The *expiration* value defaults to ``None`` which means
+          The *expiration* value defaults to :const:`None` which means
           that the saved state never expires.
 
   - Timeouts for asynchronous initialization and cleanup:
-      Some blocks perform asynchronous operations. These
+      Some blocks perform asynchronous operations. Following
       arguments control the timeouts:
 
-      - *init_timeout* (int or float or str or None):
+      - *init_timeout* (int or float or str):
          initialization timeout in seconds.
          Default timeout is 10 seconds.
          Value 0.0 or negative disables the async initialization.
 
-      - *stop_timeout* (int or float or str or None):
+      - *stop_timeout* (int or float or str):
          cleanup timeout in seconds.
          Default timeout is 10 seconds.
          Value 0.0 or negative disables the async cleanup.
 
       The timeout values must be given as a number of seconds,
-      ``None`` for the default timeout, or
-      a :ref:`string with time units<Time durations with units>`.
+      or as a :ref:`string with time units<Time durations with units>`.
+      It is an error to set these timeouts in blocks that do not
+      perform the corresponding operations.
 
-      The timeouts should be explicitly set. A warning is logged,
-      when the default is used.
+      .. versionchanged:: 25.7.24
+
+        A timeout of :const:`None` (meaning the default timeout value)
+        is now deprecated.
 
 
 Internal state

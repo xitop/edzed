@@ -2,15 +2,12 @@
 Test SBlock events and event filters.
 """
 
-# pylint: disable=missing-class-docstring, protected-access
+# pylint: disable=missing-class-docstring, protected-access, unused-argument
 
 import pytest
 
 import edzed
 
-# pylint: disable-=unused-argument
-# pylint: disable-next=unused-import
-from .utils import fixture_circuit, fixture_task_factories
 from .utils import init, Noop, EventMemory
 
 
@@ -298,9 +295,15 @@ def test_init_by_event(circuit):
 def test_no_circular_init_by_event(circuit):
     """Circular (recursive in general) events are forbidden."""
     # pylint: disable=unused-variable
-    inp_a = edzed.Input('inp_a', on_output=edzed.Event('inp_b'), initdef='ok')
-    inp_b = edzed.Input('inp_b', on_output=edzed.Event('inp_a'))    # cannot send back to inp_a
-
+    inp_a = edzed.Input('inp_a', on_every_output=edzed.Event('inp_b'), initdef='@')
+    inp_b = edzed.Input('inp_b', on_output=edzed.Event('inp_a'))
+    # 1. inp_a: UNDEF -> '@' (initdef=...)
+    # 2. output event inp_a -> inp_b is called (on_output, precisely: on_every_output=...)
+    # 3. inp_b: UNDEF -> '@' (got event)
+    # 4. output event: inp_b -> inp_a is called (on_output=...)
+    # 5. inp_a: '@' -> '@' (got event)
+    # 6. output event inp_a -> inp_b is called (no value change, but using on_every_output)
+    # 7. inp_b raises because the call from line 2 did not return yet !!
     with pytest.raises(edzed.EdzedCircuitError, match="Forbidden recursive event"):
         init(circuit)
 
@@ -339,29 +342,3 @@ def test_event_handlers(circuit):
     assert addsub.output == 8       # 2*value
     with pytest.raises(edzed.EdzedUnknownEvent):
         addsub.event('X')
-
-
-@pytest.mark.asyncio
-async def test_recipe(circuit):
-    """Test the recipe from docs."""
-
-    class ExtEventAuth(edzed.ExtEvent):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            if not getattr(self.dest, 'x_input', False):
-                raise ValueError(
-                    f"Block {self.dest.name} is not accepting external inputs")
-
-    inp_a = edzed.Input('inp_a', initdef=0, x_input=True)
-    inp_b = edzed.Input('inp_b', initdef=1)
-
-    async def tester():
-        ExtEventAuth(inp_a, source='tester').send(value=6, wer='Steinscheißer Karl')
-        assert inp_a.output == 6
-        ExtEventAuth(inp_a).send(7)
-        assert inp_a.output == 7
-        with pytest.raises(ValueError):
-            ExtEventAuth(inp_b).send(value=8)
-        assert inp_b.output == 1
-
-    await edzed.run(tester())

@@ -110,8 +110,8 @@ Avoid any special characters in names, because function names are
 derived from them. States and events form two separate namespaces,
 but using the same name for both is discouraged.
 
-The :meth:`FSM.event` method returns ``True`` for accepted FSM events
-and ``False`` for rejected FSM events.
+The :meth:`FSM.event` method returns :const:`True` for accepted FSM events
+and :const:`False` for rejected FSM events.
 
 .. attribute:: FSM.STATES
   :type: Sequence[str]
@@ -148,8 +148,8 @@ and ``False`` for rejected FSM events.
     - a string containing one or more states. Multiple states must be separated
       by ``'|'`` (vertical bar); whitespace may be added for readability.
     - a sequence of states (strings)
-    - ``None`` as a special value for any state.
-      An entry with ``None`` has lower precedence than
+    - :const:`None` as a special value for any state.
+      An entry with :const:`None` has lower precedence than
       an entry with explicitly listed states.
 
     .. versionadded:: 23.2.14  Added the "union" syntax: ``'state1 | state2 | ...'``
@@ -157,7 +157,7 @@ and ``False`` for rejected FSM events.
   - *next_state* must be:
 
     - a single state (string), or
-    - ``None`` to make a transition explicitly disallowed.
+    - :const:`None` to make a transition explicitly disallowed.
 
   Examples of ``EVENTS`` entries::
 
@@ -225,7 +225,7 @@ and ``False`` for rejected FSM events.
     - number of seconds (int, float), negative values are replaced with 0.0
     - a :ref:`string with time units<Time durations with units>`
     - :const:`INF_TIME`
-    - ``None``, i.e. the duration is not set here
+    - :const:`None`, i.e. the duration is not set here
       and must be obtained from other source
 
 .. data:: INF_TIME
@@ -393,7 +393,7 @@ Additional internal state data
   Note that the underlying persistent data storage must be able to serialize
   the data types used in the ``FSM.sdata``.
 
-In the following example, the output is ``True`` between the ``start`` and ``stop``
+In the following example, the output is :const:`True` between the ``start`` and ``stop``
 events and also during the following after-run period. The after-run duration is
 calculated as a percentage of the regular run duration. The :attr:`FSM.sdata` is used
 to hold the timestamp necessary for the calculation::

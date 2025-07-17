@@ -227,7 +227,7 @@ has fired is to add an *on_TRIGGER* keyword argument::
 
   A helper supporting multiple ways to specify event(s).
 
-  Convert ``None``, a single :class:`Event` object or a sequence of :class:`Event`
+  Convert :const:`None`, a single :class:`Event` object or a sequence of :class:`Event`
   objects to a tuple with zero, one or more events.
 
   .. versionchanged:: 23.2.14
@@ -239,7 +239,7 @@ has fired is to add an *on_TRIGGER* keyword argument::
 
   Apply filters, add source item to the data and send this event.
 
-  Return ``True`` if the event was sent, ``False`` if rejected by a filter.
+  Return :const:`True` if the event was sent, :const:`False` if rejected by a filter.
   The return value may be important as a response to external events,
   but the internal block-to-block events are one-way communication and the
   return value from the :meth:`SBlock.event` is disregarded by sender blocks.
@@ -393,7 +393,7 @@ Async add-on
     or to the exception message (``Exception.args[0]`` if it is a string)
     for better problem identification.
 
-    Coroutines marked as services (*is_service*  is ``True``) are supposed
+    Coroutines marked as services (*is_service*  is :const:`True`) are supposed
     to run until cancelled - even a normal exit is treated as an error.
 
     Extra keyword arguments *\*\*task_kwargs* are passed to the :func:`asyncio.create_task`;

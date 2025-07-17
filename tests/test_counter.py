@@ -6,8 +6,6 @@ import collections
 
 import edzed
 
-# pylint: disable-next=unused-import
-from .utils import fixture_circuit, fixture_task_factories
 from .utils import init
 
 

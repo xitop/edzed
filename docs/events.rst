@@ -55,8 +55,8 @@ It's the conditional event simplifying the block-to-block event delivery:
     etype = etrue if value else efalse
 
   where the ``value`` is taken from the event data item ``'value'``.
-  Missing ``value`` is evaluated as ``False``, i.e. ``efalse`` is selected.
-  ``None`` as *etrue* or *efalse* means no event in that case.
+  Missing ``value`` is evaluated as :const:`False`, i.e. ``efalse`` is selected.
+  :const:`None` as *etrue* or *efalse* means no event in that case.
 
 
 Event data format
@@ -159,7 +159,7 @@ also on certain internal state changes.
 By convention all parameters instructing a block to send events in certain
 situations have names starting with an ``"on_"`` prefix and they accept:
 
-- ``None`` meaning no event; an empty list or tuple has the same effect, or
+- :const:`None` meaning no event; an empty list or tuple has the same effect, or
 -  a single :class:`Event` object, or
 -  multiple (zero or more) :class:`Event` objects given as a sequence (tuple, list, ...)
    of single events.
@@ -197,7 +197,7 @@ Output events
 -------------
 
 There are two ways of specifying output events. The most common option *on_output*
-is supported by all blocks. The specialized *on_every_output* is available to
+is supported by all blocks. The specialized *on_every_output* is available on
 sequential blocks only.
 
 - events defined with the *on_output* parameter:
@@ -213,10 +213,18 @@ sequential blocks only.
 
 In both cases the generated events are sent with these data items:
 
-- ``'previous'``: previous value (:const:`UNDEF` on first change after initialization)
+- ``'previous'``: previous value (:const:`UNDEF` on the very first change)
 - ``'value'``: current output value
 - ``'source'``: sender's block name (string, added automatically)
 - ``'trigger'``: ``'output'`` (corresponds with ``'on_output'``)
+
+.. versionchanged:: 25.7.24
+
+  Block's initialization may consist of several steps and each of them
+  may set the output. Those changes are now aggregated into a single
+  output change from :const:`UNDEF` to the final value. This applies
+  also to *on_every_output*.
+
 
 Event objects
 -------------
@@ -236,7 +244,7 @@ Event objects
   :ref:`Event filters` are functions (*callables* to be exact) documented below.
   The *efilter* argument may be:
 
-  - ``None`` meaning no filters (an empty list or tuple has the same effect), or
+  - :const:`None` meaning no filters (an empty list or tuple has the same effect), or
   - a single function, or
   - a tuple, list or other sequence of functions.
 
@@ -303,7 +311,7 @@ as its sole argument.
 
 - If the function returns anything else than a dict instance,
   the event will be accepted or rejected depending on the boolean value
-  of the returned value (true = accept, false (e.g. ``False`` or ``None``) = reject).
+  of the returned value (true = accept, false (e.g. :const:`False` or :const:`None`) = reject).
 
 Event filters may modify the event data in-place.
 

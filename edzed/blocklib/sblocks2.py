@@ -70,7 +70,7 @@ class Input(_Validation, addons.AddonPersistence, block.SBlock):
             self._validate(self.initdef)
 
     def init_from_value(self, value: Any) -> None:
-        self.event('put', value=value)
+        self._event_put(value=value)
 
     def _event_put(self, *, value: Any, **_data) -> bool:
         try:

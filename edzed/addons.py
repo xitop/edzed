@@ -16,6 +16,7 @@ import asyncio
 from collections.abc import Coroutine
 import time
 from typing import Any, Optional, TYPE_CHECKING
+import warnings
 
 from . import block
 from .exceptions import add_note, EdzedCircuitError, EdzedInvalidState
@@ -149,25 +150,26 @@ class AddonAsync(Addon):
         """
         self.init_timeout: float
         self.stop_timeout: float
-        init = self.has_method('init_async')
-        if init:
-            self.init_timeout = utils.time_period(kwargs.pop('init_timeout', None))
-        elif 'init_timeout' in kwargs:
-            raise TypeError(
-                "'init_timeout' argument rejected, because init_async() method is missing")
-        stop = self.has_method('stop_async')
-        if stop:
-            self.stop_timeout = utils.time_period(kwargs.pop('stop_timeout', None))
-        elif 'stop_timeout' in kwargs:
-            raise TypeError(
-                "'stop_timeout' argument rejected, because stop_async() method is missing")
+        if init := self.has_method('init_async'):
+            self.init_timeout = utils.time_period(
+                kwargs.pop('init_timeout', DEFAULT_INIT_TIMEOUT))
+        if stop := self.has_method('stop_async'):
+            self.stop_timeout = utils.time_period(
+                kwargs.pop('stop_timeout', DEFAULT_STOP_TIMEOUT))
         super().__init__(*args, **kwargs)
-        # cannot use self.log before Block.__init__()
+        # Block.__init__() will raise if it finds 'init_timeout' or 'stop_timeout' in kwargs
+        # cannot use self.name before Block.__init__()
         if init and self.init_timeout is None:
-            self.log_debug("init_timeout not set, default is %.3fs", DEFAULT_INIT_TIMEOUT)
+            warnings.warn(
+                f"{self.name}: 'init_timeout=None' is deprecated. Use an explicit value.",
+                DeprecationWarning,
+                stacklevel=3)
             self.init_timeout = DEFAULT_INIT_TIMEOUT
         if stop and self.stop_timeout is None:
-            self.log_debug("stop_timeout not set, default is %.3fs", DEFAULT_STOP_TIMEOUT)
+            warnings.warn(
+                f"{self.name}: 'stop_timeout=None' is deprecated. Use an explicit value.",
+                DeprecationWarning,
+                stacklevel=3)
             self.stop_timeout = DEFAULT_STOP_TIMEOUT
 
     async def _task_monitor(self, coro: Coroutine, is_service: bool = False) -> Any:

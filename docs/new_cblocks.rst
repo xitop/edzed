@@ -76,9 +76,9 @@ An input signature is a dict with the following key:value structure:
 - key = the input name (string)
     The reserved group name ``'_'`` represents the group of unnamed inputs, if any.
 
-- value = ``None`` or integer:
+- value = :const:`None` or integer:
 
-  - ``None`` - if the input is a single input
+  - :const:`None` - if the input is a single input
   - the number of inputs in a group - if the input is a group
 
 .. method:: CBlock.input_signature() -> dict[str, None|int]
@@ -106,8 +106,8 @@ An input signature is a dict with the following key:value structure:
 
   In order to support variable input group sizes, the expected
   size may be given also as a range of valid values using
-  a sequence of two values ``[min, max]`` where ``max`` may be ``None``
-  for no maximum. ``min`` may be also ``None`` for no minimum, but
+  a sequence of two values ``[min, max]`` where ``max`` may be :const:`None`
+  for no maximum. ``min`` may be also :const:`None` for no minimum, but
   zero - the lowest possible input count - has the same effect.
 
   Examples of *esig* items::

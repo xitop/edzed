@@ -2,7 +2,7 @@
 Test the persistent state.
 """
 
-# pylint: disable=missing-class-docstring
+# pylint: disable=missing-class-docstring, unused-argument
 
 import time
 
@@ -10,9 +10,6 @@ import pytest
 
 import edzed
 
-# pylint: disable=unused-argument
-# pylint: disable-next=unused-import
-from .utils import fixture_circuit, fixture_task_factories
 from .utils import init
 
 
@@ -25,8 +22,8 @@ def test_keys(circuit):
 def test_save_state_sync(circuit):
     """By default the state is saved after each event (sync_state=True)."""
     storage = {}
-    inp = edzed.Input('ipers', initdef=99, persistent=True)
     circuit.set_persistent_data(storage)
+    inp = edzed.Input('ipers', initdef=99, persistent=True)
     init(circuit)
 
     assert inp.output == 99

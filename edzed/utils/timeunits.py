@@ -109,9 +109,7 @@ def timestr_approx(seconds: float, sep: str = '') -> str:
 
 _NUM = r'(\d+(?:[.,]\d+)?)'   # a match group for a number with optional fractional part
 _RE_DURATION = re.compile(rf"""
-    \s*
-    (?:{_NUM}\s*d)?  \s*  (?:{_NUM}\s*h)?  \s*
-    (?:{_NUM}\s*m)?  \s*  (?:{_NUM}\s*s?)?  \s*
+    \s* (?:{_NUM}\s*d)? \s* (?:{_NUM}\s*h)? \s* (?:{_NUM}\s*m)? \s* (?:{_NUM}\s*s?)? \s*
     """, flags = re.ASCII | re.IGNORECASE | re.VERBOSE)
 _RE_ISO_DURATION = re.compile(rf"""
     \s*

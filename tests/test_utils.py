@@ -2,6 +2,8 @@
 Test internal utilities and also modules from edzed.utils
 """
 
+# pylint: disable=unused-argument
+
 import time
 
 import pytest
@@ -10,10 +12,7 @@ from edzed import utils
 from edzed.blocklib.sblocks2 import _args_as_string
 from edzed.simulator import _str_to_bool
 
-# note the difference: we are using 'edzed.test.utils' and we are testing 'edzet.utils'
-# pylint: disable=unused-argument
-# pylint: disable-next=unused-import
-from .utils import fixture_circuit, fixture_task_factories
+# note the difference: we are using 'edzed.test.utils' and we are testing 'edzed.utils'
 from .utils import compare_logs, init, TimeLogger
 
 
@@ -109,7 +108,7 @@ def test_timeunits():
 
     for duration in [
             '', '1 0 0s', 'hello', '15m1h', '.', '0..1s', '5e-2', '0.5h0.5m'
-            'PT', 'P0s', 'P1Y', 'P1M'
+            'P', 'PT', 'P0s', 'P1Y', 'P1M', 'PT0M0H'
             ]:
         with pytest.raises(ValueError):
             convert(duration)

@@ -2,7 +2,7 @@
 Test asyncio related helpers.
 """
 
-# pylint: disable=missing-class-docstring, protected-access
+# pylint: disable=missing-class-docstring, protected-access, unused-argument
 
 import asyncio
 
@@ -11,14 +11,9 @@ import pytest
 import edzed
 from edzed.utils import shield_cancel
 
-# pylint: disable=unused-argument
-# pylint: disable-next=unused-import
-from .utils import fixture_circuit, fixture_task_factories
 from .utils import Noop, TimeLogger
 
-
-pytest_plugins = ('pytest_asyncio',)
-pytestmark = pytest.mark.asyncio
+pytestmark = pytest.mark.usefixtures("task_factories")
 
 
 async def test_shield():
@@ -76,13 +71,14 @@ async def test_init_timeout_acceptance(circuit):
         async def stop_async(self):
             pass
 
-    with pytest.raises(TypeError, match="init_async"):
-        Incomplete('test1', init_timeout=3)
-    with pytest.raises(TypeError, match="stop_async"):
-        Incomplete('test2', stop_timeout=3)
+    with pytest.raises(TypeError, match="'init_timeout' is an invalid keyword argument"):
+        Incomplete('test1', init_timeout=1)
+    with pytest.raises(TypeError, match="'stop_timeout' is an invalid keyword argument"):
+        Incomplete('test2', stop_timeout=2)
 
     Complete('test3', init_timeout=3)
-    Complete('test4', stop_timeout=3)
+    Complete('test4', stop_timeout=4)
+    Complete('test5', init_timeout=5, stop_timeout=5)
 
 
 async def test_maintask(circuit):

@@ -1,15 +1,12 @@
 """
 Test the OutputFunc block.
-Part 2/2 - non-async
 """
+
+# pylint: disable=unused-argument
 
 import pytest
 
 import edzed
-
-# pylint: disable=unused-argument
-# pylint: disable-next=unused-import
-from .utils import fixture_circuit, fixture_task_factories
 
 
 def test_argument_checks(circuit):

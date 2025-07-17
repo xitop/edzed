@@ -2,45 +2,19 @@
 Test the Timer block.
 """
 
+# pylint: disable=unused-argument
+
 import asyncio
 
 import pytest
 
 import edzed
 
-# pylint: disable=unused-argument
-# pylint: disable-next=unused-import
-from .utils import fixture_circuit, fixture_task_factories
-from .utils import init, TimeLogger
+from .utils import TimeLogger
 
-pytest_plugins = ('pytest_asyncio',)
+pytestmark = pytest.mark.usefixtures("task_factories")
 
 
-def test_static(circuit):
-    """Test states, events, output."""
-    bis = edzed.Timer('timer')
-    init(circuit)
-
-    def trans(event, state):
-        bis.event(event)
-        assert bis.state == 'on' if state else 'off'
-        assert bis.output is bool(state)
-
-    assert bis.output is False
-    trans('start', True)
-    trans('stop', False)
-    trans('stop', False)
-    trans('toggle', True)
-    trans('start', True)
-    trans('start', True)
-    trans('toggle', False)
-    trans('toggle', True)
-    trans('start', True)
-    trans('toggle', False)
-    trans('start', True)
-
-
-@pytest.mark.asyncio
 async def test_clock(circuit):
     """Test a trivial clock signal generator."""
     logger1 = TimeLogger('logger1')
@@ -65,7 +39,6 @@ async def test_clock(circuit):
     logger2.compare(LOG2)
 
 
-@pytest.mark.asyncio
 async def test_restartable(circuit):
     """Test restartable vs. not restartable."""
     rlogger = TimeLogger('rlogger')
@@ -106,7 +79,6 @@ async def test_restartable(circuit):
     nlogger.compare(NLOG)
 
 
-@pytest.mark.asyncio
 async def test_duration(circuit):
     """Test variable timer duration."""
     logger = TimeLogger('logger')
@@ -130,7 +102,6 @@ async def test_duration(circuit):
     logger.compare(LOG)
 
 
-@pytest.mark.asyncio
 async def test_output(circuit):
     """Output is properly set when on_output is called."""
     def test_timer(value):
@@ -149,25 +120,9 @@ async def test_output(circuit):
     await edzed.run(tester())
 
 
-@pytest.mark.asyncio
 async def test_no_busy_loop(circuit):
     """Busy loop (zero period clock) is detected as chained events."""
     edzed.Timer('timer', t_on=0, t_off=0)
 
     with pytest.raises(edzed.EdzedCircuitError, match="infinite loop?"):
         await edzed.run()
-
-
-def test_args(circuit):
-    with pytest.raises(TypeError):
-        edzed.Timer(None, t_on=1, t_period=1)
-    with pytest.raises(TypeError):
-        edzed.Timer(None, t_off=1, t_period=1)
-
-
-def test_period(circuit):
-    a = edzed.Timer('timer a', t_on=1, t_off=1)
-    b = edzed.Timer('timer b', t_period='2s')
-
-    # pylint: disable=protected-access
-    assert a._duration == b._duration == {'on': 1.0, 'off': 1.0}

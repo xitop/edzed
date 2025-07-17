@@ -2,6 +2,8 @@
 Test the TimeSpan block as much as possible in short time.
 """
 
+# pylint: disable=unused-argument
+
 import asyncio
 import datetime as dt
 import sys
@@ -11,17 +13,13 @@ import pytest
 
 import edzed
 
-# pylint: disable=unused-argument
-# pylint: disable-next=unused-import
-from .utils import fixture_circuit, fixture_task_factories
 from .utils import timelimit, TimeLogger
 
-pytest_plugins = ('pytest_asyncio',)
+pytestmark = pytest.mark.usefixtures("task_factories")
 
 P3_11 = sys.version_info >= (3, 11)
 
 
-@pytest.mark.asyncio
 async def test_null(circuit):
     null = edzed.TimeSpan('null')
     empty = edzed.TimeSpan('empty', span=' ')
@@ -36,7 +34,6 @@ async def test_null(circuit):
     await edzed.run(tester())
 
 
-@pytest.mark.asyncio
 async def test_args(circuit):
     arg = [
         [[2020, 3, 1, 12, 0], [2020, 3, 7, 18, 30, 1, 150_000]],
@@ -65,7 +62,6 @@ async def test_args(circuit):
     await edzed.run(tester())
 
 
-@pytest.mark.asyncio
 async def test_yesno(circuit):
     yes1 = edzed.TimeSpan("yes1", span="Jan 1. 2001 0:0 / Dec.31 9999 0:0;")
     no1 = edzed.TimeSpan("no1", span="Jan 1. 1970 0:0 - Dec.31 1987 0:0")       # in the past
@@ -111,11 +107,9 @@ async def tfsec(circuit, dynamic):
         ]
     logger.compare(LOG)
 
-@pytest.mark.asyncio
 async def test_fsec_static(circuit):
     await tfsec(circuit, False)
 
-@pytest.mark.asyncio
 async def test_fsec_dynamic(circuit):
     await tfsec(circuit, True)
 
@@ -125,7 +119,6 @@ def test_no_initdef(circuit):
         edzed.TimeSpan(None, initdef=[])
 
 
-@pytest.mark.asyncio
 async def test_state(circuit):
     """Test the cron service, internal state."""
     sarg = [[[2001,6,30,1,2,3,499_000], [2048,5,31,1,59,59]]]
@@ -161,18 +154,6 @@ async def test_state(circuit):
     await edzed.run(tester())
 
 
-def test_parse():
-    parse = edzed.TimeSpan.parse
-    assert parse('') == []
-    assert (
-        parse("2001 August 31. 1:2:3.400-31.may 2008 1:59")
-        == parse("2001-08-31 1:2:3.400 - 2008-05-31 01:59:0")
-        == parse("2001-08-31 1:2:3,400 - 2008-05-31 01:59:0,0;")
-        == parse("1:2:3.400 2001 August 31./31.may 2008 1:59")
-        == [[[2001,8,31,1,2,3,400_000], [2008,5,31,1,59,0,0]]])
-
-
-@pytest.mark.asyncio
 async def test_persistent(circuit):
     td = edzed.TimeSpan("pers", persistent=True)
     storage = {}

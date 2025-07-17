@@ -3,15 +3,12 @@ Test FSM blocks.
 """
 
 # pylint: disable=missing-class-docstring, protected-access
-# pylint: disable=unused-variable
+# pylint: disable=unused-variable, unused-argument
 
 import pytest
 
 import edzed
 
-# pylint: disable=unused-argument
-# pylint: disable-next=unused-import
-from .utils import fixture_circuit, fixture_task_factories
 from .utils import init, EventMemory
 
 

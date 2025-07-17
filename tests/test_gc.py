@@ -2,8 +2,6 @@
 Test the reference cycle detection (EXPERIMENTAL)
 """
 
-# xpylint: disable=missing-docstring, unused-variable
-
 import gc
 
 from .utils_gc import gc_exceptions
