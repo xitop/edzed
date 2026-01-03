@@ -91,7 +91,8 @@ Skip this step if this feature is not required.
 
   The Python standard library offers the `shelve module <https://docs.python.org/3/library/shelve.html>`_
   and the corresponding documentation mentions another helpful
-  `recipe <https://code.activestate.com/recipes/576642/>`_.
+  `recipe <https://code.activestate.com/recipes/576642-persistent-dict-with-multiple-standard-file-format/>`_.
+
 
   The persistent data storage must be set before the simulation starts.
 
@@ -128,20 +129,6 @@ but some applications might prefer the lower-level :meth:`Circuit.run_forever`.
   the :exc:`asyncio.CancelledError`. In detail, if the simulation task raises,
   re-raise its exception. Otherwise if any of the supporting tasks raises,
   re-raise its exception.
-
-  .. versionchanged:: 23.8.25
-
-    The supporting tasks are started after the simulator.
-    They may assume the simulator is ready to accept events,
-    but the initialization might be still in progress.
-    If a fully initialized circuit is required, begin the coroutine
-    with :meth:`Circuit.wait_init`.
-
-  .. versionchanged:: 24.9.10
-
-    Exceptions in supporting tasks are no longer wrapped into a :exc:`RuntimeError`
-    with the original exception chained, but are re-raised directly with an added
-    note identifying the failed task.
 
   .. note::
 

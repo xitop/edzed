@@ -293,11 +293,6 @@ Sequential blocks
       It is an error to set these timeouts in blocks that do not
       perform the corresponding operations.
 
-      .. versionchanged:: 25.7.24
-
-        A timeout of :const:`None` (meaning the default timeout value)
-        is now deprecated.
-
 
 Internal state
 --------------

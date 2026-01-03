@@ -2,6 +2,11 @@ a:link {
   text-decoration: dotted underline;
 }
 
+div.attention {
+  background-color: #fccad0;
+  border: 1px solid #eee;
+}
+
 div.important {
   background-color: #fcfaf0;
   border: 1px solid #eee;

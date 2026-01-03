@@ -18,6 +18,13 @@ and ``pytest-forked`` plugins.
 Installing
 ==========
 
+.. attention::
+
+  This software has got a replacement. Read the full announcement
+  :ref:`here <Edzed>`.
+
+----
+
 We recommend using a virtual environment. If you don't want a virtual
 environment, consider an installation to user's local directory with
 the ``--user`` option.

@@ -333,7 +333,7 @@ class _Interval(Generic[DateTimeType]):
                 # undocumented for sequences, only for strings
                 endpoint = self._convert(rng[0], convert_str, convert_seq)
                 return (endpoint, endpoint)
-            raise ValueError("A range cannot have {length} endpoints: {rng}")
+            raise ValueError(f"A range cannot have {length} endpoints: {rng}")
         raise TypeError(f"Invalid range {rng!r}")
 
     def range_endpoints(self) -> set[DateTimeType]:

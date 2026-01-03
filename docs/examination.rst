@@ -21,11 +21,6 @@ Finding blocks
   a ``if blk in getblocks(btype):`` test, but if the result is going to be
   stored for later use, it should be converted to a list or a set.
 
-  .. versionchanged:: 24.3.4
-
-    The default ``btype`` value changed from :const:`None` (meaning ``Block``)
-    directly to ``Block``.
-
 .. method:: Circuit.findblock(name: str) -> Block
 
   Get block by name. Raise a :exc:`KeyError` when not found.

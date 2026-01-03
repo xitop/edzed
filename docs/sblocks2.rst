@@ -45,8 +45,6 @@ up to the whole interval definition.
   after a decimal point or a decimal comma.
   The day starts and also ends at midnight ``'0:0:0'``.
 
-  .. versionadded:: 24.3.4 fractional seconds
-
 - date within a year (e.g. ``'April 1'`` or ``'1.apr'``)
 
   The date is defined as a day and a month in any order.
@@ -101,8 +99,6 @@ Extra whitespace is ignored.
   `Python documentation with examples
   <https://docs.python.org/3/library/datetime.html#datetime.datetime.fromisoformat>`__
 
-.. versionadded:: 24.3.4
-
 
 1C. Date and time as sequences of integers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -121,8 +117,6 @@ Extra whitespace is ignored.
   Seven integers define a full date and time. The last two values are optional
   and default to zero:
   ``(year, month, date, hour, minute, second=0, microsecond=0)``
-
-.. versionadded:: 24.3.4 microseconds
 
 
 2. Ranges (sub-intervals)
@@ -156,8 +150,6 @@ Range strings are created by joining the endpoints with a separator:
 
 The separator is either a hyphen ``'-'`` or a forward slash ``'/'``.
 
-.. versionadded:: 24.3.4 the slash separator
-
 **Special case:** for readability sake, a one-day range like ``"Feb 5 - Feb 5"`` can be written
 as ``"Feb 5"``.
 
@@ -187,8 +179,6 @@ of delimiters can be used in a single interval string.
 The delimiter may be used also as a terminator.
 
   interval = "<range1> <delimiter> <range2> <delimiter> ... <rangeN> <delimiter>"
-
-.. versionadded:: 24.3.4 semicolon delimiter, trailing delimiter
 
 **Best practices for string intervals**
 
@@ -323,7 +313,7 @@ Periodic events
             - :func:`time.strftime` (directive ``"%w"``): 0 (Sunday) to 6 (Saturday)
             - :meth:`datetime.date.isoweekday`: 1 (Monday) to 7 (Sunday)
 
-          - not compatible with ``edzed`` (add/substract 1 to adjust):
+          - not compatible with ``edzed`` (add/subtract 1 to adjust):
 
             - :meth:`datetime.date.weekday` and :data:`time.struct_time.wday`: 0 (Monday) to 6 (Sunday)
 

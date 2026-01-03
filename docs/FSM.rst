@@ -152,8 +152,6 @@ and :const:`False` for rejected FSM events.
       An entry with :const:`None` has lower precedence than
       an entry with explicitly listed states.
 
-    .. versionadded:: 23.2.14  Added the "union" syntax: ``'state1 | state2 | ...'``
-
   - *next_state* must be:
 
     - a single state (string), or

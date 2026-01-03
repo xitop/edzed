@@ -92,7 +92,7 @@ class Cron(addons.AddonMainTask, block.SBlock):
         Don't forget to reload() cron after the last change.
         """
         if not hasattr(blk, 'recalc'):
-            raise TypeError("{blk} is not compatible with the cron service")
+            raise TypeError(f"{blk} is not compatible with the cron service")
         time_of_day = self._check_tz(time_of_day)
         if time_of_day in self._alarms:
             self._alarms[time_of_day].add(blk)
@@ -212,7 +212,7 @@ class Cron(addons.AddonMainTask, block.SBlock):
                         and abs(diff - SEC_PER_HOUR) <= _TT_ERROR
                         ):
                     self.log_warning("Apparently a DST (summer time) clock change has occured.")
-                self.log_warning("Reset_flagting due to a time tracking problem.")
+                self.log_warning("Resetting due to a time tracking problem.")
                 for blk in set.union(*self._alarms.values()):    # all blocks
                     assert hasattr(blk, 'recalc')
                     blk.recalc(nowdt)

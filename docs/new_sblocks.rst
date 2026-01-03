@@ -109,13 +109,6 @@ in the :meth:`SBlock.event` method.
     is raised during the event handling, the simulation will be aborted even if
     the caller catches the exception with a ``try-except`` construct.
 
-  .. versionchanged:: 23.8.25
-
-    This method used to be an event entry point also for external events,
-    but now is ``SBlock.event()`` considered for internal use only.
-    Application code should not call it directly. To forward
-    an external event, :meth:`ExtEvent.send` should be used instead.
-
 
 Event handlers
 --------------
@@ -230,10 +223,6 @@ has fired is to add an *on_TRIGGER* keyword argument::
   Convert :const:`None`, a single :class:`Event` object or a sequence of :class:`Event`
   objects to a tuple with zero, one or more events.
 
-  .. versionchanged:: 23.2.14
-
-    Using an iterator to specify multiple events is deprecated.
-    Use a tuple or a list instead.
 
 .. method:: Event.send(source: Block, /, **data) -> bool
 
@@ -467,17 +456,7 @@ Main task add-on
   All keyword arguments starting with ``"task_"`` are passed to :func:`asyncio.create_task`
   with the ``"task_"`` prefix removed. Example ``"task_name="data acquisition task"``.
 
-  .. versionadded:: 25.7.10
-    *\*\*task_kwargs*
-    (the illustrative signature in the heading is not syntactically correct)
-
-  .. versionchanged:: 25.7.10
-  
-    The main task is now started after the circuit initialization finishes.
-    See :meth:`Circuit.wait_init` for details. **Exception**: when combined
-    with :class:`AddonAsyncInit`, the main task is started immediately.
-    Inherit from :class:`AddonAsyncInit` if your block begins to fail with
-    "not initialized" error after upgrade.
+  Note: the illustrative signature in the heading is not syntactically correct.
 
 .. method:: AddonMainTask._maintask()
   :abstractmethod:
@@ -518,7 +497,7 @@ application needs to support both cases. Following functions may be affected:
 
 These measures can be taken if necessary:
 
-- Python 3.14 (to be released in October 2025) will add a new option
+- Python 3.14 added a new option
   *eager_start* that you can add to *task_kwargs* in and :class:`AddonMainTask`
   (as *task_eager_start* in the latter case) and thus override the default
   task factory setting.

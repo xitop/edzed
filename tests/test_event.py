@@ -130,7 +130,7 @@ def test_send(circuit):
 
 
 def test_any_name(circuit):
-    """No reserved names (workaround for a limitation of Python < 3.8 was required)."""
+    """No reserved names."""
     dest = EventMemory('dest')
     event = edzed.Event(dest, 'msg')
     src = Noop('mysrc', comment="fake event source")

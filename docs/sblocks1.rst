@@ -457,7 +457,7 @@ Repeat
      for the given destination, an explicitly created ``Repeat`` block
      is necessary.
 
-  The Event block is intended mainly to repeat output events and thus minimize
+  The Repeat block is intended mainly to repeat output events and thus minimize
   the chance that some connected device will fail to act due to temporary
   communication problems. The key requirement is that repeating must not
   change the outcome, i.e. multiple invocations produce the same effect
@@ -554,8 +554,6 @@ Timer
   .. hint::
     A conditional event :class:`EventCond`\ ``('start', 'stop')``
     is often used for ``Timer`` control.
-
-  .. versionadded:: 22.12.4 *t_period*
 
 
 Simulator control block

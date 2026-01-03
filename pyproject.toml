@@ -11,10 +11,10 @@ readme = {file = 'README.md', content-type = 'text/markdown'}
 requires-python = '>=3.9'
 dependencies = []
 classifiers = [
-    'Development Status :: 5 - Production/Stable',
-    'Intended Audience :: Developers',
-    'Topic :: Software Development :: Libraries :: Python Modules',
-    'Programming Language :: Python :: 3',
+	'Development Status :: 6 - Mature',
+	'Intended Audience :: Developers',
+	'Topic :: Software Development :: Libraries :: Python Modules',
+	'Programming Language :: Python :: 3',
 	]
 
 [project.urls]
@@ -26,13 +26,12 @@ documentation = 'https://edzed.readthedocs.io/en/latest/'
 tests = ['pytest>=8.2.0', 'pytest-asyncio>=0.26.0', 'pytest-forked', 'pytest-xdist']
 
 [build-system]
-requires = ['setuptools>=61.0.0', 'wheel']
+requires = ['setuptools>=77.0.3', 'wheel']
 build-backend = 'setuptools.build_meta'
 
 [tool.setuptools]
 packages = ['edzed', 'edzed.blocklib', 'edzed.utils']
 
-# this feature is still BETA
 [tool.setuptools.dynamic]
 version = {attr = 'edzed.__version__'}
 
@@ -69,7 +68,6 @@ module = ["edzed.simulator"]
 disable_error_code = ["attr-defined"]
 
 [tool.pytest.ini_options]
-#log_cli_level = "DEBUG"
 asyncio_mode = "auto"
 asyncio_default_test_loop_scope = "module"
 asyncio_default_fixture_loop_scope = "module"

@@ -22,19 +22,12 @@ time units day, hour and minute.
     | ``'2d 12h'`` = 2 days + 12 hours = 21_6000.0
     | ``'1.25h'`` = 1 and a quarter of and hour = 4_500.0
 
-  .. versionchanged:: 24.3.4
-
-    - An empty string is now rejected.
-    - A decimal comma may be used.
-    - Previously, fractional numbers were allowed only for seconds.
 
 **The ISO 8601 format:**
 
   DURATION = P [0Y] [0M] [nD] T [nH] [nM] [nS]
 
   Description with examples: `Wikipedia <https://en.wikipedia.org/wiki/ISO_8601#Durations>`__
-
-  .. versionadded:: 24.3.4
 
 **Notes:**
 

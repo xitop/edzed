@@ -1,5 +1,5 @@
 """
-Test the Repeat block
+Test the ValuePoll block
 """
 
 # pylint: disable=unused-argument

@@ -140,8 +140,6 @@ running as a supporting task.
 
     The saved event type string. Read-only.
 
-.. versionadded:: 23.8.25
-
 
 Internal events
 ===============
@@ -165,11 +163,6 @@ situations have names starting with an ``"on_"`` prefix and they accept:
    of single events.
 
 Hence, the type annotation is: ``None | Event | Sequence[Event]``.
-
-.. versionchanged:: 23.2.14
-
-  Using an iterator to specify multiple events is deprecated.
-  Use a tuple or a list instead.
 
 The :class:`Event` instance sets the destination and the event type. New data
 is added each time the event is sent.
@@ -217,13 +210,6 @@ In both cases the generated events are sent with these data items:
 - ``'value'``: current output value
 - ``'source'``: sender's block name (string, added automatically)
 - ``'trigger'``: ``'output'`` (corresponds with ``'on_output'``)
-
-.. versionchanged:: 25.7.24
-
-  Block's initialization may consist of several steps and each of them
-  may set the output. Those changes are now aggregated into a single
-  output change from :const:`UNDEF` to the final value. This applies
-  also to *on_every_output*.
 
 
 Event objects

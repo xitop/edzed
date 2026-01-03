@@ -2,6 +2,21 @@
 Edzed
 =====
 
+.. attention::
+
+  **Project status update (January 2026)**
+
+  This software has got a replacement. Please use
+  `Redzed <https://github.com/xitop/redzed>`_ for new projects.
+  Its development was based on the experience gathered
+  during the work on Edzed and with Edzed. **Redzed** has
+  the same capabilities, but is based on simpler concepts.
+  It is smaller, easier to learn and easier to use.
+
+  From now on, Edzed will receive only bugfixes.
+
+----
+
 Welcome to edzed's documentation. The intended audience are Python developers.
 Edzed is an asyncio based Python library for building small automated systems, i.e. systems
 that control outputs according to input values, system’s internal state, date and time.
