@@ -1,5 +1,5 @@
 
-# Announcement (January 2025)
+# Announcement (January 2026)
 
 This software has got a replacement. Please use
 [Redzed](https://github.com/xitop/redzed) for new projects.

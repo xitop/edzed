@@ -26,7 +26,7 @@ documentation = 'https://edzed.readthedocs.io/en/latest/'
 tests = ['pytest>=8.2.0', 'pytest-asyncio>=0.26.0', 'pytest-forked', 'pytest-xdist']
 
 [build-system]
-requires = ['setuptools>=77.0.3', 'wheel']
+requires = ['setuptools>=77.0.3']
 build-backend = 'setuptools.build_meta'
 
 [tool.setuptools]
